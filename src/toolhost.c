@@ -61,7 +61,8 @@ static int identifier(const char *s) {
          return 0;
    return 1;
 }
-static void changed(void) { console.version = ++publication_version; }
+static void lane_changed(TheToolConsole *lane) { lane->version = ++publication_version; }
+static void changed(void) { lane_changed(&console); }
 static void select_console(int build) {
    if (build == build_mode) return;
    if (build_mode) { build_history = console; console = program_history; memset(&program_history,0,sizeof(program_history)); }
@@ -82,7 +83,7 @@ void the_tool_clear_program(void) {
    size_t i;
    for(i=0;i<program->count;i++)free(program->chunks[i].text);
    program->count=program->bytes=0;program->omitted=0;
-   changed();
+   lane_changed(program);
 }
 void the_tool_host_reset(void) {
    the_tool_stop("Stopped");
@@ -676,6 +677,12 @@ void the_tool_console_visibility(int visible, int focused) {
    console.visible = !!visible;
    console.focused = !!focused;
    changed();
+}
+void the_tool_program_console_visibility(int visible, int focused) {
+   TheToolConsole *program=build_mode ? &program_history : &console;
+   program->visible=!!visible;
+   program->focused=!!focused;
+   lane_changed(program);
 }
 int the_tool_console_key(uint32_t c, int key) {
    if (key == 27) {

@@ -82,18 +82,20 @@ logs, documents, forms and editable file fields. Native compiler/assembler and
 profile activation adapters also exist; GTK must expose those shared outcomes
 rather than implement another compiler or classify files independently.
 
+`TheToolsFileSnapshot` supplies owned current-file action, artifact, profile and
+result data to native drivers and the browser JSON projection. Action requests
+carry the rendered source/revision/generation and are rechecked on the editor
+owner. Native and Wasm owner updates call `the_tools_poll()` to admit completion;
+reading a typed snapshot or formatting JSON does not complete a job.
+
 The remaining architectural gaps are concrete:
 
 - GTK adds a newline before the common input path adds one again. Input-line
   framing belongs to `src/tools.c`; the driver must submit raw entry text.
 - GTK's Program console reads the active console lane. Program and build lanes
   already exist in the tool host and need distinct native projections.
-- Current-file Build/Run/Apply availability, artifact identity and result state
-  live in `src/tools.c`, but lack a typed native snapshot. GTK's fixed Run button
-  consequently does not expose the browser's contextual workflow.
-- Asynchronous file-result completion currently advances inside
-  `the_tools_format_json()`. Admission belongs in the shared owner update path;
-  JSON and native snapshots should only project the resulting state.
+- GTK must project the shared current-file Build/Run/Apply availability,
+  artifact identity and result state rather than use a fixed Run button.
 - Output scroll position, unread indication and focus restoration are driver
   presentation responsibilities. GTK must retain the reader's position as the
   browser does, without moving job or buffer policy into widgets.

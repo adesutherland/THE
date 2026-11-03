@@ -109,6 +109,8 @@ void the_tool_clear(void);
 void the_tool_clear_program(void);
 void the_tool_profile_output(int, const void *, size_t);
 void the_tool_console_visibility(int visible, int focused);
+/* Program presentation stays independent while a compiler/Build lane is active. */
+void the_tool_program_console_visibility(int visible, int focused);
 int the_tool_console_key(uint32_t codepoint, int key);
 void the_tool_poll(void);
 size_t the_tool_format_json(char *out, size_t capacity);

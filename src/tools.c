@@ -749,6 +749,17 @@ static short file_outcome(const char *action,unsigned id,unsigned revision,const
    snprintf(file_result.message,sizeof(file_result.message),"%s",message);
    return rc;
 }
+void the_tools_poll(void) {
+   const TheToolConsole *job;
+   the_tool_poll();
+   job=the_tool_console();
+   if(file_result.job && job->id==file_result.job && !job->running) {
+      int good=!strcmp(job->status,"0") && !strncmp(job->state,"Completed",9);
+      file_result.serial++;file_result.job=0;file_result.rc=good ? RC_OK : RC_INVALID_ENVIRON;
+      snprintf(file_result.code,sizeof(file_result.code),"%s",good ? "completed" : "failed");
+      snprintf(file_result.message,sizeof(file_result.message),"%s",job->state);
+   }
+}
 static const char *apply_image_reason(void) {
    int readonly=0;
    if(!rexx_support || !the_macro_uses_crexx())return "Compiled profile application requires available cREXX";
@@ -1211,6 +1222,52 @@ int the_tools_prepare_lines_bound(const char *a,const char *t,const char *text,c
    return 1;
 }
 
+int the_tools_file_snapshot(TheToolsFileSnapshot *out) {
+   const TheEditorSource *source;
+   const char *reason;
+   FileAction actions[THE_TOOLS_FILE_ACTION_COUNT];
+   size_t i;
+   if(!out)return 0;
+   ensure();
+   memset(out,0,sizeof(*out));
+   source=the_editor_source_prepare();
+   if(source) { out->source_id=source->id;out->revision=source->revision; }
+   if(CURRENT_FILE)snprintf(out->path,sizeof(out->path),"%s%s",CURRENT_FILE->fpath,CURRENT_FILE->fname);
+   snprintf(out->role,sizeof(out->role),"%s",the_tools_source_role(out->path));
+   file_actions(source,actions);
+   for(i=0;i<THE_TOOLS_FILE_ACTION_COUNT;i++) {
+      TheToolsFileActionSnapshot *action=out->actions+i;
+      snprintf(action->id,sizeof(action->id),"%s",actions[i].id);
+      snprintf(action->label,sizeof(action->label),"%s",actions[i].label);
+      snprintf(action->reason,sizeof(action->reason),"%s",actions[i].reason);
+      snprintf(action->tool,sizeof(action->tool),"%s",actions[i].tool);
+      snprintf(action->target,sizeof(action->target),"current-file");
+      action->enabled=!*actions[i].reason;
+      action->generation=actions[i].macro ? actions[i].macro->generation : 0;
+   }
+   snprintf(out->profile.source_path,sizeof(out->profile.source_path),"%s",*profile_source_path ? profile_source_path : the_tools_profile_path());
+   out->profile.build.source_id=profile_source;out->profile.build.revision=profile_revision;
+   snprintf(out->profile.build.image,sizeof(out->profile.build.image),"%s",profile_ready);
+   if(*profile_source_path)the_tools_build_name(profile_source_path,out->profile.build.name,sizeof(out->profile.build.name));
+   snprintf(out->profile.build.role,sizeof(out->profile.build.role),"%s",*profile_source_path ? the_tools_source_role(profile_source_path) : "none");
+   snprintf(out->profile.build.source_path,sizeof(out->profile.build.source_path),"%s",profile_source_path);
+   snprintf(out->profile.build.state,sizeof(out->profile.build.state),"%s",!*profile_ready ? "none" : source && source->id==profile_source && source->revision==profile_revision ? "ready" : "stale");
+   snprintf(out->profile.active.image,sizeof(out->profile.active.image),"%s",profile_active);
+   snprintf(out->profile.active.source_path,sizeof(out->profile.active.source_path),"%s",profile_active_source_path);
+   out->profile.active.source_id=profile_active_source;out->profile.active.revision=profile_active_revision;
+   snprintf(out->profile.active.kind,sizeof(out->profile.active.kind),"%s",profile_active_compiled ? "compiled-image" : "source");
+   reason=apply_image_reason();
+   out->profile.apply_image.enabled=!*reason;
+   snprintf(out->profile.apply_image.reason,sizeof(out->profile.apply_image.reason),"%s",reason);
+   out->profile.legacy_entries=legacy_registry_entries;
+   out->result.serial=file_result.serial;out->result.source_id=file_result.source_id;
+   out->result.revision=file_result.revision;out->result.rc=file_result.rc;
+   snprintf(out->result.action,sizeof(out->result.action),"%s",file_result.action);
+   snprintf(out->result.code,sizeof(out->result.code),"%s",file_result.code);
+   snprintf(out->result.message,sizeof(out->result.message),"%s",file_result.message);
+   return 1;
+}
+
 typedef struct { char *out;size_t capacity,used;int failed; } FileJson;
 static void file_json(FileJson *w,const char *format,...) {
    va_list args;int n;
@@ -1228,51 +1285,42 @@ static void file_json_string(FileJson *w,const char *s) {
    file_json(w,"\"");
 }
 size_t the_tools_format_json(char *out,size_t capacity) {
-   const TheEditorSource *source;
-   const TheToolConsole *job=the_tool_console();
-   FileAction actions[3];FileJson w;size_t i,n;char path[THE_TOOL_PATH]="",build_name[THE_TOOL_PATH]="";
-   ensure();
-   source=the_editor_source_prepare();
-   if(CURRENT_FILE)snprintf(path,sizeof(path),"%s%s",CURRENT_FILE->fpath,CURRENT_FILE->fname);
-   file_actions(source,actions);
-   if(file_result.job && job->id==file_result.job && !job->running) {
-      int good=!strcmp(job->status,"0") && !strncmp(job->state,"Completed",9);
-      file_result.serial++;file_result.job=0;file_result.rc=good ? RC_OK : RC_INVALID_ENVIRON;
-      snprintf(file_result.code,sizeof(file_result.code),"%s",good ? "completed" : "failed");
-      snprintf(file_result.message,sizeof(file_result.message),"%s",job->state);
-   }
+   static TheToolsFileSnapshot snapshot;
+   FileJson w;size_t i,n;
+   if(!the_tools_file_snapshot(&snapshot))return 0;
    n=the_tool_format_json(out,capacity);
    if(!n || out[n-1]!='}')return 0;
    w=(FileJson){out,capacity,n-1,0};
-   file_json(&w,",\"currentFile\":{\"sourceId\":%u,\"revision\":%u,\"path\":",source ? source->id : 0,source ? source->revision : 0);
-   file_json_string(&w,path);file_json(&w,",\"role\":");file_json_string(&w,the_tools_source_role(path));
+   file_json(&w,",\"currentFile\":{\"sourceId\":%u,\"revision\":%u,\"path\":",snapshot.source_id,snapshot.revision);
+   file_json_string(&w,snapshot.path);file_json(&w,",\"role\":");file_json_string(&w,snapshot.role);
    file_json(&w,",\"actions\":[");
-   for(i=0;i<3;i++) {
-      file_json(&w,"%s{\"id\":",i ? "," : "");file_json_string(&w,actions[i].id);
-      file_json(&w,",\"label\":");file_json_string(&w,actions[i].label);
-      file_json(&w,",\"enabled\":%s,\"reason\":",*actions[i].reason ? "false" : "true");file_json_string(&w,actions[i].reason);
-      file_json(&w,",\"tool\":");file_json_string(&w,actions[i].tool);
-      file_json(&w,",\"target\":\"current-file\",\"generation\":\"%lu\"}",actions[i].macro ? actions[i].macro->generation : 0);
+   for(i=0;i<THE_TOOLS_FILE_ACTION_COUNT;i++) {
+      const TheToolsFileActionSnapshot *action=snapshot.actions+i;
+      file_json(&w,"%s{\"id\":",i ? "," : "");file_json_string(&w,action->id);
+      file_json(&w,",\"label\":");file_json_string(&w,action->label);
+      file_json(&w,",\"enabled\":%s,\"reason\":",action->enabled ? "true" : "false");file_json_string(&w,action->reason);
+      file_json(&w,",\"tool\":");file_json_string(&w,action->tool);
+      file_json(&w,",\"target\":");file_json_string(&w,action->target);
+      file_json(&w,",\"generation\":\"%lu\"}",action->generation);
    }
    file_json(&w,"]},\"profile\":{\"sourcePath\":");
-   file_json_string(&w,*profile_source_path ? profile_source_path : the_tools_profile_path());
-   file_json(&w,",\"build\":{\"sourceId\":%u,\"revision\":%u,\"image\":",profile_source,profile_revision);
-   file_json_string(&w,profile_ready);
-   if(*profile_source_path)the_tools_build_name(profile_source_path,build_name,sizeof(build_name));
-   file_json(&w,",\"name\":");file_json_string(&w,build_name);
-   file_json(&w,",\"role\":");file_json_string(&w,*profile_source_path ? the_tools_source_role(profile_source_path) : "none");
-   file_json(&w,",\"sourcePath\":");file_json_string(&w,profile_source_path);
+   file_json_string(&w,snapshot.profile.source_path);
+   file_json(&w,",\"build\":{\"sourceId\":%u,\"revision\":%u,\"image\":",snapshot.profile.build.source_id,snapshot.profile.build.revision);
+   file_json_string(&w,snapshot.profile.build.image);
+   file_json(&w,",\"name\":");file_json_string(&w,snapshot.profile.build.name);
+   file_json(&w,",\"role\":");file_json_string(&w,snapshot.profile.build.role);
+   file_json(&w,",\"sourcePath\":");file_json_string(&w,snapshot.profile.build.source_path);
    file_json(&w,",\"state\":");
-   file_json_string(&w,!*profile_ready ? "none" : source && source->id==profile_source && source->revision==profile_revision ? "ready" : "stale");
-   file_json(&w,"},\"active\":{\"image\":");file_json_string(&w,profile_active);
-   file_json(&w,",\"sourcePath\":");file_json_string(&w,profile_active_source_path);
-   file_json(&w,",\"sourceId\":%u,\"revision\":%u,\"kind\":",profile_active_source,profile_active_revision);
-   file_json_string(&w,profile_active_compiled ? "compiled-image" : "source");
-   file_json(&w,"},\"applyImage\":{\"enabled\":%s,\"reason\":",*apply_image_reason() ? "false" : "true");file_json_string(&w,apply_image_reason());
-   file_json(&w,"},\"registry\":{\"replacement\":\"profile-owned\",\"legacyEntries\":%lu,\"legacyProvenance\":\"unknown-preserved\"}",(unsigned long)legacy_registry_entries);
-   file_json(&w,"},\"fileResult\":{\"serial\":%u,\"sourceId\":%u,\"revision\":%u,\"rc\":%d,\"action\":",file_result.serial,file_result.source_id,file_result.revision,file_result.rc);
-   file_json_string(&w,file_result.action);file_json(&w,",\"code\":");file_json_string(&w,file_result.code);
-   file_json(&w,",\"message\":");file_json_string(&w,file_result.message);file_json(&w,"}}");
+   file_json_string(&w,snapshot.profile.build.state);
+   file_json(&w,"},\"active\":{\"image\":");file_json_string(&w,snapshot.profile.active.image);
+   file_json(&w,",\"sourcePath\":");file_json_string(&w,snapshot.profile.active.source_path);
+   file_json(&w,",\"sourceId\":%u,\"revision\":%u,\"kind\":",snapshot.profile.active.source_id,snapshot.profile.active.revision);
+   file_json_string(&w,snapshot.profile.active.kind);
+   file_json(&w,"},\"applyImage\":{\"enabled\":%s,\"reason\":",snapshot.profile.apply_image.enabled ? "true" : "false");file_json_string(&w,snapshot.profile.apply_image.reason);
+   file_json(&w,"},\"registry\":{\"replacement\":\"profile-owned\",\"legacyEntries\":%lu,\"legacyProvenance\":\"unknown-preserved\"}",(unsigned long)snapshot.profile.legacy_entries);
+   file_json(&w,"},\"fileResult\":{\"serial\":%u,\"sourceId\":%u,\"revision\":%u,\"rc\":%d,\"action\":",snapshot.result.serial,snapshot.result.source_id,snapshot.result.revision,snapshot.result.rc);
+   file_json_string(&w,snapshot.result.action);file_json(&w,",\"code\":");file_json_string(&w,snapshot.result.code);
+   file_json(&w,",\"message\":");file_json_string(&w,snapshot.result.message);file_json(&w,"}}");
    return w.failed ? 0 : w.used;
 }
 

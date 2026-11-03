@@ -325,9 +325,29 @@ int main(void) {
       assert(!strcmp(the_tool_build_console()->state,"Failed"));
       assert(!strcmp(the_tool_program_console()->chunks[0].text,"program-history"));
       assert(!strcmp(the_tool_build_console()->chunks[0].text,"macro-build"));
-      the_tool_clear_program();
-      assert(the_tool_program_console()->bytes==0);
-      assert(!strcmp(the_tool_build_console()->chunks[0].text,"macro-build"));
+      {
+         unsigned program_version=the_tool_program_console()->version;
+         unsigned build_version=the_tool_build_console()->version;
+         unsigned build_id=the_tool_build_console()->id;
+         int build_visible=the_tool_build_console()->visible;
+         int build_focused=the_tool_build_console()->focused;
+         the_tool_program_console_visibility(0,0);
+         assert(!the_tool_program_console()->visible && !the_tool_program_console()->focused);
+         assert(the_tool_program_console()->version>program_version);
+         assert(the_tool_build_console()->version==build_version);
+         assert(the_tool_build_console()->visible==build_visible && the_tool_build_console()->focused==build_focused);
+         program_version=the_tool_program_console()->version;
+         the_tool_program_console_visibility(1,1);
+         assert(the_tool_program_console()->visible && the_tool_program_console()->focused);
+         assert(the_tool_program_console()->version>program_version);
+         assert(the_tool_build_console()->version==build_version);
+         program_version=the_tool_program_console()->version;
+         the_tool_clear_program();
+         assert(the_tool_program_console()->bytes==0);
+         assert(the_tool_program_console()->version>program_version);
+         assert(the_tool_build_console()->version==build_version && the_tool_build_console()->id==build_id);
+         assert(!strcmp(the_tool_build_console()->chunks[0].text,"macro-build"));
+      }
       assert(the_tool_launch(&request,error,sizeof(error)));
       the_tool_finish(running,0,"0",NULL,NULL);
       assert(!strcmp(the_tool_build_console()->chunks[0].text,"macro-build"));

@@ -1034,7 +1034,7 @@ int the_tools_native_language(const TheToolDefinition *t) {
    return 0;
 #endif
 }
-void the_tools_native_poll(void) { the_tool_poll(); }
+void the_tools_native_poll(void) { the_tools_poll(); }
 #endif
 
 #ifdef __EMSCRIPTEN__
@@ -1043,5 +1043,5 @@ int the_tools_native_language(const TheToolDefinition *t) {
    return 0;
 }
 void the_tools_native_initialise(void) {}
-void the_tools_native_poll(void) { the_tool_poll(); }
+void the_tools_native_poll(void) { the_tools_poll(); }
 #endif

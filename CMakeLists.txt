@@ -1378,6 +1378,21 @@ if(THE_PYTHON_EXECUTABLE)
         ${CMAKE_SOURCE_DIR}/tests/test_workbench_native_tools_runtime.py $<TARGET_FILE:the> ${native_tool_profile_engine})
     set_tests_properties(test_workbench_native_tools_runtime PROPERTIES TIMEOUT 90 ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
     if(UNIX)
+        add_library(test_file_snapshot_driver MODULE tests/file_snapshot_probe.c)
+        set_target_properties(test_file_snapshot_driver PROPERTIES PREFIX "")
+        target_include_directories(test_file_snapshot_driver PRIVATE
+            ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/src/drivers/llm ${CMAKE_CURRENT_BINARY_DIR})
+        if(USE_SDSLH)
+            target_link_libraries(test_file_snapshot_driver DSLSH::editor)
+        endif()
+        target_compile_options(test_file_snapshot_driver PRIVATE -UNDEBUG)
+        if(APPLE)
+            target_link_options(test_file_snapshot_driver PRIVATE "-undefined" "dynamic_lookup")
+        endif()
+        add_test(NAME test_file_snapshot COMMAND ${THE_PYTHON_EXECUTABLE}
+            ${CMAKE_SOURCE_DIR}/tests/test_file_snapshot.py $<TARGET_FILE:the> $<TARGET_FILE:test_file_snapshot_driver>)
+        set_tests_properties(test_file_snapshot PROPERTIES TIMEOUT 30
+            ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
         add_library(test_native_tool_queue_driver MODULE tests/native_tool_queue_probe.c)
         set_target_properties(test_native_tool_queue_driver PROPERTIES PREFIX "")
         target_include_directories(test_native_tool_queue_driver PRIVATE

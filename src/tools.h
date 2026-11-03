@@ -3,6 +3,54 @@
 #include "inputevent.h"
 #include "toolhost.h"
 #include "workbench.h"
+
+#define THE_TOOLS_FILE_ACTION_COUNT 3
+typedef struct {
+   char id[16],label[THE_WORKBENCH_LABEL_MAX+1],reason[256];
+   char tool[THE_WORKBENCH_ID_MAX+1],target[16];
+   int enabled;
+   unsigned long generation;
+} TheToolsFileActionSnapshot;
+typedef struct {
+   unsigned source_id,revision;
+   char image[THE_TOOL_PATH],name[THE_TOOL_PATH],source_path[THE_TOOL_PATH];
+   char role[24],state[16];
+} TheToolsBuildSnapshot;
+typedef struct {
+   unsigned source_id,revision;
+   char image[THE_TOOL_PATH],source_path[THE_TOOL_PATH],kind[24];
+} TheToolsActiveProfileSnapshot;
+typedef struct {
+   int enabled;
+   char reason[256];
+} TheToolsAvailabilitySnapshot;
+typedef struct {
+   char source_path[THE_TOOL_PATH];
+   TheToolsBuildSnapshot build;
+   TheToolsActiveProfileSnapshot active;
+   TheToolsAvailabilitySnapshot apply_image;
+   size_t legacy_entries;
+} TheToolsProfileSnapshot;
+typedef struct {
+   unsigned serial,source_id,revision;
+   short rc;
+   char action[32],code[40],message[256];
+} TheToolsFileResultSnapshot;
+typedef struct {
+   unsigned source_id,revision;
+   char path[THE_TOOL_PATH],role[24];
+   TheToolsFileActionSnapshot actions[THE_TOOLS_FILE_ACTION_COUNT];
+   TheToolsProfileSnapshot profile;
+   TheToolsFileResultSnapshot result;
+} TheToolsFileSnapshot;
+
+/* Editor-owner projection with owned strings. Preparing the current source
+ * includes its pending record; reading never admits asynchronous completion.
+ * Dispatch actions through prepare_lines_bound with these source/generation
+ * tokens, which are rechecked on the editor input owner. */
+int the_tools_file_snapshot(TheToolsFileSnapshot *);
+/* Owner update: poll the host and admit completed file actions exactly once. */
+void the_tools_poll(void);
 short the_tools_workbench_run(const char *,const TheWorkbenchArguments *);
 void the_tools_workbench_initialize(void);
 void the_tools_initialise(const TheToolAdapter *adapter, int available);

@@ -50,6 +50,7 @@ void the_tools_initialise(const TheToolAdapter *adapter, int available) {
 const TheToolDefinition *the_tool_find(const char *id) { (void)id; assert(0); return NULL; }
 int the_tool_register(const TheToolDefinition *tool) { (void)tool; assert(0); return 0; }
 void the_tool_poll(void) { assert(0); }
+void the_tools_poll(void) { assert(0); }
 #ifdef USE_SDSLH
 short Sdslh(CHARTYPE *params) { (void)params; assert(0); return RC_INVALID_ENVIRON; }
 short Autocolour(CHARTYPE *params) { (void)params; assert(0); return RC_INVALID_ENVIRON; }

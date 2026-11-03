@@ -233,6 +233,7 @@ static void publish(void)
    const TheEditorSource *source = NULL;
    const TheWebWorkbenchReceipt *completed =
       the_web_workbench_receipt_complete(&workbench_receipts);
+   the_tools_poll();
    if (completed) browser_send_workbench_receipt(completed);
 #if defined(THE_WASM_HIGHLIGHT) || defined(THE_WASM_INTERPRETER)
    source = the_editor_source_prepare();
