@@ -3,6 +3,10 @@ import assert from "node:assert/strict";
 // Drive the mounted inputs through CDP. In particular, a second submission
 // must work without focusing the field again after the first one.
 export async function inputFocusSmoke({manifest, send, snapshot, evaluate, command, waitFor, runCurrentFile}) {
+  // Qualify automatic focus while Program input is visible. Compact layouts
+  // exercise their explicit Expand/Return journey in the workbench fixture.
+  await command("Emulation.setDeviceMetricsOverride", {width: 1200, height: 900, deviceScaleFactor: 1, mobile: false});
+  await evaluate("new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))");
   const active = id => evaluate(`document.activeElement?.id === ${JSON.stringify(id)}`);
   const key = async name => {
     await command("Input.dispatchKeyEvent", {type: "keyDown", key: name, code: name,
