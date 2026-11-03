@@ -1,0 +1,2 @@
+# Captured terminal grids retain trailing cells as evidence of their width.
+console-*.txt -whitespace

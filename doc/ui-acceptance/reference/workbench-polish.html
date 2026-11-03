@@ -1,0 +1,192 @@
+<div id="the-ui-polish">
+  <div class="viz-carousel" aria-label="Proposed shared THE workbench">
+    <section data-variant="Browser" aria-label="Proposed browser workbench"><div class="the-preview" data-platform="browser"></div></section>
+    <section data-variant="GTK on macOS" aria-label="Proposed GTK workbench on macOS" hidden><div class="the-preview" data-platform="mac"></div></section>
+    <section data-variant="GTK on Linux or Windows" aria-label="Proposed GTK workbench on other desktops" hidden><div class="the-preview" data-platform="desktop"></div></section>
+  </div>
+  <style>
+    #the-ui-polish { color-scheme: light dark; }
+    #the-ui-polish .the-preview { --the-shell: light-dark(#f3f4f5,#202428); --the-surface:light-dark(#ffffff,#262c32); --the-ink:light-dark(#242b32,#e2e7ed); --the-muted:light-dark(#566270,#aab6c2); --the-border:light-dark(#cbd0d5,#414c56); --the-code:light-dark(#f9fafb,#181d21); --the-active:light-dark(#244f76,#8cc2eb); --the-active-ink:light-dark(#ffffff,#13212c); --the-highlight:light-dark(#e7eef5,#2a3c4c); --the-syntax:light-dark(#176592,#8cc2eb); --the-string:light-dark(#83522d,#d1ac84); --the-comment:light-dark(#496747,#96b48b); font:14px/1.45 system-ui,sans-serif; color:var(--the-ink); min-height:760px; container-type:inline-size; }
+    #the-ui-polish .the-preview * { box-sizing:border-box; }
+    #the-ui-polish .the-window { background:var(--the-shell); border:1px solid var(--the-border); border-radius:10px; min-height:700px; position:relative; overflow:hidden; }
+    #the-ui-polish .the-macbar, #the-ui-polish .the-desktopbar { display:flex; flex-wrap:nowrap; white-space:nowrap; overflow:hidden; gap:3px; align-items:center; padding:4px 9px; border-bottom:1px solid var(--the-border); background:var(--the-surface); }
+    #the-ui-polish button, #the-ui-polish input, #the-ui-polish select { font:inherit; color:inherit; }
+    #the-ui-polish button { border:1px solid var(--the-border); border-radius:5px; background:var(--the-surface); padding:6px 11px; }
+    #the-ui-polish button:disabled { opacity:.5; }
+    #the-ui-polish button.the-plain { background:transparent; border-color:transparent; }
+    #the-ui-polish button[aria-pressed="true"], #the-ui-polish .the-primary { color:var(--the-active-ink); background:var(--the-active); border-color:var(--the-active); }
+    #the-ui-polish .the-macbar button, #the-ui-polish .the-desktopbar button { padding:3px 8px; }
+    #the-ui-polish .the-titlebar { display:flex; gap:12px; align-items:center; padding:11px 14px; border-bottom:1px solid var(--the-border); }
+    #the-ui-polish .the-brand { font-weight:500; letter-spacing:.02em; }
+    #the-ui-polish .the-file-title { min-width:0; flex:1; }
+    #the-ui-polish .the-file-title div { overflow-wrap:anywhere; }
+    #the-ui-polish .the-muted, #the-ui-polish .the-hint { color:var(--the-muted); }
+    #the-ui-polish .the-small { font-size:12px; }
+    #the-ui-polish .the-quick { display:flex; gap:5px; }
+    #the-ui-polish .the-buffer-tabs { display:flex; gap:2px; padding:7px 12px 0; border-bottom:1px solid var(--the-border); }
+    #the-ui-polish .the-buffer-tabs button { border-bottom-left-radius:0; border-bottom-right-radius:0; padding:7px 12px; overflow-wrap:anywhere; }
+    #the-ui-polish .the-pane-switches { display:flex; flex-wrap:wrap; gap:6px; padding:9px 12px; }
+    #the-ui-polish .the-task-row { display:flex; flex-wrap:wrap; align-items:center; gap:7px; padding:8px 12px; background:var(--the-surface); border-top:1px solid var(--the-border); border-bottom:1px solid var(--the-border); }
+    #the-ui-polish .the-task-role { margin-right:auto; color:var(--the-muted); }
+    #the-ui-polish .the-main { display:grid; grid-template-columns:minmax(0,1.7fr) minmax(290px,1fr); min-height:390px; }
+    #the-ui-polish .the-editor { min-width:0; background:var(--the-code); display:flex; flex-direction:column; }
+    #the-ui-polish .the-ruler { font:12px/1.7 ui-monospace,monospace; color:var(--the-muted); padding:5px 12px; border-bottom:1px solid var(--the-border); overflow:hidden; white-space:nowrap; }
+    #the-ui-polish .the-code { font:13px/1.7 ui-monospace,monospace; padding:12px 0; flex:1; overflow:auto; }
+    #the-ui-polish .the-code-line { display:flex; gap:14px; min-height:23px; min-width:100%; width:max-content; }
+    #the-ui-polish .the-code-line span:first-child { color:var(--the-muted); background:var(--the-shell); width:8ch; flex:0 0 8ch; padding-left:9px; }
+    #the-ui-polish .the-code-line code { font:inherit; white-space:pre; padding-right:8px; }
+    #the-ui-polish .the-code-line.the-current { background:var(--the-highlight); }
+    #the-ui-polish .the-keyword { color:var(--the-syntax); }
+    #the-ui-polish .the-literal { color:var(--the-string); }
+    #the-ui-polish .the-comment { color:var(--the-comment); }
+    #the-ui-polish .the-response { padding:5px 12px; min-height:30px; border-top:1px solid var(--the-border); }
+    #the-ui-polish .the-command { display:flex; align-items:center; gap:9px; padding:6px 12px; border-top:1px solid var(--the-border); }
+    #the-ui-polish input, #the-ui-polish select { background:var(--the-code); border:1px solid var(--the-border); border-radius:4px; padding:6px 8px; min-width:0; }
+    #the-ui-polish .the-command input { width:100%; }
+    #the-ui-polish .the-key-guide { font:12px/1.6 ui-monospace,monospace; padding:5px 12px; background:var(--the-highlight); }
+    #the-ui-polish .the-status { display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; font:12px/1.7 ui-monospace,monospace; padding:4px 12px; border-top:1px solid var(--the-border); }
+    #the-ui-polish .the-aux { min-width:0; border-left:1px solid var(--the-border); background:var(--the-surface); }
+    #the-ui-polish .the-aux-heading { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:9px 12px; border-bottom:1px solid var(--the-border); font-weight:500; }
+    #the-ui-polish .the-aux-body { padding:14px; }
+    #the-ui-polish .the-subtabs { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:16px; }
+    #the-ui-polish .the-subtabs button { padding:5px 7px; font-size:12px; }
+    #the-ui-polish .the-field { display:grid; gap:6px; margin-bottom:15px; }
+    #the-ui-polish .the-row { display:flex; flex-wrap:wrap; align-items:center; gap:7px; }
+    #the-ui-polish .the-profile-name { font:13px/1.6 ui-monospace,monospace; overflow-wrap:anywhere; }
+    #the-ui-polish .the-tool-row { display:grid; grid-template-columns:70px 1fr; gap:10px; padding:8px 0; border-bottom:1px solid var(--the-border); }
+    #the-ui-polish .the-output { font:13px/1.8 ui-monospace,monospace; min-height:200px; padding:14px; background:var(--the-code); overflow-wrap:anywhere; }
+    #the-ui-polish .the-program-input { display:flex; flex-wrap:wrap; gap:7px; padding:12px; border-top:1px solid var(--the-border); }
+    #the-ui-polish .the-program-input label { flex-basis:100%; }
+    #the-ui-polish .the-program-input input { width:150px; flex:1; }
+    #the-ui-polish .the-menu { position:absolute; top:48px; left:12px; z-index:3; width:min(390px,calc(100% - 24px)); background:var(--the-surface); border:1px solid var(--the-border); border-radius:7px; box-shadow:0 8px 28px #0003; padding:7px; }
+    #the-ui-polish .the-menu-groups { display:flex; flex-wrap:wrap; gap:2px; padding-bottom:6px; border-bottom:1px solid var(--the-border); }
+    #the-ui-polish .the-menu-groups button { padding:4px 8px; }
+    #the-ui-polish .the-menu-items { display:grid; gap:2px; padding-top:5px; }
+    #the-ui-polish .the-menu-items button { display:flex; justify-content:space-between; gap:12px; text-align:left; border:0; background:transparent; }
+    #the-ui-polish .the-menu-items button:hover { background:var(--the-highlight); }
+    #the-ui-polish .the-menu-items kbd { font:12px/1.8 system-ui,sans-serif; color:var(--the-muted); }
+    #the-ui-polish .the-modal-shade { position:absolute; inset:0; background:#0005; z-index:4; display:flex; align-items:flex-start; justify-content:center; padding:55px 18px 20px; }
+    #the-ui-polish .the-dialog { width:560px; max-width:100%; background:var(--the-surface); color:var(--the-ink); border:1px solid var(--the-border); border-radius:10px; box-shadow:0 12px 40px #0004; }
+    #the-ui-polish .the-dialog-title { padding:12px 16px; border-bottom:1px solid var(--the-border); display:flex; align-items:center; justify-content:space-between; font-weight:500; }
+    #the-ui-polish .the-settings-body { display:grid; grid-template-columns:145px minmax(0,1fr); min-height:300px; }
+    #the-ui-polish .the-settings-nav { display:grid; align-content:start; gap:5px; padding:12px 8px; border-right:1px solid var(--the-border); background:var(--the-shell); }
+    #the-ui-polish .the-settings-content { padding:18px; }
+    #the-ui-polish .the-dialog-footer { border-top:1px solid var(--the-border); padding:10px 14px; display:flex; justify-content:flex-end; gap:8px; }
+    #the-ui-polish .the-about { padding:24px; display:grid; gap:10px; }
+    #the-ui-polish .the-files { padding:12px; border-bottom:1px solid var(--the-border); background:var(--the-surface); }
+    #the-ui-polish .the-files button { margin:3px; }
+    #the-ui-polish [hidden] { display:none !important; }
+    @container (max-width:650px) {
+      #the-ui-polish .the-main { grid-template-columns:1fr; }
+      #the-ui-polish .the-aux { border-left:0; border-top:1px solid var(--the-border); }
+      #the-ui-polish .the-editor { min-height:360px; }
+      #the-ui-polish .the-quick { display:none; }
+      #the-ui-polish .the-buffer-tabs { flex-wrap:wrap; }
+      #the-ui-polish .the-settings-body { grid-template-columns:1fr; }
+      #the-ui-polish .the-settings-nav { display:flex; flex-wrap:wrap; border-right:0; border-bottom:1px solid var(--the-border); }
+      #the-ui-polish .the-modal-shade { padding:18px 8px; }
+      #the-ui-polish .the-preview { min-height:1010px; }
+      #the-ui-polish .the-macbar button:not(:first-child) { display:none; }
+      #the-ui-polish .the-macbar::after { content:'macOS system menu bar'; color:var(--the-muted); font-size:12px; }
+    }
+    @media (pointer:coarse) { #the-ui-polish button { min-height:44px; } }
+  </style>
+  <script>
+    (() => {
+      const root = document.getElementById('the-ui-polish');
+      const files = {
+        welcome: {name:'Welcome.txt', role:'Text', rows:['Welcome to CRXTHE.','Open a Rexx program from Files.','Use its file actions to build or run.'], actions:[]},
+        source: {name:'LevelBSquares.crexx', role:'cREXX source', rows:['options levelb',"say 'Hello from cREXX'",'return 0'], actions:['Build source','Run']},
+        profile: {name:'User.profile.the', role:'Profile source', rows:['options levelb','address THE',"'set number on';",'return 0'], actions:['Build profile','Apply profile']},
+        classic: {name:'Hello.rexx', role:'Classic Rexx', rows:["say 'What is your name?'",'parse pull name',"say 'Hello,' name"], actions:['Run']}
+      };
+      const safe = value => String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+      root.querySelectorAll('.the-preview').forEach(stage => {
+        const platform = stage.dataset.platform;
+        const mac = platform === 'mac';
+        const state = {file:'source',pane:'tools',toolTab:'profiles',menu:null,settings:null,font:mac?'Menlo':'Monospace',size:12,files:false};
+        let menuOrigin = null;
+        const shortcut = mac ? '⌘' : platform==='browser'?'Ctrl/⌘ ':'Ctrl+';
+        const menuRows = {
+          File:[['New file',shortcut+'N','new'],['Open…',shortcut+'O','files'],['Save',shortcut+'S','save'],['Save as…','','save'],['Close file','','close-file'],['Next file','F2','next']],
+          Edit:[['Undo',shortcut+'Z','undo'],['Redo',mac?'⇧⌘Z':'Ctrl+Y','redo'],['Cut',shortcut+'X','cut'],['Copy',shortcut+'C','copy'],['Paste',shortcut+'V','paste'],['Select all',shortcut+'A','select-all'],['Find…',shortcut+'F','find'],['Go to line…','','goto']],
+          View:[['Files','','files'],['Program console','','program'],['Tools & Profiles','','tools'],['Focus controls','Shift+Tab','focus'],...(!mac?[['Settings…','','settings']]:[])],
+          Tools:[['Build current file','','build'],['Run current file','','run'],['Tools & Profiles…','','tools']],
+          Help:[['Command help','F1','help'],['Key definitions','','keys'],['About CRXTHE','','about']],
+          CRXTHE:[['About CRXTHE','','about'],['Settings…','⌘,','settings'],['Services','','services'],['Hide CRXTHE','⌘H','hide'],['Quit CRXTHE','⌘Q','quit']]
+        };
+        const persist = () => { if(window.openai?.setWidgetState) window.openai.setWidgetState({modelContent:{proposal:'Shared guided workbench',platform,selectedFileRole:files[state.file].role,settingsSection:state.settings},privateContent:null}).catch(()=>{}); };
+        function render() {
+          const file = files[state.file];
+          const bar = platform==='browser' ? '' : `<div class="${mac?'the-macbar':'the-desktopbar'}">${(mac?['CRXTHE','File','Edit','View','Tools','Help']:['File','Edit','View','Tools','Help']).map(group=>`<button class="the-plain" data-menu="${group}">${group}</button>`).join('')}</div>`;
+          stage.innerHTML=`${mac?bar:''}<div class="the-window">${mac?'':bar}
+            <header class="the-titlebar"><span class="the-brand">CRXTHE</span>${platform==='browser'?'<button class="the-plain" data-menu="File">☰ Menu</button>':''}<div class="the-file-title"><div>${file.name}</div><div class="the-small the-muted">Saved · ${file.role}</div></div><div class="the-quick"><button data-action="files">Open</button><button data-action="save">Save</button><button data-action="undo">Undo</button></div></header>
+            <nav class="the-buffer-tabs" aria-label="Open files">${Object.entries(files).slice(0,3).map(([id,f])=>`<button data-file="${id}" aria-pressed="${state.file===id}">${f.name}</button>`).join('')}</nav>
+            <nav class="the-pane-switches" aria-label="Workbench panes"><button data-action="files" aria-pressed="${state.files}">Files</button><button data-action="program" aria-pressed="${state.pane==='program'}">Program console</button><button data-action="tools" aria-pressed="${state.pane==='tools'}">Tools & Profiles</button></nav>
+            ${state.files?`<div class="the-files">${Object.entries(files).map(([id,f])=>`<button data-file="${id}">${f.name}</button>`).join('')}</div>`:''}
+            <div class="the-task-row"><span class="the-task-role">${file.role}</span>${file.actions.map((label,i)=>`<button class="${i===0?'the-primary':''}" data-action="${label==='Run'?'run':label.startsWith('Apply')?'apply':'build'}">${label}</button>`).join('')}</div>
+            <div class="the-main"><section class="the-editor" aria-label="Editor"><div class="the-ruler">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; |···+····1····+····2····+····3····+····4····+····5</div><div class="the-code">${file.rows.map((row,i)=>`<div class="the-code-line ${i===1?'the-current':''}"><span>${String(i+1).padStart(6,'0')}</span><code class="${row.startsWith('say')?'the-literal':'the-keyword'}">${safe(row)}</code></div>`).join('')}</div><div class="the-response the-small" aria-live="polite">Ready</div><div class="the-command"><span>THE</span><input aria-label="THE command" placeholder="Editor command" /></div><div class="the-key-guide">F1 Help &nbsp; F6 Cmd/File &nbsp; F10 Menu &nbsp; Shift+Tab Controls</div><div class="the-status"><span>Line 2 · Col 1 · [s] U+0073</span><span>UTF-8 &nbsp; INS</span></div></section><aside class="the-aux" aria-label="Auxiliary pane">${paneContent()}</aside></div>
+            ${state.menu?`<div class="the-menu" role="dialog" aria-label="${state.menu} menu"><div class="the-menu-groups">${['File','Edit','View','Tools','Help'].map(group=>`<button data-menu="${group}" aria-pressed="${state.menu===group}">${group}</button>`).join('')}</div><div class="the-menu-items">${menuRows[state.menu].map(([label,key,action])=>`<button data-action="${action}"><span>${label}</span><kbd>${key}</kbd></button>`).join('')}</div></div>`:''}
+            ${state.settings?settingsContent():''}
+          </div>`;
+          stage.querySelectorAll('[data-file]').forEach(button=>button.addEventListener('click',()=>{state.file=button.dataset.file;state.files=false;state.menu=null;render();persist();}));
+          stage.querySelectorAll('[data-menu]').forEach(button=>button.addEventListener('click',()=>{menuOrigin=button;state.menu=state.menu===button.dataset.menu?null:button.dataset.menu;render();}));
+          stage.querySelectorAll('[data-action]').forEach(button=>button.addEventListener('click',()=>act(button.dataset.action)));
+          stage.querySelectorAll('[data-tooltab]').forEach(button=>button.addEventListener('click',()=>{state.toolTab=button.dataset.tooltab;render();persist();}));
+          stage.querySelectorAll('[data-setting]').forEach(button=>button.addEventListener('click',()=>{state.settings=button.dataset.setting;render();persist();}));
+          const family=stage.querySelector('[data-font]'), size=stage.querySelector('[data-fontsize]');
+          if(family)family.addEventListener('change',()=>{state.font=family.value;applyFont();persist();});
+          if(size)size.addEventListener('input',()=>{state.size=Number(size.value);applyFont();persist();});
+          applyFont();
+          stage.querySelector('.the-dialog')?.querySelector('button')?.focus({preventScroll:true});
+        }
+        function paneContent(){
+          if(state.pane==='program')return `<div class="the-aux-heading"><span>Program console</span><button class="the-plain" data-action="tools">Tools & Profiles</button></div><div class="the-output">What is your name?<br><br><span class="the-muted">Waiting for input</span></div><div class="the-program-input"><label for="the-input-${platform}">Program input</label><input id="the-input-${platform}" placeholder="Text for the program"/><button data-action="send">Send</button></div>`;
+          const content=state.toolTab==='profiles'?`<div class="the-field"><span class="the-muted the-small">Active profile</span><span class="the-profile-name">User.profile.the</span><span class="the-small">Applied · used at startup</span></div><div class="the-row"><button data-file="profile">Edit profile</button><button class="the-plain" data-action="import-profile">Apply compiled profile…</button></div><div class="the-field" style="margin-top:18px"><span class="the-small the-muted">Source workflow</span><span>Open profile → Build profile → Apply profile</span></div>`:state.toolTab==='tools'?`<div class="the-tool-row"><span>.rexx</span><span>Classic Rexx · Run</span></div><div class="the-tool-row"><span>.crexx</span><span>cREXX · Build → Run</span></div><div class="the-tool-row"><span>.bas</span><span>MiniBASIC · Run</span></div><div class="the-field" style="margin-top:16px"><span class="the-small the-muted">Defined by User.profile.the</span><button data-file="profile">Edit tool associations in profile</button></div>`:`<div class="the-field"><span>Build completed · status 0</span><span class="the-profile-name">LevelBSquares.rxbin</span><span class="the-small the-muted">Matches current buffer revision</span></div><div class="the-output" style="min-height:80px">Build output</div>`;
+          return `<div class="the-aux-heading"><span>Tools & Profiles</span><button class="the-plain" data-action="hide-pane">Hide</button></div><div class="the-aux-body"><nav class="the-subtabs" aria-label="Tools and profile sections">${[['profiles','Profiles'],['tools','File types & tools'],['build','Build results']].map(([id,label])=>`<button data-tooltab="${id}" aria-pressed="${state.toolTab===id}">${label}</button>`).join('')}</nav>${content}</div>`;
+        }
+        function settingsContent(){
+          if(state.settings==='about')return `<div class="the-modal-shade"><section class="the-dialog" role="dialog" aria-label="About CRXTHE"><div class="the-dialog-title">About CRXTHE<button class="the-plain" data-action="close-settings">Close</button></div><div class="the-about"><span class="the-brand">CRXTHE 0.10.dev</span><span>THE editing model · profile-defined workbench</span><span class="the-muted">Credits, licences and available capabilities</span></div></section></div>`;
+          const appearance=platform==='browser'?`<div class="the-field"><span>Text size</span><span class="the-muted">Use browser zoom</span></div><div class="the-field"><span>Editor colours and key guide</span><span class="the-muted">Defined by the active profile</span><button data-action="edit-profile">Edit profile</button></div>`:`<label class="the-field">Monospace font<select data-font>${(mac?['Menlo','Monospace','SF Mono']:['Monospace','DejaVu Sans Mono','Liberation Mono']).map(font=>`<option ${state.font===font?'selected':''}>${font}</option>`).join('')}</select></label><label class="the-field">Text size (pt)<input data-fontsize type="number" min="10" max="24" value="${state.size}"/></label><div class="the-small the-muted">GTK presentation preference · applies to editor and text panes</div>`;
+          const editor=`<div class="the-field"><span class="the-muted the-small">Current file · profile defaults remain unchanged</span><label><input type="checkbox" checked/> Show line numbers</label><label><input type="checkbox" checked/> Show prefix area</label><label>Tab width <select><option>4</option><option>8</option></select></label></div><div class="the-row"><button data-action="apply-editor">Apply to current file</button><button class="the-plain" data-action="edit-profile">Edit profile defaults</button></div>`;
+          return `<div class="the-modal-shade"><section class="the-dialog" role="dialog" aria-label="Settings"><div class="the-dialog-title">Settings<button class="the-plain" data-action="close-settings">Close</button></div><div class="the-settings-body"><nav class="the-settings-nav" aria-label="Settings sections"><button data-setting="appearance" aria-pressed="${state.settings==='appearance'}">Appearance</button><button data-setting="editor" aria-pressed="${state.settings==='editor'}">Editor</button><button data-action="tools">Tools & Profiles ↗</button></nav><div class="the-settings-content">${state.settings==='editor'?editor:appearance}</div></div><div class="the-dialog-footer"><button data-action="close-settings">Done</button></div></section></div>`;
+        }
+        function applyFont(){ if(platform!=='browser'){const code=stage.querySelector('.the-code');if(code){code.style.fontFamily=`"${state.font}",ui-monospace,monospace`;code.style.fontSize=state.size+'pt';}} }
+        function act(action){
+          state.menu=null;
+          if(action==='settings')state.settings='appearance';
+          else if(action==='about')state.settings='about';
+          else if(action==='close-settings')state.settings=null;
+          else if(action==='tools'){state.pane='tools';state.settings=null;}
+          else if(action==='program'||action==='run'){state.pane='program';state.settings=null;}
+          else if(action==='files')state.files=!state.files;
+          else if(action==='edit-profile'){state.file='profile';state.settings=null;}
+          else if(action==='build'){state.pane='tools';state.toolTab='build';}
+          else if(action==='apply'){state.pane='tools';state.toolTab='profiles';}
+          else if(action==='hide-pane')state.pane='program';
+          else if(action==='next')state.file=state.file==='source'?'profile':'source';
+          render();persist();
+          const response=stage.querySelector('.the-response');
+          if(['save','undo','redo','cut','copy','paste','select-all','find','goto','help','keys','import-profile','send','apply-editor','new','close-file','services','hide','quit','focus'].includes(action))response.textContent=({copy:'Copy the focused selection',paste:'Paste into the focused target',cut:'Cut the focused editable selection','select-all':'Select all in the focused target',send:'Program input stays in Program console','import-profile':'Choose a compiled .profile.rxbin','apply-editor':'Editor command applied to current file',save:'Saved'})[action]||'Action: '+action.replaceAll('-',' ');
+        }
+        stage.addEventListener('keydown',event=>{if(event.key==='Escape'&&(state.menu||state.settings)){state.menu=null;state.settings=null;render();event.preventDefault();}if(event.key==='F10'){state.menu='File';render();event.preventDefault();}});
+        function restore(saved){
+          const value=saved?.modelContent||saved;
+          if(value?.proposal!=='Shared guided workbench'||value.platform!==platform)return;
+          const match=Object.entries(files).find(([,file])=>file.role===value.selectedFileRole);
+          if(match)state.file=match[0];
+          if(['appearance','editor','about',null].includes(value.settingsSection))state.settings=value.settingsSection;
+          render();
+        }
+        render();
+        restore(window.openai?.widgetState);
+        window.addEventListener('openai:set_globals',event=>restore(event.detail?.globals?.widgetState));
+        if(globalThis.Tweak){
+          const preview={appearance:'System'};
+          const tweak=new Tweak({container:stage,onChange:()=>{stage.style.colorScheme=preview.appearance==='System'?'light dark':preview.appearance.toLowerCase();}});
+          tweak.addSelect(preview,'appearance',{label:'Preview theme',options:['System','Light','Dark']});
+        }
+      });
+    })();
+  </script>
+</div>

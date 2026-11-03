@@ -32,6 +32,13 @@ the particular mutation path decodes UTF text.
 
 ## Workbench interaction
 
+The [consolidated design gap review](ui-acceptance/gap-review.md) records the
+current browser, GTK and console alignment gaps, including pane toggling,
+contextual actions, profile presentation and GTK spacing. The linked
+[acceptance catalogue](ui-acceptance/catalogue.md) keeps functional, design,
+aesthetic and discoverability outcomes separate; existing functional receipts
+do not close these design gaps.
+
 | Surface | Current limitation | Current route |
 | --- | --- | --- |
 | Terminal Program console | At 80×24 the bottom dock can show only three output rows at once. | Focus the Program console and use PageUp/PageDown or Home/End for scrollback; expand the terminal for more visible output. |

@@ -66,6 +66,15 @@ in `src/util.c` before a repaint can reload `rec`.
 
 ## Focused checks and qualification
 
+Functional regression and UI design acceptance have separate outcomes. The
+[UI acceptance catalogue](ui-acceptance/catalogue.md) defines versioned goals,
+numbered replay steps, fixtures and screenshot checkpoints across browser,
+GTK and console. Assess functionality, design fidelity, aesthetics and
+discoverability independently against the frozen reference. Existing receipts
+are evidence leads, rather than executions of every catalogue case. Keep
+`NotRun`, partial coverage, host exceptions and open design decisions explicit;
+see the [consolidated gap review](ui-acceptance/gap-review.md).
+
 ```sh
 ctest --test-dir cmake-build-debug \
   -R 'test_delete_persistence_|test_default_profile|test_sos_logical_edit_queries|test_the_llm_full_runtime' \

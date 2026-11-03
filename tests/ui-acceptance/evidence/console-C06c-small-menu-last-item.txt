@@ -1,0 +1,24 @@
+ MENU (F10) |  Console |  Run file | Welcome.txt|Input.rexx                     
+lq Menu qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqk  
+x File: Open                                                                 x.]
+x File: Save                                                                 x  
+x File: Close                                                                x  
+x Edit: Undo                                                                 x  
+x Edit: Cut                                                                  x  
+x Edit: Copy                                                                 x  
+x Edit: Paste                                                                x  
+x Edit: Select All                                                           x  
+x File: Next file (F2)                                                       x  
+x Edit: Find... (Ctrl-F)                                                     xls
+x Edit: Go to line... (Ctrl-G)                                               x  
+x View: Show or focus Program console                                        x  
+x View: Hide program console                                                 xS 
+x Tools: Run file                                                            x--
+x Tools: Stop current task                                                   x  
+x Tools: Clear program output                                                x  
+x Tools: End program input                                                   x  
+x Help: Key definitions                                                      xs 
+x Help: Help (F1)                                                            x  
+xArrows/Tab: select  Enter: invoke  Esc: return                              x  
+mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqj  
+Input closed>                                                    Tab: controls  

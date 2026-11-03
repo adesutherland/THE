@@ -1,0 +1,1069 @@
+{
+  "schema_version": 1,
+  "review_kind": "design_gap_review_not_acceptance_signoff",
+  "catalogue_version": "1.0.0",
+  "product_revision": "822d13fbcc00b7bbf064e38a3ce9d17411044429",
+  "reference_sha256": "04fc03feeb50a672d9c0f3800572aa53b2bdf05c71eb80dd2ae15b8380092f2b",
+  "review_order": [
+    "browser",
+    "gtk",
+    "console"
+  ],
+  "product_ui_changed": false,
+  "full_catalogue_execution": "NotRun",
+  "platform_reviews": [
+    {
+      "platform": "browser",
+      "verdicts": {
+        "functional": "Bounded goals pass except Tools & Profiles repeated-button toggle; misleading retained-result notice recorded. Console hides its own pane and reveals latent Tools state. No general functional qualification.",
+        "design": "Partial conformance; profile summary, association presentation and repeated Tools toggle gaps prevent complete design acceptance. Stock footer sequence also departs from the agreed prototype; D04 tracks the profile-compatible implementation design.",
+        "aesthetics": "Needs polish: duplicate pane titles and tiny navigation beside larger actions; dense technical setup view weakens hierarchy. Not a claim that all pixel dimensions must match prototype.",
+        "discovery": "Common build/run/profile/settings routes were found, but association map and friendly profile status are obscured by advanced controls."
+      },
+      "method_limit": "8 principal current checkpoints plus profile/menu/toggle sub-checkpoints and reference captures. No broad QA suite. Previous graphical-acceptance review only workflow evidence, no design PASS inherited.",
+      "not_run": [
+        "compact viewport",
+        "clipboard/Undo mutation and saved bytes",
+        "custom profile application/composition/footer control",
+        "deliberate error/history per-file scenarios",
+        "live-running job/program-input draft pane retention"
+      ]
+    },
+    {
+      "platform": "gtk",
+      "verdicts": {
+        "functional": "Two bounded goals passed: native Open→Squares buildstatus0/run output25; Settings Editor→Edit profile defaults opened profile source. Completed job/output retained after switching source/panes and explicit Program Hide/reopen. Requested persistent pane-toggle contract absent. No full native functional qualification.",
+        "design": "Partial conformance: contextual actions, build/program separation, profile sections and Settings scope implemented; shared pane controls/document tabs and association profile link remain gaps. Stock footer order departs from the agreed hierarchy; profile-compatible mapping is tracked under D04.",
+        "aesthetics": "Needs polish under explicit user concern: tight6-unit insets around34-unit native controls and repeated notebook/title bands create heavy control mass and weak breathing room. Text is readable in inspected states. Approximate dimensions do not establish oversized buttons beyond prototype or a numeric golden.",
+        "discovery": "Open/build/run and profile editing routes were completed; native pane destinations become menu-dependent when hidden. Core file strip is weaker than named active tabs; associations lack direct profile edit route."
+      },
+      "method_limit": "Six main screen groups plus native chooser, repeat-tab and About supplements; two bounded goals. Actual macOS only. GTKother is reference-only.",
+      "not_run": [
+        "GTK on other OS actual UI",
+        "compact/short layout",
+        "clipboardCopy/Cut",
+        "Undo/save/reopen exactbytes",
+        "live-running job/input-draft preservation",
+        "profile apply/startup persistence",
+        "font preference apply/persistence",
+        "custom footer/menu/profile composition",
+        "comprehensive accessibility/contrast audit"
+      ]
+    },
+    {
+      "platform": "console",
+      "verdicts": {
+        "functional": "Classic Run file→input prompt→Ada draft→explicit Hide→restore→Hello,Ada/status0 passed in the bounded PTY. F10/arrows/Escape and small-grid menu scrolling worked. Active Console launcher violates the repeated-toggle requirement. The compiled-source user journey stops at a generic failed Run with no discoverable Build route; command fallback/backend capability is NotRun, not unsupported.",
+        "design": "Partial shared-contract mapping. Recognisable THE editor, prefix/ruler, command/status/key guide, persistent menu/Console launcher and separate program lane exist. Missing contextual Build/profile destinations and non-toggling launcher remain gaps. There is no approved terminal pixel design; the native stock footer order also differs from the agreed shared hierarchy, with mapping tracked under D04.",
+        "aesthetics": "The inspected grids are orderly and controls fit at140×40 and80×24. The one-line Menu/Console/Run and Run/Stop/Clear/Hide/Editor controls are dense and rely on focus highlighting; retained source identity is weak when paths truncate. Comfort of actual terminal fonts, glyph rendering and pointer target scale is unqualified by the PTY projection; recommend terminal-specific mapping review rather than a pixel PASS.",
+        "discovery": "Classic execution and input were discoverable through F10 plus keyboard controls. Source compilation and profile workflow are absent from the inspected visible routes; generic error text gives no useful next step."
+      },
+      "method_limit": "Fresh real PTY output, parsed into140×40 and80×24 character grids with per-cell colours/styles and cursor.hidden. This is a labelled PTY projection, not a native Terminal screenshot. No approved terminal design mock exists, so findings map shared semantic contracts rather than assert pixel fidelity. No operator Terminal was used.",
+      "not_run": [
+        "RX BUILD/RX RUN expert command fallback",
+        "native Terminal UI/font/glyph rendering",
+        "console profile apply/build/startup workflow",
+        "source compile/backend qualification",
+        "clipboard/Undo/changed-file saved bytes",
+        "custom footer/profile/menu composition",
+        "other terminal emulators/OS",
+        "exhaustive accessibility/contrast qualification"
+      ]
+    }
+  ],
+  "goal_first_probe": {
+    "platform": "browser",
+    "implementation_or_reference_read": false,
+    "goals_attempted": 3,
+    "goals_completed": 3,
+    "scope": "ClassicDemo run; editable profile source; explicit Hide and restore of retained output. No profile apply, mutation/Undo or real user study. Screenshots were in CUA trace, not persisted image attachments.",
+    "observed_routes": [
+      "Files -> ClassicDemo.rexx -> Run with Classic Rexx",
+      "Tools & Profiles -> Profiles -> Edit profile",
+      "Console -> Hide program console -> Console"
+    ],
+    "observation_limits": [
+      "Console/Program console naming differs",
+      "Buffer changed since run appears after file switch without source edits",
+      "The [*] status observation was not diagnosed as dirty state; current-character display can contain an asterisk. No data mutation claim."
+    ],
+    "route_log": "tests/ui-acceptance/evidence/goal-first-browser.txt",
+    "evidence_type": "Reviewer-authored route log; not a raw trace or independently retained screenshot record."
+  },
+  "findings": [
+    {
+      "id": "G01",
+      "platform": "browser",
+      "title": "Default footer sequence differs from agreed hierarchy",
+      "status": "Open",
+      "requirement_ids": [
+        "R11"
+      ],
+      "scenario_ids": [
+        "S01",
+        "S15",
+        "S29"
+      ],
+      "severity": "medium",
+      "axes": [
+        "design_fidelity"
+      ],
+      "expected": "The agreed stock hierarchy is Response → THE command → profile key guide → Status. Catalogue D04 is the implementation-design task for this mapping while preserving custom profile authority; a permanent Ready label is not mandatory.",
+      "observed": "At Welcome, cREXX source, profile source and completed run checkpoints, the browser places Status → key guide → THE command. The response area is inside the command dock above its input, below Status and key guide.",
+      "closure": "Implement the agreed stock hierarchy through one profile-compatible layout design under D04. Preserve profile-owned text, rows, colour, configured positions and OFF states; do not treat current implementation documentation as approval of a departure.",
+      "evidence": [
+        "tests/ui-acceptance/evidence/browser-B01-welcome.jpg",
+        "tests/ui-acceptance/evidence/browser-B02-source-profiles.jpg",
+        "tests/ui-acceptance/evidence/browser-B08-program-console.jpg"
+      ],
+      "reference_evidence": [
+        "tests/ui-acceptance/evidence/reference-B02-browser-profiles.jpg"
+      ],
+      "basis": [
+        "actual-ui",
+        "reference-ui",
+        "source-confirmed"
+      ],
+      "source_leads": [
+        "web/src/main.tsx:1584",
+        "web/src/main.tsx:1596"
+      ],
+      "decision_id": "D04",
+      "finding_kinds": [
+        "design"
+      ]
+    },
+    {
+      "id": "G02",
+      "platform": "browser",
+      "title": "Profiles presents setup internals before a concise user summary",
+      "status": "Open",
+      "requirement_ids": [
+        "R09",
+        "R18"
+      ],
+      "scenario_ids": [
+        "S12",
+        "S13",
+        "S29"
+      ],
+      "severity": "medium",
+      "axes": [
+        "design_fidelity",
+        "discoverability"
+      ],
+      "expected": "A friendly active profile name and short applied/startup state, Edit profile, an Apply compiled profile entry, and the source workflow. Technical build/paths are secondary.",
+      "observed": "Profiles shows an introductory paragraph, Editable/Build/Active/Startup definition list, full /workspace/.crxthe-tools/user.profile.the path, another explanation, and an always-expanded compiled path/import/latest-build/apply form. It consumes nearly the entire 836px-high side pane even before a profile is applied. Completed Build results exposes a long UUID artifact path and duplicate source/revision detail.",
+      "closure": "The initial Profiles view clearly states which profile is active and whether it is used at startup; advanced compiled path/build details no longer dominate that summary. Empty state may truthfully say no user profile is applied.",
+      "evidence": [
+        "tests/ui-acceptance/evidence/browser-B02-source-profiles.jpg",
+        "tests/ui-acceptance/evidence/browser-B02b-profile-source.jpg",
+        "tests/ui-acceptance/evidence/browser-B07-build-results.jpg"
+      ],
+      "reference_evidence": [
+        "tests/ui-acceptance/evidence/reference-B02-browser-profiles.jpg"
+      ],
+      "basis": [
+        "actual-ui",
+        "reference-ui",
+        "source-confirmed"
+      ],
+      "source_leads": [
+        "web/src/file-tools.tsx:199",
+        "web/src/file-tools.tsx:223"
+      ],
+      "finding_kinds": [
+        "design",
+        "discovery"
+      ]
+    },
+    {
+      "id": "G03",
+      "platform": "browser",
+      "title": "Association list is displaced by an explicit runner form",
+      "status": "Open",
+      "requirement_ids": [
+        "R06",
+        "R10",
+        "R18"
+      ],
+      "scenario_ids": [
+        "S07",
+        "S08",
+        "S09",
+        "S15",
+        "S29"
+      ],
+      "severity": "medium",
+      "axes": [
+        "design_fidelity",
+        "discoverability"
+      ],
+      "expected": "File types & tools first shows a concise extension → tool/action list and a link to edit associations in the profile.",
+      "observed": "The section begins with prose, profile-edit button, Run with a tool heading, another paragraph, tool selector, arguments textarea, Run button, RXBIN import and runtime-cohort explanation. Installed tools and associations starts near the bottom of the 836px viewport, below those controls, and lists runner/compiler/language roles and internal IDs instead of the simple association map.",
+      "closure": "The common extension-to-tool/action relationships are visible on entering the section; advanced explicit-run/import functionality is subordinate. Keep the implemented edit-associations-in-profile route.",
+      "evidence": [
+        "tests/ui-acceptance/evidence/browser-B03-tools.jpg"
+      ],
+      "reference_evidence": [
+        "tests/ui-acceptance/evidence/reference-B03-tools.jpg"
+      ],
+      "basis": [
+        "actual-ui",
+        "reference-ui",
+        "source-confirmed"
+      ],
+      "source_leads": [
+        "web/src/file-tools.tsx:322"
+      ],
+      "finding_kinds": [
+        "design",
+        "discovery"
+      ]
+    },
+    {
+      "id": "G04",
+      "platform": "browser",
+      "title": "Tools & Profiles button does not toggle its visible pane",
+      "status": "Open",
+      "requirement_ids": [
+        "R03"
+      ],
+      "scenario_ids": [
+        "S18"
+      ],
+      "severity": "medium",
+      "axes": [
+        "design_fidelity",
+        "functional"
+      ],
+      "expected": "Latest explicit user requirement: a pane-show button toggles show/hide on repeated use, preserving pane state, job, draft and source. This overrides the illustrative prototype selection handlers.",
+      "observed": "Files toggles correctly. With Tools & Profiles selected and visible, two repeated top-button clicks do nothing and aria-pressed stays true. Console does hide itself on its second click, but a previously open Tools & Profiles pane reappears (Tools aria-pressed becomes true); this demonstrates retained latent open state, not a second proven toggle failure. Whether that fallback should remain visible is a decision for the coordinator/user rather than an inferred requirement that all auxiliary panes close.",
+      "closure": "A second click on the visible Tools & Profiles button hides that pane, with consistent visible/pressed state and retained job/source/draft on reopening. Preserve the working Files and Console own-pane toggle behavior; clarify whether another latent open pane should reappear.",
+      "evidence": [
+        "tests/ui-acceptance/evidence/browser-B02b-profile-source.jpg",
+        "tests/ui-acceptance/evidence/browser-B08b-console-repeat.jpg"
+      ],
+      "reference_evidence": [],
+      "basis": [
+        "actual-ui",
+        "source-confirmed",
+        "latest-explicit-user-requirement"
+      ],
+      "source_leads": [
+        "web/src/main.tsx:782",
+        "web/src/main.tsx:1218",
+        "web/src/main.tsx:1431"
+      ],
+      "finding_kinds": [
+        "functional",
+        "design"
+      ]
+    },
+    {
+      "id": "G05",
+      "platform": "browser",
+      "title": "Ordinary Text receives a persistent runner warning",
+      "status": "Open",
+      "requirement_ids": [
+        "R01",
+        "R06"
+      ],
+      "scenario_ids": [
+        "S01"
+      ],
+      "severity": "low",
+      "axes": [
+        "design_fidelity",
+        "discoverability"
+      ],
+      "expected": "Text files have their Text role and no irrelevant build/run action or forced no-runner warning.",
+      "observed": "The default Welcome.txt file shows a full Current file actions row with “No runner is associated with this file” as its status. In the prototype, Welcome has a simple Text role and no runner message.",
+      "closure": "An ordinary Text buffer does not read as an incomplete runnable setup; unavailable-runner notices are reserved for meaningful program/action failures.",
+      "evidence": [
+        "tests/ui-acceptance/evidence/browser-B01-welcome.jpg"
+      ],
+      "reference_evidence": [
+        "tests/ui-acceptance/evidence/reference-B01-text.jpg"
+      ],
+      "basis": [
+        "actual-ui",
+        "reference-ui"
+      ],
+      "source_leads": [],
+      "finding_kinds": [
+        "design",
+        "discovery"
+      ]
+    },
+    {
+      "id": "G06",
+      "platform": "browser",
+      "title": "Duplicated pane chrome and uneven density weaken the guided hierarchy",
+      "status": "Open",
+      "requirement_ids": [
+        "R01",
+        "R18"
+      ],
+      "scenario_ids": [
+        "S01",
+        "S17",
+        "S29"
+      ],
+      "severity": "low",
+      "axes": [
+        "aesthetics",
+        "design_fidelity"
+      ],
+      "expected": "A single clear auxiliary title, consistent readable controls and deliberate spacing. Prototype dimensions are illustrative, not hard pixel limits.",
+      "observed": "Actual auxiliary area has an outer Tools & Profiles label/Expand pane strip, a second blue Tools & Profiles/Hide title row, then section buttons and another Profiles heading. Program console likewise repeats its title in two rows. Top pane buttons measure 11px text/23px height, contextual Build profile 12px/30px, and profile section buttons 11px/29px; the reference uses 14px workbench controls (Build source about 34px). The dense tiny navigation and repeated chrome consume space while technical prose fills the side pane.",
+      "closure": "Review spacing, title duplication, control sizing and hierarchy as one coherent visual system; verify readability at normal zoom. Do not mechanically copy prototype pixels or infer a contrast standard pass from these screenshots.",
+      "evidence": [
+        "tests/ui-acceptance/evidence/browser-B02-source-profiles.jpg",
+        "tests/ui-acceptance/evidence/browser-B03-tools.jpg",
+        "tests/ui-acceptance/evidence/browser-B08-program-console.jpg"
+      ],
+      "reference_evidence": [
+        "tests/ui-acceptance/evidence/reference-B02-browser-profiles.jpg",
+        "tests/ui-acceptance/evidence/reference-B03-tools.jpg"
+      ],
+      "basis": [
+        "actual-ui",
+        "reference-ui",
+        "dom-measurement",
+        "source-confirmed"
+      ],
+      "source_leads": [
+        "web/src/styles.css:196",
+        "web/src/main.tsx:1631",
+        "web/src/file-tools.tsx:192"
+      ],
+      "finding_kinds": [
+        "design",
+        "aesthetics"
+      ]
+    },
+    {
+      "id": "G07",
+      "platform": "browser",
+      "title": "Switching files is reported as changing the run buffer",
+      "status": "Open",
+      "requirement_ids": [
+        "R08"
+      ],
+      "scenario_ids": [
+        "S06",
+        "S07",
+        "S19"
+      ],
+      "severity": "low",
+      "axes": [
+        "discoverability",
+        "functional"
+      ],
+      "expected": "A retained console identifies its actual source and distinguishes a different current file from an edited source.",
+      "observed": "After a successful LevelBSquares run, Edit profile only opens user.profile.the. Console retains the correct LevelBSquares path and output but adds “Buffer changed since run” despite no source edits in the review. The condition treats different source ID or different revision identically.",
+      "closure": "Retained results for another file are described as another file; “changed since run” describes an edited revision of the run source.",
+      "evidence": [
+        "tests/ui-acceptance/evidence/browser-B08c-other-file-console.jpg"
+      ],
+      "reference_evidence": [],
+      "basis": [
+        "actual-ui",
+        "source-confirmed"
+      ],
+      "source_leads": [
+        "web/src/rexx-console.tsx:53",
+        "web/src/rexx-console.tsx:70"
+      ],
+      "finding_kinds": [
+        "functional",
+        "plain-language"
+      ]
+    },
+    {
+      "id": "G08",
+      "platform": "gtk",
+      "title": "GTK has no persistent shared pane-show controls",
+      "status": "Open",
+      "requirement_ids": [
+        "R03"
+      ],
+      "scenario_ids": [
+        "S01",
+        "S05",
+        "S18"
+      ],
+      "severity": "medium",
+      "axes": [
+        "design_fidelity",
+        "discoverability",
+        "functional"
+      ],
+      "expected": "Persistent Files / Program console / Tools & Profiles destinations; latest user requirement makes Program console and Tools pane controls toggle their own rendered target while retaining state. Hiding a target may reveal an already-open sibling (D08).",
+      "observed": "No persistent pane row appears in the actual toolbar after two and three files are open. GTK exposes Program and Tools & Profiles as auxiliary notebook tabs only while those pages are shown; hiding Program removes its tab. Repeated clicks on the selected Program or Tools notebook tab retain it. View menu provides show/focus routes and separate Hide controls exist, but these do not supply the requested persistent repeated-toggle controls. Standard notebook tabs are described accurately as selection controls rather than independently labelled toggle bugs.",
+      "closure": "Persistent pane controls remain available when a target is hidden and repeated activation hides/restores that target, preserving state. Do not infer that the entire auxiliary area must become empty.",
+      "evidence": [
+        "tests/ui-acceptance/evidence/gtk-K01c-buffer-strip.jpg",
+        "tests/ui-acceptance/evidence/gtk-K02b-repeat-tab.jpg",
+        "tests/ui-acceptance/evidence/gtk-K04b-program-console.jpg"
+      ],
+      "reference_evidence": [
+        "tests/ui-acceptance/evidence/reference-K01-gtk-mac-shell-profiles.jpg"
+      ],
+      "basis": [
+        "actual-ui",
+        "reference-ui",
+        "source-confirmed",
+        "explicit-user-toggle-requirement"
+      ],
+      "source_leads": [
+        "src/drivers/gtk/gtkdriver.c:2981",
+        "src/drivers/gtk/gtkdriver.c:2999",
+        "src/drivers/gtk/gtkdriver.c:3588"
+      ],
+      "finding_kinds": [
+        "design",
+        "discovery",
+        "functional-contract"
+      ]
+    },
+    {
+      "id": "G09",
+      "platform": "gtk",
+      "title": "Native shell does not implement the agreed document/tab hierarchy",
+      "status": "Open",
+      "requirement_ids": [
+        "R01",
+        "R02"
+      ],
+      "scenario_ids": [
+        "S02",
+        "S05",
+        "S29"
+      ],
+      "severity": "medium",
+      "axes": [
+        "design_fidelity",
+        "discoverability"
+      ],
+      "expected": "Brand/document/saved-role identity, distinct active named document tabs, then persistent pane navigation and contextual role/actions. Native system menu placement may adapt to macOS.",
+      "observed": "GTK titlebar and toolbar identify CRXTHE and current file/Saved, and Open/Save/Undo are present. After opening Squares and then user.profile.the, the editor instead has a core text strip reading Welcome.txt and later Welcome.txt|Squares.crexx, with the current file identified separately in the toolbar/ID line. It does not present the prototype named active document tabs. A click on the Welcome.txt strip did not switch the current file in this walk. The role is absent from the saved identity and is shown as helper text in the task row when there are actions.",
+      "closure": "Open documents and the selected document are discoverable in the agreed shared shell hierarchy while retaining core file-ring behavior; avoid treating the drawable core strip as proof of the prototype tabs.",
+      "evidence": [
+        "tests/ui-acceptance/evidence/gtk-K01c-buffer-strip.jpg",
+        "tests/ui-acceptance/evidence/gtk-K06-profile-source.jpg"
+      ],
+      "reference_evidence": [
+        "tests/ui-acceptance/evidence/reference-K01-gtk-mac-shell-profiles.jpg",
+        "tests/ui-acceptance/evidence/reference-K06-gtk-mac-profile-source.jpg"
+      ],
+      "basis": [
+        "actual-ui",
+        "reference-ui",
+        "source-confirmed"
+      ],
+      "source_leads": [
+        "src/drivers/gtk/gtkdriver.c:3597",
+        "src/drivers/gtk/gtkdriver.c:1541"
+      ],
+      "finding_kinds": [
+        "design",
+        "discovery"
+      ]
+    },
+    {
+      "id": "G10",
+      "platform": "gtk",
+      "title": "Tight native insets and repeated control bands need visual polish",
+      "status": "Open",
+      "requirement_ids": [
+        "R18"
+      ],
+      "scenario_ids": [
+        "S21",
+        "S22",
+        "S29"
+      ],
+      "severity": "medium",
+      "axes": [
+        "aesthetics",
+        "design_fidelity"
+      ],
+      "expected": "Comfortable container breathing room, proportional controls and deliberate grouping/rhythm at the native text scale. No invented pixel golden; D07 remains open.",
+      "observed": "Toolbar, task row, Tools setup and Program console use 6 logical-unit borders; related native controls use 4–6 unit gaps. The screenshot shows about 12 backing pixels of inset around buttons about 68 backing pixels tall (approximately 6 versus 34 logical units at 2x). Tools uses an auxiliary notebook tab, a Tools & Profiles title/control row and another notebook section row before content. These bands and heavy button chrome dominate the narrow side pane, with content close to container edges. The File types table needs horizontal space for technical columns and its final Ownership/details column is off to the right.",
+      "closure": "A focused native polish pass should rebalance insets, repeated title/navigation bands, button mass and pane content density at normal text scale; agree numeric limits through D07. Preserve native font readability and profile-owned editor colours.",
+      "evidence": [
+        "tests/ui-acceptance/evidence/gtk-K01-text-shell.jpg",
+        "tests/ui-acceptance/evidence/gtk-K02-profiles.jpg",
+        "tests/ui-acceptance/evidence/gtk-K03-filetypes.jpg",
+        "tests/ui-acceptance/evidence/gtk-K05-settings-appearance.jpg"
+      ],
+      "reference_evidence": [
+        "tests/ui-acceptance/evidence/reference-K01-gtk-mac-shell-profiles.jpg",
+        "tests/ui-acceptance/evidence/reference-K03-gtk-mac-filetypes.jpg",
+        "tests/ui-acceptance/evidence/reference-K05-gtk-mac-settings.jpg"
+      ],
+      "basis": [
+        "actual-ui",
+        "reference-ui",
+        "source-measurement",
+        "approximate-screenshot-measurement",
+        "explicit-user-comfort-concern"
+      ],
+      "source_leads": [
+        "src/drivers/gtk/gtkdriver.c:3164",
+        "src/drivers/gtk/gtkdriver.c:3168",
+        "src/drivers/gtk/gtkdriver.c:3588",
+        "src/drivers/gtk/gtkdriver.c:3601",
+        "src/drivers/gtk/gtkdriver.c:3650"
+      ],
+      "measurement_boundary": "GTK widget content has no macOS AX nodes/rectangles in the supported CUA surface. Insets/gaps are source-confirmed; button height is an approximate screenshot measurement calibrated by source 1120-unit default window width versus 2240 backing-pixel capture. Reference Build buttons are about 34 logical pixels too, so this is a relative spacing/control-mass concern, not proof that native button height exceeds the prototype. Reference and actual were not captured at the same logical viewport or matched theme.",
+      "finding_kinds": [
+        "aesthetics",
+        "design"
+      ]
+    },
+    {
+      "id": "G11",
+      "platform": "gtk",
+      "title": "Native associations view lacks the direct profile-edit route",
+      "status": "Open",
+      "requirement_ids": [
+        "R09",
+        "R10"
+      ],
+      "scenario_ids": [
+        "S08",
+        "S15"
+      ],
+      "severity": "low",
+      "axes": [
+        "design_fidelity",
+        "discoverability"
+      ],
+      "expected": "A plain extension→tool/action list with a visible link to edit associations in the profile.",
+      "observed": "GTK starts with an association table and keeps Run with a chosen runner and Register a compiled tool collapsed, which is closer to the agreed hierarchy than the browser. However the table adds Role/Availability/Ownership details and no Edit tool associations in profile button is exposed. The user must leave the tab and use Profiles > Edit profile defaults.",
+      "closure": "Entering File types & tools shows common associations and an immediate route to edit their owning profile; advanced registration/run details remain subordinate.",
+      "evidence": [
+        "tests/ui-acceptance/evidence/gtk-K03-filetypes.jpg"
+      ],
+      "reference_evidence": [
+        "tests/ui-acceptance/evidence/reference-K03-gtk-mac-filetypes.jpg"
+      ],
+      "basis": [
+        "actual-ui",
+        "reference-ui",
+        "source-confirmed"
+      ],
+      "source_leads": [
+        "src/drivers/gtk/gtkdriver.c:3160",
+        "src/drivers/gtk/gtkdriver.c:3187",
+        "src/drivers/gtk/gtkdriver.c:3203"
+      ],
+      "finding_kinds": [
+        "design",
+        "discovery"
+      ]
+    },
+    {
+      "id": "G12",
+      "platform": "gtk",
+      "title": "Ready source action row exposes the internal role string",
+      "status": "Open",
+      "requirement_ids": [
+        "R06",
+        "R18"
+      ],
+      "scenario_ids": [
+        "S07",
+        "S29"
+      ],
+      "severity": "low",
+      "axes": [
+        "design_fidelity",
+        "discoverability"
+      ],
+      "expected": "Human source role or a concise ready-artifact summary beside contextual actions.",
+      "observed": "After the successful source build, the task helper text becomes crexx-source next to Build source and Run. The prerequisite message before build was plain English. This was observed freshly, independently of the old workflow receipt.",
+      "closure": "The ready state uses a friendly cREXX source label or meaningful build-ready summary, preserving the correct contextual actions.",
+      "evidence": [
+        "tests/ui-acceptance/evidence/gtk-K04-build-results.jpg",
+        "tests/ui-acceptance/evidence/gtk-K04b-program-console.jpg"
+      ],
+      "reference_evidence": [
+        "tests/ui-acceptance/evidence/reference-K01-gtk-mac-shell-profiles.jpg"
+      ],
+      "basis": [
+        "actual-ui",
+        "reference-ui",
+        "source-confirmed"
+      ],
+      "source_leads": [
+        "src/drivers/gtk/gtkdriver.c:1541"
+      ],
+      "finding_kinds": [
+        "plain-language",
+        "design"
+      ]
+    },
+    {
+      "id": "G13",
+      "platform": "console",
+      "title": "Stock console menus lack contextual build and profile destinations",
+      "status": "Open",
+      "requirement_ids": [
+        "R03",
+        "R05",
+        "R06",
+        "R09"
+      ],
+      "scenario_ids": [
+        "S05",
+        "S07",
+        "S12"
+      ],
+      "severity": "medium",
+      "axes": [
+        "design_fidelity",
+        "discoverability",
+        "functional"
+      ],
+      "expected": "The shared workbench operations need discoverable terminal-appropriate routes: source Build then Run, profile edit/build/apply and a Tools & Profiles destination distinct from program input/output. No terminal pixel mock is assumed.",
+      "observed": "Actual F10 menu was inspected at Text startup, Classic source and Squares.crexx. It lists File/Edit/View/Tools/Help entries, including Run file, Stop, Clear and End input, but no Build source, Edit profile, Build profile, Apply profile or Tools & Profiles destination. The persistent row has only MENU, Console and generic Run file. Selecting actual Tools: Run file on the fresh .crexx source fails, leaving no discoverable Build route in these controls.",
+      "closure": "Provide and demonstrate the terminal adaptation for the contextual build/profile workflows through admitted visible controls, menus or explicitly discoverable editor-command routes, preserving separate build/program results.",
+      "evidence": [
+        "tests/ui-acceptance/evidence/console-C02-menu-140x40.txt",
+        "tests/ui-acceptance/evidence/console-C05-crexx-source.txt",
+        "tests/ui-acceptance/evidence/console-C05b-crexx-menu.txt",
+        "tests/ui-acceptance/evidence/console-C05c-crexx-run-menu-result.txt"
+      ],
+      "reference_evidence": [],
+      "basis": [
+        "real-PTY-presentation",
+        "source-confirmation"
+      ],
+      "source_leads": [
+        "profiles/default-profile.json:151",
+        "src/drivers/curses/cursesdriver.c:2225"
+      ],
+      "backend_boundary": "RX BUILD/RX RUN fallback was NotRun: the PTY had already exited before the coordinator requested it, and the instruction explicitly prohibited reopening. This finding does not claim that the compiler/backend or expert THE commands are unsupported.",
+      "finding_kinds": [
+        "design",
+        "discovery",
+        "user-journey"
+      ]
+    },
+    {
+      "id": "G14",
+      "platform": "console",
+      "title": "Active Console launcher refocuses instead of toggling its target",
+      "status": "Open",
+      "requirement_ids": [
+        "R03"
+      ],
+      "scenario_ids": [
+        "S18"
+      ],
+      "severity": "medium",
+      "axes": [
+        "design_fidelity",
+        "functional"
+      ],
+      "expected": "The latest user requirement makes a persistent pane-show control hide its active visible target on repetition and restore it on the next activation, while retaining job, draft and source.",
+      "observed": "With Program console visible and Running, Shift+Tab twice from Program input reaches the persistent Console launcher, and Enter returns to input without hiding the pane. The Ada draft is retained. Separate Hide control does hide Program console; Shift+Tab then Enter on the launcher restores the Running pane and Ada draft.",
+      "closure": "Repeated activation of the visible Console launcher hides its own target while preserving the working draft/job state. Explicit Hide/reopen already proves preservation in this sample.",
+      "evidence": [
+        "tests/ui-acceptance/evidence/console-C04b-input-draft.txt",
+        "tests/ui-acceptance/evidence/console-C04c-repeat-console-launcher.txt",
+        "tests/ui-acceptance/evidence/console-C04d-hidden-draft.txt",
+        "tests/ui-acceptance/evidence/console-C04e-restored-draft.txt"
+      ],
+      "reference_evidence": [],
+      "basis": [
+        "real-PTY-presentation",
+        "source-confirmation",
+        "explicit-user-toggle-requirement"
+      ],
+      "source_leads": [
+        "src/drivers/curses/cursesdriver.c:2899",
+        "src/drivers/curses/cursesdriver.c:3099"
+      ],
+      "finding_kinds": [
+        "functional-contract",
+        "design"
+      ]
+    },
+    {
+      "id": "G15",
+      "platform": "console",
+      "title": "Generic Run file action remains visible for plain Text",
+      "status": "Open",
+      "requirement_ids": [
+        "R01",
+        "R06"
+      ],
+      "scenario_ids": [
+        "S01"
+      ],
+      "severity": "low",
+      "axes": [
+        "design_fidelity",
+        "discoverability"
+      ],
+      "expected": "The current file role determines contextual actions. An ordinary Text buffer is a usable editor without implied runnable setup.",
+      "observed": "Welcome.txt startup shows a persistent Run file launcher and Tools: Run file menu item; no Text role or context-specific action row distinguishes it from the same launcher used for Classic and .crexx. Startup itself has no forced setup or runner warning and is usable as an editor.",
+      "closure": "Make the terminal action affordance reflect the current role, or explain its applicability clearly, without forcing runner setup for Text.",
+      "evidence": [
+        "tests/ui-acceptance/evidence/console-C01-text-140x40.txt",
+        "tests/ui-acceptance/evidence/console-C02-menu-140x40.txt"
+      ],
+      "reference_evidence": [],
+      "basis": [
+        "real-PTY-presentation",
+        "shared-semantic-contract"
+      ],
+      "source_leads": [
+        "src/drivers/curses/cursesdriver.c:2899"
+      ],
+      "finding_kinds": [
+        "design",
+        "discovery"
+      ]
+    },
+    {
+      "id": "G16",
+      "platform": "console",
+      "title": "Failed compiled-source Run gives a generic workbench error",
+      "status": "Open",
+      "requirement_ids": [
+        "R05",
+        "R06"
+      ],
+      "scenario_ids": [
+        "S07",
+        "S10"
+      ],
+      "severity": "low",
+      "axes": [
+        "discoverability"
+      ],
+      "expected": "A refused action explains the prerequisite or current-file problem and gives the user a useful recovery route.",
+      "observed": "On fresh Squares.crexx, selecting visible Tools: Run file produces “WORKBENCH command-failed: The explicit workbench action returned a nonzero THE result”. It does not explain the missing source build, identify a useful Build route or expose a more specific reason in the inspected menu. Previous Classic output remains intact.",
+      "closure": "The visible refusal identifies the relevant prerequisite/reason and discoverable next step; do not replace this UI gap with a claim that the compiler backend is unavailable.",
+      "evidence": [
+        "tests/ui-acceptance/evidence/console-C05c-crexx-run-menu-result.txt"
+      ],
+      "reference_evidence": [],
+      "basis": [
+        "real-PTY-presentation"
+      ],
+      "source_leads": [],
+      "finding_kinds": [
+        "plain-language",
+        "discovery"
+      ]
+    }
+  ],
+  "scope_items": [
+    {
+      "decision_id": "D06",
+      "status": "DecisionNeeded",
+      "observation": "GTK has native Open; no persistent Files list. The reference depicts a Files affordance, and the user proposes a shared list. Native chooser does not establish parity.",
+      "recommendation": "Include a shared Files view in the next GTK alignment scope if approved; retain native Open."
+    },
+    {
+      "decision_id": "D02",
+      "status": "DecisionNeeded",
+      "observation": "Redo is depicted but no general Redo contract is implemented.",
+      "recommendation": "Resolve milestone scope; do not display an enabled placeholder."
+    },
+    {
+      "decision_id": "D03",
+      "status": "DecisionNeeded",
+      "observation": "Save as/source transfer needs explicit scope disposition; the fixed IDE baseline describes unfinished browser import/export.",
+      "recommendation": "Keep this visible as a capability gap rather than calling current workflow tests complete scope acceptance."
+    }
+  ],
+  "scenario_coverage": [
+    {
+      "scenario_id": "S01",
+      "full_catalogue_replay": "NotRun",
+      "finding_ids": [
+        "G01",
+        "G05",
+        "G06",
+        "G08",
+        "G15"
+      ],
+      "evidence_scope": "Representative review checkpoints and prior regression leads only; full numbered platform/sample/variant replay has not been executed."
+    },
+    {
+      "scenario_id": "S02",
+      "full_catalogue_replay": "NotRun",
+      "finding_ids": [
+        "G09"
+      ],
+      "evidence_scope": "Representative review checkpoints and prior regression leads only; full numbered platform/sample/variant replay has not been executed."
+    },
+    {
+      "scenario_id": "S03",
+      "full_catalogue_replay": "NotRun",
+      "finding_ids": [],
+      "evidence_scope": "Representative review checkpoints and prior regression leads only; full numbered platform/sample/variant replay has not been executed."
+    },
+    {
+      "scenario_id": "S04",
+      "full_catalogue_replay": "NotRun",
+      "finding_ids": [],
+      "evidence_scope": "Representative review checkpoints and prior regression leads only; full numbered platform/sample/variant replay has not been executed."
+    },
+    {
+      "scenario_id": "S05",
+      "full_catalogue_replay": "NotRun",
+      "finding_ids": [
+        "G08",
+        "G09",
+        "G13"
+      ],
+      "evidence_scope": "Representative review checkpoints and prior regression leads only; full numbered platform/sample/variant replay has not been executed."
+    },
+    {
+      "scenario_id": "S06",
+      "full_catalogue_replay": "NotRun",
+      "finding_ids": [
+        "G07"
+      ],
+      "evidence_scope": "Representative review checkpoints and prior regression leads only; full numbered platform/sample/variant replay has not been executed."
+    },
+    {
+      "scenario_id": "S07",
+      "full_catalogue_replay": "NotRun",
+      "finding_ids": [
+        "G03",
+        "G07",
+        "G12",
+        "G13",
+        "G16"
+      ],
+      "evidence_scope": "Representative review checkpoints and prior regression leads only; full numbered platform/sample/variant replay has not been executed."
+    },
+    {
+      "scenario_id": "S08",
+      "full_catalogue_replay": "NotRun",
+      "finding_ids": [
+        "G03",
+        "G11"
+      ],
+      "evidence_scope": "Representative review checkpoints and prior regression leads only; full numbered platform/sample/variant replay has not been executed."
+    },
+    {
+      "scenario_id": "S09",
+      "full_catalogue_replay": "NotRun",
+      "finding_ids": [
+        "G03"
+      ],
+      "evidence_scope": "Representative review checkpoints and prior regression leads only; full numbered platform/sample/variant replay has not been executed."
+    },
+    {
+      "scenario_id": "S10",
+      "full_catalogue_replay": "NotRun",
+      "finding_ids": [
+        "G16"
+      ],
+      "evidence_scope": "Representative review checkpoints and prior regression leads only; full numbered platform/sample/variant replay has not been executed."
+    },
+    {
+      "scenario_id": "S11",
+      "full_catalogue_replay": "NotRun",
+      "finding_ids": [],
+      "evidence_scope": "Representative review checkpoints and prior regression leads only; full numbered platform/sample/variant replay has not been executed."
+    },
+    {
+      "scenario_id": "S12",
+      "full_catalogue_replay": "NotRun",
+      "finding_ids": [
+        "G02",
+        "G13"
+      ],
+      "evidence_scope": "Representative review checkpoints and prior regression leads only; full numbered platform/sample/variant replay has not been executed."
+    },
+    {
+      "scenario_id": "S13",
+      "full_catalogue_replay": "NotRun",
+      "finding_ids": [
+        "G02"
+      ],
+      "evidence_scope": "Representative review checkpoints and prior regression leads only; full numbered platform/sample/variant replay has not been executed."
+    },
+    {
+      "scenario_id": "S14",
+      "full_catalogue_replay": "NotRun",
+      "finding_ids": [],
+      "evidence_scope": "Representative review checkpoints and prior regression leads only; full numbered platform/sample/variant replay has not been executed."
+    },
+    {
+      "scenario_id": "S15",
+      "full_catalogue_replay": "NotRun",
+      "finding_ids": [
+        "G01",
+        "G03",
+        "G11"
+      ],
+      "evidence_scope": "Representative review checkpoints and prior regression leads only; full numbered platform/sample/variant replay has not been executed."
+    },
+    {
+      "scenario_id": "S16",
+      "full_catalogue_replay": "NotRun",
+      "finding_ids": [],
+      "evidence_scope": "Representative review checkpoints and prior regression leads only; full numbered platform/sample/variant replay has not been executed."
+    },
+    {
+      "scenario_id": "S17",
+      "full_catalogue_replay": "NotRun",
+      "finding_ids": [
+        "G06"
+      ],
+      "evidence_scope": "Representative review checkpoints and prior regression leads only; full numbered platform/sample/variant replay has not been executed."
+    },
+    {
+      "scenario_id": "S18",
+      "full_catalogue_replay": "NotRun",
+      "finding_ids": [
+        "G04",
+        "G08",
+        "G14"
+      ],
+      "evidence_scope": "Representative review checkpoints and prior regression leads only; full numbered platform/sample/variant replay has not been executed."
+    },
+    {
+      "scenario_id": "S19",
+      "full_catalogue_replay": "NotRun",
+      "finding_ids": [
+        "G07"
+      ],
+      "evidence_scope": "Representative review checkpoints and prior regression leads only; full numbered platform/sample/variant replay has not been executed."
+    },
+    {
+      "scenario_id": "S20",
+      "full_catalogue_replay": "NotRun",
+      "finding_ids": [],
+      "evidence_scope": "Representative review checkpoints and prior regression leads only; full numbered platform/sample/variant replay has not been executed."
+    },
+    {
+      "scenario_id": "S21",
+      "full_catalogue_replay": "NotRun",
+      "finding_ids": [
+        "G10"
+      ],
+      "evidence_scope": "Representative review checkpoints and prior regression leads only; full numbered platform/sample/variant replay has not been executed."
+    },
+    {
+      "scenario_id": "S22",
+      "full_catalogue_replay": "NotRun",
+      "finding_ids": [
+        "G10"
+      ],
+      "evidence_scope": "Representative review checkpoints and prior regression leads only; full numbered platform/sample/variant replay has not been executed."
+    },
+    {
+      "scenario_id": "S23",
+      "full_catalogue_replay": "NotRun",
+      "finding_ids": [],
+      "evidence_scope": "Representative review checkpoints and prior regression leads only; full numbered platform/sample/variant replay has not been executed."
+    },
+    {
+      "scenario_id": "S24",
+      "full_catalogue_replay": "NotRun",
+      "finding_ids": [],
+      "evidence_scope": "Representative review checkpoints and prior regression leads only; full numbered platform/sample/variant replay has not been executed."
+    },
+    {
+      "scenario_id": "S25",
+      "full_catalogue_replay": "NotRun",
+      "finding_ids": [],
+      "evidence_scope": "Representative review checkpoints and prior regression leads only; full numbered platform/sample/variant replay has not been executed."
+    },
+    {
+      "scenario_id": "S26",
+      "full_catalogue_replay": "NotRun",
+      "finding_ids": [],
+      "evidence_scope": "Representative review checkpoints and prior regression leads only; full numbered platform/sample/variant replay has not been executed."
+    },
+    {
+      "scenario_id": "S27",
+      "full_catalogue_replay": "NotRun",
+      "finding_ids": [],
+      "evidence_scope": "Representative review checkpoints and prior regression leads only; full numbered platform/sample/variant replay has not been executed."
+    },
+    {
+      "scenario_id": "S28",
+      "full_catalogue_replay": "NotRun",
+      "finding_ids": [],
+      "evidence_scope": "Representative review checkpoints and prior regression leads only; full numbered platform/sample/variant replay has not been executed."
+    },
+    {
+      "scenario_id": "S29",
+      "full_catalogue_replay": "NotRun",
+      "finding_ids": [
+        "G01",
+        "G02",
+        "G03",
+        "G06",
+        "G09",
+        "G10",
+        "G12"
+      ],
+      "evidence_scope": "Representative review checkpoints and prior regression leads only; full numbered platform/sample/variant replay has not been executed."
+    }
+  ],
+  "evidence_archive": {
+    "path": "tests/ui-acceptance/evidence/console-records.zip",
+    "sha256": "255b911e7f5eb11782bda478364e0e2f37b6954f487fd9bcc0e1ac635593b240"
+  },
+  "coverage_limits": [
+    "Browser and GTK live reviews were on macOS; Linux/Windows GTK is a design reference only.",
+    "Browser actual viewport1424x836 DPR2; compact/phone design walkthrough not repeated. Earlier functional receipts remain separate.",
+    "GTK native source inputs are unchanged between initial implementation commit5432cd8 and822d13f; no exact native source manifest is present. Loaded modules/tool cohort verified.",
+    "Console used real PTY140x40 and80x24; actual terminal-app font, pixel rendering and physical input are not qualified.",
+    "No approved console pixel mock exists; review uses explicit shared-contract translation.",
+    "Full29-scenario catalogue has not been replayed; NotRun remains distinct from successful checkpoint subsets.",
+    "No broad suites, builds, application source changes, publication or release were performed for this review."
+  ],
+  "baseline_source_gaps": [
+    {
+      "id": "B01",
+      "requirement_ids": [
+        "R10"
+      ],
+      "scenario_ids": [
+        "S15"
+      ],
+      "status": "OpenSourceContractAssessment",
+      "basis": "existing-baseline-and-admission-contract",
+      "observation": "Stock browser controls remain partly hard-coded and general user-macro menu actions have narrower admission than the intended profile-built IDE. Builtin menu/custom-Build proofs do not close the whole journey.",
+      "source_leads": [
+        "doc/ide-scope-baseline.md",
+        "doc/workbench-actions-menus.md"
+      ],
+      "execution": "NotRun as catalogue S15"
+    },
+    {
+      "id": "B02",
+      "requirement_ids": [
+        "R14"
+      ],
+      "scenario_ids": [
+        "S20"
+      ],
+      "status": "CoverageGap",
+      "basis": "candidate-script-and-receipt-audit",
+      "observation": "The separately callable Wasm file-fields helper is not spawned by the default full candidate path; that receipt alone does not establish its execution. Named LOG/DOCUMENT/forms and full new catalogue case need their own evidence.",
+      "source_leads": [
+        "web/test/wasm-browser-smoke.mjs",
+        "web/test/wasm-file-fields.mjs"
+      ],
+      "execution": "NotRun as catalogue S20"
+    }
+  ]
+}

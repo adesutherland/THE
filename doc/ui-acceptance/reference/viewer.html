@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>THE agreed workbench reference</title>
+<style>body{margin:0;font:14px system-ui;background:#eee;color:#222}header{padding:10px;display:flex;gap:16px;align-items:center}iframe{width:100%;height:1100px;border:0;background:white}label{display:flex;gap:8px}</style></head>
+<body><header><strong>Agreed prototype reference</strong><label>Platform<select id="platform"><option>Browser</option><option>GTK on macOS</option><option>GTK on Linux or Windows</option></select></label><span>Viewing harness only; the reference file is unchanged.</span></header>
+<iframe id="reference" title="Workbench prototype"></iframe>
+<script>
+const select=document.querySelector('#platform'), frame=document.querySelector('#reference');
+let source='';
+function render(){
+  const variant=JSON.stringify(select.value);
+  frame.srcdoc=source+'<script>document.querySelectorAll("section[data-variant]").forEach(section=>{section.hidden=section.dataset.variant!=='+variant+'});<\/script>';
+}
+fetch('./workbench-polish.html').then(response=>response.text()).then(text=>{source=text;render()});
+select.addEventListener('change',render);
+</script></body></html>

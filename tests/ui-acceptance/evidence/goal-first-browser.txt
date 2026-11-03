@@ -1,0 +1,41 @@
+Evidence type: reviewer-authored route log, not a raw tool trace.
+The referenced CUA screenshots are not retained in this repository pack.
+The [*] observation below is not evidence of dirty state; the status field can show the current character.
+
+# Goal-first browser acceptance probe
+
+Scope: fresh Chrome tab at `http://127.0.0.1:52328/`, operated through the visible browser UI only. No implementation or prototype material was consulted; no source was edited, built, or applied. The tab was closed after the probe. The CUA trace contains screenshots of the running and completed console, the profile source, the hidden-console state, and the restored console.
+
+## FunctionResult
+
+| Goal | Result | Visible evidence |
+| --- | --- | --- |
+| Run a Classic Rexx example | Success | `ClassicDemo.rexx` opened from Files. `Run with Classic Rexx` opened Program console. It finished with `Completed · status 0` and output `Hello, λ`, `Total: 6`, `Routine received: 6`. No input was requested, so `QA` was not supplied. |
+| Open editable profile configuration | Success | Tools & Profiles → Profiles showed editable `/workspace/.crxthe-tools/user.profile.the`. `Edit profile` opened that file as editor text. `Build profile` was available; `Apply profile` was disabled with the instruction “Build this profile before applying it.” No build or apply was performed. |
+| Hide and restore program output | Success | `Hide program console` removed the Program console view and returned the side pane to Tools & Profiles. Selecting `Console` restored `Completed · status 0` and the three prior output lines. |
+
+## GoalDiscoveryResult
+
+1. **First choices for Classic Rexx:** The initial Welcome file said to click Files and named `RexxRunner.rexx`. I opened **Files**. The file list included several `.rexx` files; I first chose the plainly named **ClassicDemo.rexx**. Its file action was immediately labelled **Run with Classic Rexx**. I used that action and waited for completion. This was a direct path with no failed attempts or recovery.
+2. **First choices for profile configuration:** From the top workbench pane toggles, I chose **Tools & Profiles**. The Profiles section was already selected and exposed an **Editable** path and **Edit profile** action. I chose **Edit profile**. The open file was visibly text in the editor, with sample settings including `address THE` and `'set number on'`. The source and adjacent panel explain the sequence: edit the `.profile.the` source, choose **Build profile**, then choose **Apply profile** once enabled; the panel says applying runs its settings now and saves the profile for future sessions. No failed attempts or recovery.
+3. **First choices for output visibility:** I chose **Console** to bring back the existing completed run, then **Hide program console**. The side pane returned to Tools & Profiles. I chose **Console** again; the old output and status were still there. No failed attempts or recovery.
+
+## Interface observations
+
+- The top pane toggles use **Console** while the pane itself says **Program console**. Both were understandable in context, but they use different labels for the same view.
+- After opening the profile, the restored console showed **Buffer changed since run** alongside the output from `ClassicDemo.rexx`. I had not typed into either file. This may reflect that the current editor file had changed; the UI did not explain the condition. It did not prevent restoring or reading the previous output.
+- The editable profile opened with an `[*]` editor-status marker despite no typing in this probe. The header simultaneously said **Saved to browser workspace**. I did not investigate whether the marker represents a change.
+- The observed layout used a dark editor, file tabs, top pane toggles, a right auxiliary pane, monospace source and output, and blue primary action buttons. The profile panel extended below the visible viewport, but the editable path and Edit profile action were visible without scrolling.
+
+## Ordered UI actions
+
+1. Created one fresh Chrome tab at the specified origin.
+2. Clicked **Files**.
+3. Clicked **ClassicDemo.rexx**.
+4. Clicked **Run with Classic Rexx**; observed Program console starting, then completed status and output.
+5. Clicked **Tools & Profiles**.
+6. Clicked **Edit profile**; observed editable source and build/apply actions.
+7. Clicked **Console** to view the completed run.
+8. Clicked **Hide program console**; observed Tools & Profiles instead of output.
+9. Clicked **Console**; observed the same completed status and output retained.
+10. Closed only the probe tab.

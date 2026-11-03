@@ -1,0 +1,40 @@
+ MENU (F10) |  Console |  Run file | Welcome.txt                                                                                            
+/private/tmp/the-acceptance-design-review/console-session/workspace/Input.rexx                Line=0      Col=1    Size=4     Alt=0,0       
+        |...+....1....+....2....+....3....+....4....+....5....+....6....+....7.]..+....8....+....9....+...10....+...11....+...12....+...13..
+0000000 *** Top of File ***                                                                                                                 
+0000001 say 'What is your name?'                                                                                                            
+0000002 parse pull name                                                                                                                     
+0000003 say 'Hello,' name                                                                                                                   
+0000004 return 0                                                                                                                            
+0000005 *** Bottom of File ***                                                                                                              
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+        F10 Menu  F6 Cmd/File  Esc Cmd  F1 Help  Ctrl-S Save  Shift-Tab Controls                                                            
+                                                                                                                                            
+======>                                                                                                                                     
+CRXTHE                                                                                                   8:40pm  [ ] U+0             CR INS 

@@ -1,0 +1,24 @@
+ MENU (F10) |  Console |  Run file | Welcome.txt|Input.rexx                     
+/private/tmp/th<>ce/Squares.crexx Line=0      Col=1    Size=3     Alt=0,0       
+        |...+....1....+....2....+....3....+....4....+....5....+....6....+....7.]
+0000000 *** Top of File ***                                                     
+0000001 options levelb                                                          
+0000002 say 'Console squares:' 5 * 5                                            
+0000003 return 0                                                                
+0000004 *** Bottom of File ***                                                  
+                                                                                
+                                                                                
+                                                                                
+        F10 Menu  F6 Cmd/File  Esc Cmd  F1 Help  Ctrl-S Save  Shift-Tab Controls
+                                                                                
+======>                                                                         
+CRXTHE                                       8:42pm  [ ] U+0             CR INS 
+--------------------------------------------------------------------------------
+ Program console | RX CONSOLE: input                                            
+ Run Stop Clear Hide Editor                                                     
+ Completed · status 0                                                           
+ classic-rexx | /private/tmp/the-acceptance-design-review/console-session/works 
+What is your name?                                                              
+› Ada                                                                           
+Hello, Ada                                                                      
+Input closed>                                                    Tab: controls  

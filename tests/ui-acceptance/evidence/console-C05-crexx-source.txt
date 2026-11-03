@@ -1,0 +1,40 @@
+ MENU (F10) |  Console |  Run file | Welcome.txt|Input.rexx                                  | Program console | F10: Menu                  
+/private/tmp/the-accep<>orkspace/Squares.crexx Line=0      Col=1    Size=3     Alt=0,0       | Run Stop Clear Hide Editor                   
+        |...+....1....+....2....+....3....+....4....+....5....+....6....+....7.]..+....8....+| Completed · status 0                         
+0000000 *** Top of File ***                                                                  | PgUp/PgDn scroll | Home/End                  
+0000001 options levelb                                                                       |What is your name?                            
+0000002 say 'Console squares:' 5 * 5                                                         |› Ada                                         
+0000003 return 0                                                                             |Hello, Ada                                    
+0000004 *** Bottom of File ***                                                               |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+        F10 Menu  F6 Cmd/File  Esc Cmd  F1 Help  Ctrl-S Save  Shift-Tab Controls             |                                              
+                                                                                             |                                              
+======>                                                                                      |                                              
+CRXTHE                                                    8:41pm  [ ] U+0             CR INS |Input closed>                  Tab: controls  

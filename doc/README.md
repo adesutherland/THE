@@ -42,6 +42,7 @@ release. CRXTHE is an independent fork based on Mark Hessling's THE 4.0.
 - [LLM implementation and protocol model](llm-mode.md)
 - [Batch renderer architecture](batch-md-rexx-design.md)
 - [Build and test guide](testing.md), including [browser acceptance](web-driver-test-plan.md)
+- [UI acceptance catalogue](ui-acceptance/catalogue.md), [frozen design reference](ui-acceptance/reference/README.md), and [consolidated design gap review](ui-acceptance/gap-review.md)
 - [Packaging](packaging.md) and [release signing](release-signing.md)
 
 ## Known issues

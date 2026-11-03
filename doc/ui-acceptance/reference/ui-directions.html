@@ -1,0 +1,276 @@
+<style>
+  #the-ui-directions {
+    --the-bg: light-dark(#f7f8fa, #17191e);
+    --the-panel: light-dark(#ffffff, #20242b);
+    --the-panel-2: light-dark(#edf0f4, #252b34);
+    --the-text: light-dark(#19212b, #e6eaf0);
+    --the-muted: light-dark(#596576, #a7b0bf);
+    --the-line: light-dark(#d2d9e2, #3b424d);
+    --the-accent: light-dark(#27588e, #80b9f2);
+    --the-code: light-dark(#223044, #dbe6f4);
+    color: var(--the-text);
+    font-family: ui-sans-serif, system-ui, sans-serif;
+  }
+  #the-ui-directions * { box-sizing: border-box; }
+  #the-ui-directions .review-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 2.35fr) minmax(238px, 1fr);
+    gap: 14px;
+    align-items: start;
+    min-height: 555px;
+    padding: 6px;
+  }
+  #the-ui-directions .preview { min-width: 0; }
+  #the-ui-directions .preview-label { color: var(--the-muted); font-size: 12px; margin: 0 0 6px 2px; }
+  #the-ui-directions .app {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--the-bg);
+    color: var(--the-text);
+    border: 1px solid var(--the-line);
+    border-radius: 8px;
+    height: 500px;
+    font-size: 12px;
+  }
+  #the-ui-directions .phone .app { height: 500px; }
+  #the-ui-directions button, #the-ui-directions summary {
+    font: inherit;
+    color: inherit;
+  }
+  #the-ui-directions button {
+    border: 1px solid var(--the-line);
+    background: var(--the-panel);
+    border-radius: 4px;
+    padding: 5px 8px;
+  }
+  #the-ui-directions details { position: relative; }
+  #the-ui-directions summary {
+    list-style: none;
+    border: 1px solid var(--the-line);
+    border-radius: 4px;
+    background: var(--the-panel);
+    padding: 5px 8px;
+    user-select: none;
+  }
+  #the-ui-directions summary::-webkit-details-marker { display: none; }
+  #the-ui-directions .actions-menu {
+    position: absolute;
+    right: 0;
+    top: 30px;
+    z-index: 3;
+    width: 132px;
+    padding: 7px;
+    background: var(--the-panel);
+    border: 1px solid var(--the-line);
+    border-radius: 5px;
+    display: grid;
+    gap: 5px;
+    box-shadow: 0 6px 18px light-dark(#0002, #0008);
+  }
+  #the-ui-directions .actions-menu span { padding: 3px 5px; }
+  #the-ui-directions .header {
+    min-height: 38px;
+    padding: 5px 9px;
+    background: var(--the-panel);
+    border-bottom: 1px solid var(--the-line);
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+  #the-ui-directions .brand { font-weight: 500; letter-spacing: .03em; }
+  #the-ui-directions .file-name { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  #the-ui-directions .spacer { flex: 1; }
+  #the-ui-directions .muted { color: var(--the-muted); }
+  #the-ui-directions .tabbar {
+    height: 27px;
+    background: var(--the-panel);
+    border-bottom: 1px solid var(--the-line);
+    display: flex;
+    align-items: stretch;
+  }
+  #the-ui-directions .tabbar span { padding: 6px 12px 4px; border-bottom: 2px solid var(--the-accent); }
+  #the-ui-directions .canvas {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--the-bg);
+  }
+  #the-ui-directions .editor {
+    flex: 1;
+    overflow: hidden;
+    padding-top: 9px;
+    color: var(--the-code);
+    font: 12px/1.62 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  #the-ui-directions .code-row { display: flex; white-space: pre; }
+  #the-ui-directions .prefix {
+    flex: 0 0 62px;
+    text-align: right;
+    padding-right: 8px;
+    color: var(--the-muted);
+    border-right: 1px solid var(--the-line);
+    margin-right: 8px;
+  }
+  #the-ui-directions .ruler { color: var(--the-muted); }
+  #the-ui-directions .current { background: var(--the-panel-2); }
+  #the-ui-directions .response {
+    min-height: 29px;
+    padding: 6px 10px;
+    border-top: 1px solid var(--the-line);
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    background: var(--the-panel);
+  }
+  #the-ui-directions .response strong { color: var(--the-accent); font-weight: 500; }
+  #the-ui-directions .command-dock {
+    min-height: 44px;
+    padding: 6px 10px;
+    background: var(--the-panel);
+    border-top: 1px solid var(--the-line);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  #the-ui-directions .command-dock label { white-space: nowrap; font: 12px ui-monospace, monospace; }
+  #the-ui-directions .command-field {
+    height: 29px;
+    flex: 1;
+    min-width: 0;
+    padding: 5px 7px;
+    border: 1px solid var(--the-line);
+    background: var(--the-bg);
+    color: var(--the-text);
+    border-radius: 4px;
+    font: 12px ui-monospace, monospace;
+  }
+  #the-ui-directions .keys {
+    min-height: 25px;
+    padding: 5px 10px;
+    display: flex;
+    gap: 13px;
+    background: var(--the-panel-2);
+    color: var(--the-muted);
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  #the-ui-directions .phone .header { min-height: 44px; }
+  #the-ui-directions .phone .prefix { flex-basis: 38px; padding-right: 4px; margin-right: 5px; }
+  #the-ui-directions .phone .editor { font-size: 11px; }
+  #the-ui-directions .phone .response { font-size: 11px; }
+  #the-ui-directions .phone .command-dock { padding: 6px; gap: 5px; }
+  #the-ui-directions .phone .command-dock label { font-size: 11px; }
+  #the-ui-directions .phone .keys { gap: 8px; font-size: 11px; }
+  #the-ui-directions .menu-bar { display: flex; gap: 12px; color: var(--the-muted); }
+  #the-ui-directions .workbench {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 102px minmax(0, 1fr) 118px;
+  }
+  #the-ui-directions .side-pane {
+    background: var(--the-panel);
+    padding: 9px;
+    border-right: 1px solid var(--the-line);
+    color: var(--the-muted);
+    line-height: 1.8;
+  }
+  #the-ui-directions .side-pane.right { border-right: 0; border-left: 1px solid var(--the-line); }
+  #the-ui-directions .side-pane strong { display: block; color: var(--the-text); font-weight: 500; }
+  #the-ui-directions .program-panel {
+    height: 72px;
+    padding: 7px 10px;
+    border-top: 1px solid var(--the-line);
+    background: var(--the-panel);
+    font: 11px/1.6 ui-monospace, monospace;
+  }
+  #the-ui-directions .program-panel strong { font: 500 12px ui-sans-serif, system-ui; }
+  #the-ui-directions .mobile-nav {
+    display: flex;
+    justify-content: space-around;
+    padding: 7px;
+    border-top: 1px solid var(--the-line);
+    background: var(--the-panel);
+  }
+  #the-ui-directions .mobile-nav strong { color: var(--the-accent); font-weight: 500; }
+  @media (max-width: 760px) {
+    #the-ui-directions .review-layout { display: block; min-height: 535px; }
+    #the-ui-directions .desktop { display: none; }
+    #the-ui-directions .phone .app { max-width: 390px; margin: 0 auto; }
+  }
+</style>
+<div id="the-ui-directions" class="viz-carousel" aria-label="THE interface directions">
+  <section data-variant="Command first" aria-label="Command-first THE interface" class="review-layout">
+    <div class="preview desktop">
+      <div class="preview-label">Desktop · terminal layout carries across</div>
+      <div class="app">
+        <div class="header"><span class="brand">CRXTHE</span><span class="file-name">RexxRunner.rexx ●</span><span class="spacer"></span><button type="button">Files</button><details><summary>Actions</summary><div class="actions-menu"><span>Open file</span><span>Save</span><span>Run Rexx</span><span>Help</span></div></details></div>
+        <div class="tabbar"><span>RexxRunner.rexx ●</span></div>
+        <div class="canvas"><div class="editor">
+          <div class="code-row ruler"><span class="prefix">000000</span>|...+....1....+....2....+....3....+....4....+....5....+....6....+....7</div>
+          <div class="code-row"><span class="prefix">000001</span>/* Classic Rexx sample */</div>
+          <div class="code-row"><span class="prefix">000002</span>say 'What is your name?'</div>
+          <div class="code-row current"><span class="prefix">000003</span>parse pull name</div>
+          <div class="code-row"><span class="prefix">000004</span>say 'Hello' name</div>
+        </div></div>
+        <div class="response"><strong>✓</strong><span>Saved RexxRunner.rexx</span><span class="spacer"></span><span class="muted">3:12 · INS · Saved</span></div>
+        <div class="command-dock"><label>====&gt;</label><input class="command-field" aria-label="Example THE command" value="bottom" readonly><button type="button">↵</button></div>
+        <div class="keys"><span>F1 Help</span><span>F4 Prefix</span><span>F6 Command</span><span>More keys</span></div>
+      </div>
+    </div>
+    <div class="preview phone">
+      <div class="preview-label">Phone · one editor pane</div>
+      <div class="app">
+        <div class="header"><span class="file-name">RexxRunner.rexx ●</span><span class="spacer"></span><details><summary>Actions</summary><div class="actions-menu"><span>Files</span><span>Run Rexx</span><span>Help</span></div></details></div>
+        <div class="canvas"><div class="editor">
+          <div class="code-row ruler"><span class="prefix">0000</span>|...+....1....+....2....+....3...</div>
+          <div class="code-row"><span class="prefix">0001</span>/* Classic Rexx sample */</div>
+          <div class="code-row"><span class="prefix">0002</span>say 'What is your name?'</div>
+          <div class="code-row current"><span class="prefix">0003</span>parse pull name</div>
+          <div class="code-row"><span class="prefix">0004</span>say 'Hello' name</div>
+        </div></div>
+        <div class="response"><strong>✓</strong><span>Saved</span><span class="spacer"></span><span class="muted">3:12 · INS</span></div>
+        <div class="command-dock"><label>====&gt;</label><input class="command-field" aria-label="Example phone THE command" value="bottom" readonly><button type="button">↵</button></div>
+        <div class="keys"><span>Command</span><span>Prefix</span><span>Run</span><span>More</span></div>
+      </div>
+    </div>
+  </section>
+  <section data-variant="Guided workbench" aria-label="Guided THE workbench interface" class="review-layout" hidden>
+    <div class="preview desktop">
+      <div class="preview-label">Desktop · optional Files and Help panes</div>
+      <div class="app">
+        <div class="header"><span class="brand">CRXTHE</span><span class="menu-bar">File&nbsp;&nbsp; Edit&nbsp;&nbsp; View&nbsp;&nbsp; Run&nbsp;&nbsp; Help</span><span class="spacer"></span><span class="muted">RexxRunner.rexx ●</span></div>
+        <div class="tabbar"><span>RexxRunner.rexx ●</span></div>
+        <div class="workbench"><div class="side-pane"><strong>Files</strong>RexxRunner.rexx<br>Welcome.txt</div><div class="canvas"><div class="editor">
+          <div class="code-row ruler"><span class="prefix">000000</span>|...+....1....+....2....+....3....+....4....+....5...</div>
+          <div class="code-row"><span class="prefix">000001</span>/* Classic Rexx sample */</div>
+          <div class="code-row"><span class="prefix">000002</span>say 'What is your name?'</div>
+          <div class="code-row current"><span class="prefix">000003</span>parse pull name</div>
+          <div class="code-row"><span class="prefix">000004</span>say 'Hello' name</div>
+        </div></div><div class="side-pane right"><strong>Help</strong>Run Rexx<br>Key bindings<br>Commands</div></div>
+        <div class="program-panel"><strong>Program output</strong><br>What is your name? <span class="muted">Waiting for input</span></div>
+        <div class="response"><span>Program waiting for input</span><span class="spacer"></span><span class="muted">3:12 · INS · Modified</span></div>
+        <div class="command-dock"><label>====&gt;</label><input class="command-field" aria-label="Example workbench THE command" value="" placeholder="THE command" readonly><button type="button">↵</button></div>
+      </div>
+    </div>
+    <div class="preview phone">
+      <div class="preview-label">Phone · panels switch, never squeeze</div>
+      <div class="app">
+        <div class="header"><span class="file-name">RexxRunner.rexx ●</span><span class="spacer"></span><details><summary>Menu</summary><div class="actions-menu"><span>File</span><span>Edit</span><span>View</span><span>Run</span><span>Help</span></div></details></div>
+        <div class="canvas"><div class="editor">
+          <div class="code-row ruler"><span class="prefix">0000</span>|...+....1....+....2....+....3...</div>
+          <div class="code-row"><span class="prefix">0001</span>/* Classic Rexx sample */</div>
+          <div class="code-row"><span class="prefix">0002</span>say 'What is your name?'</div>
+          <div class="code-row current"><span class="prefix">0003</span>parse pull name</div>
+          <div class="code-row"><span class="prefix">0004</span>say 'Hello' name</div>
+        </div></div>
+        <div class="mobile-nav"><strong>Editor</strong><span>Files</span><span>Program</span><span>Help</span></div>
+        <div class="response"><span>Program waiting for input</span><span class="spacer"></span><span class="muted">3:12 · INS</span></div>
+        <div class="command-dock"><label>====&gt;</label><input class="command-field" aria-label="Example phone workbench command" placeholder="THE command" readonly><button type="button">↵</button></div>
+      </div>
+    </div>
+  </section>
+</div>

@@ -1,0 +1,40 @@
+ MENU (F10) |  Console |  Run file | Welcome.txt                                                                                            
+lq Menu qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqk                Line=0      Col=1    Size=4     Alt=0,0       
+x File: New                                                                  x.]..+....8....+....9....+...10....+...11....+...12....+...13..
+x File: Open                                                                 x                                                              
+x File: Save                                                                 x                                                              
+x File: Close                                                                x                                                              
+x Edit: Undo                                                                 x                                                              
+x Edit: Cut                                                                  x                                                              
+x Edit: Copy                                                                 x                                                              
+x Edit: Paste                                                                x                                                              
+x Edit: Select All                                                           x                                                              
+x File: Next file (F2)                                                       x                                                              
+x Edit: Find... (Ctrl-F)                                                     x                                                              
+x Edit: Go to line... (Ctrl-G)                                               x                                                              
+x View: Show or focus Program console                                        x                                                              
+x View: Hide program console                                                 x                                                              
+x Tools: Run file                                                            x                                                              
+x Tools: Stop current task                                                   x                                                              
+x Tools: Clear program output                                                x                                                              
+x Tools: End program input                                                   x                                                              
+x Help: Key definitions                                                      x                                                              
+x Help: Help (F1)                                                            x                                                              
+x                                                                            x                                                              
+xArrows/Tab: select  Enter: invoke  Esc: return                              x                                                              
+mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqj                                                              
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+        F10 Menu  F6 Cmd/File  Esc Cmd  F1 Help  Ctrl-S Save  Shift-Tab Controls                                                            
+                                                                                                                                            
+======>                                                                                                                                     
+CRXTHE                                                                                                   8:40pm  [ ] U+0             CR INS 
