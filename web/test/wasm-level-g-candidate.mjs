@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 // Exercise the actual optional Wasm compiler and isolated program VM through
 // the selected file controls, including unsaved source and durable artifacts.
 export async function levelGCandidateSmoke({ pageUrl, manifest, send, snapshot, evaluate, command, waitFor, openWorkspaceFile }) {
+  await command("Emulation.setDeviceMetricsOverride", {width: 1200, height: 900, deviceScaleFactor: 1, mobile: false});
+  await evaluate("new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))");
   assert.equal(manifest.capabilities.profile_source_compiler, true);
   assert.equal(manifest.capabilities.classic_rexx_interpreter, true);
   const path = "/workspace/LevelGAccumulator.crexx";
@@ -91,6 +93,8 @@ export async function levelGCandidateSmoke({ pageUrl, manifest, send, snapshot, 
   await evaluate(`(() => {const button=document.querySelector('.tools-toggle');
     if(button.getAttribute('aria-pressed')!=='true')button.click();})()`);
   await waitFor(() => evaluate("!!document.querySelector('.tools-profiles-pane')?.getClientRects().length"), "explicit RXBIN tool pane");
+  await evaluate("[...document.querySelectorAll('.tools-sections button')].find(node=>node.textContent==='File types & tools').click()");
+  await waitFor(() => evaluate("!!document.querySelector('.run-setup')?.getClientRects().length"), "visible File types and tools section");
   await evaluate(`(() => {const select=document.querySelector('[aria-label="Run tool"]');
     select.value='rxbin';select.dispatchEvent(new Event('change',{bubbles:true}));})()`);
   await waitFor(() => evaluate("!!document.querySelector('[aria-label=\"RXBIN path\"]')"), "explicit RXBIN path input");

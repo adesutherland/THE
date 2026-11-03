@@ -15,8 +15,12 @@ export async function profileSourcesSmoke({ send, evaluate, command, waitFor, sn
   }
   async function openFile(name, directory = "") {
     await evaluate(`(() => {const button=[...document.querySelectorAll('.pane-switcher button')]
-      .find(node=>node.textContent==='Files');if(button.getAttribute('aria-pressed')!=='true')button.click();})()`);
-    await waitFor(() => evaluate("!!document.querySelector('.root-switcher button')"), "visible Files roots");
+      .find(node=>node.textContent==='Files');if(!document.querySelector('.file-explorer')?.getClientRects().length)button.click();})()`);
+    if (!await evaluate("!!document.querySelector('.root-switcher button')?.getClientRects().length")) {
+      await waitFor(() => evaluate("(() => {const button=document.querySelector('.file-explorer .pane-expand');return button?.getClientRects().length && button.textContent==='Expand pane';})()"), "visible Files Expand control");
+      await evaluate("document.querySelector('.file-explorer .pane-expand').click()");
+    }
+    await waitFor(() => evaluate("!!document.querySelector('.root-switcher button')?.getClientRects().length"), "visible Files roots");
     await evaluate("document.querySelector('.root-switcher button').click()");
     await waitFor(() => evaluate("document.querySelector('.explorer-path > span')?.textContent==='/'"), "workspace Files root");
     if (directory) {
@@ -31,6 +35,7 @@ export async function profileSourcesSmoke({ send, evaluate, command, waitFor, sn
       .find(node=>node.textContent.trim()===${JSON.stringify(name)}).click()`);
     const path = `/workspace/${directory ? directory + "/" : ""}${name}`;
     await waitFor(async () => (await snapshot()).buffer?.path === path, `${name} editor buffer`);
+    await waitFor(() => evaluate("!!document.querySelector('.editor-scroll')?.getClientRects().length && !!document.querySelector('.key-hints')?.getClientRects().length"), `${name} returns to visible editor and profile footer`);
     assert.equal((await snapshot()).buffer.dirty, 0);
     return path;
   }
@@ -47,6 +52,29 @@ export async function profileSourcesSmoke({ send, evaluate, command, waitFor, sn
     await evaluate("document.querySelector('[aria-label=Save]').click()");
     await waitFor(async () => !(await snapshot()).buffer.dirty, "profile source durable Save");
   }
+
+  // Compact source navigation returns to the editor after choosing a file or
+  // Edit profile. The remaining persistence lifecycle has a known wide layout.
+  await command("Emulation.setDeviceMetricsOverride", {width: 820, height: 500, deviceScaleFactor: 1, mobile: false});
+  await evaluate("new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))");
+  await openFile(names[0], "Profile sources");
+  assert.equal(await evaluate("document.querySelector('.workspace').classList.contains('aux-expanded')"), false, "choosing a file leaves expanded Files mode");
+  const jobBeforeSourceNavigation = await evaluate("JSON.stringify({job:window.__tools.job,chunks:window.__tools.chunks})");
+  await evaluate("document.querySelector('.tools-toggle').click()");
+  await waitFor(() => evaluate("(() => {const button=document.querySelector('.auxiliary-view-controls button');return button?.getClientRects().length && button.textContent==='Expand pane';})()"), "compact Tools Expand control");
+  await evaluate("document.querySelector('.auxiliary-view-controls button').click()");
+  await waitFor(() => evaluate("!!document.querySelector('.tools-profiles-pane')?.getClientRects().length"), "expanded compact Tools and profiles");
+  await evaluate("[...document.querySelectorAll('.tools-sections button')].find(node=>node.textContent==='Profiles').click()");
+  await evaluate("(() => {const input=document.querySelector('[aria-label=\"Compiled profile path\"]');input.value='/workspace/retained.profile.rxbin';input.dispatchEvent(new Event('input',{bubbles:true}));})()");
+  await evaluate("[...document.querySelectorAll('.profile-setup button')].find(node=>node.textContent==='Edit profile').click()");
+  await waitFor(async () => (await snapshot()).buffer?.path === "/workspace/.crxthe-tools/user.profile.the", "compact Edit profile opens the actual source");
+  await waitFor(() => evaluate("!!document.querySelector('.editor-scroll')?.getClientRects().length && !!document.querySelector('.key-hints')?.getClientRects().length"), "Edit profile returns to visible editor and footer");
+  assert.equal(await evaluate("document.querySelector('.workspace').classList.contains('aux-expanded')"), false);
+  assert.equal(await evaluate("document.querySelector('[aria-label=\"Compiled profile path\"]').value"), "/workspace/retained.profile.rxbin", "source navigation retains the setup draft");
+  assert.equal(await evaluate("JSON.stringify({job:window.__tools.job,chunks:window.__tools.chunks})"), jobBeforeSourceNavigation, "source navigation preserves program job and output");
+  console.log("PASS compact source navigation: Files Expand/select and Tools Edit profile return to visible editor/footer while retaining setup draft and program state");
+  await command("Emulation.setDeviceMetricsOverride", {width: 1200, height: 900, deviceScaleFactor: 1, mobile: false});
+  await evaluate("new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))");
 
   const originals = new Map();
   for (const name of names) {
@@ -69,7 +97,8 @@ export async function profileSourcesSmoke({ send, evaluate, command, waitFor, sn
   await evaluate(`(() => {const button=document.querySelector('.tools-toggle');
     if(button.getAttribute('aria-pressed')!=='true')button.click();})()`);
   await waitFor(() => evaluate("!!document.querySelector('.tools-profiles-pane')?.getClientRects().length"), "visible Tools and profiles pane");
-  assert.equal(await evaluate("!!document.querySelector('.tools-profiles-pane .profile-setup button') && !document.querySelector('.rexx-dock .profile-setup')"), true);
+  await evaluate("[...document.querySelectorAll('.tools-sections button')].find(node=>node.textContent==='Profiles').click()");
+  assert.equal(await evaluate("!!document.querySelector('.tools-profiles-pane .profile-setup button')?.getClientRects().length && !document.querySelector('.rexx-dock .profile-setup')"), true);
   await evaluate("[...document.querySelectorAll('.tools-profiles-pane .profile-setup button')].find(node=>node.textContent==='Edit profile').click()");
   const userPath = "/workspace/.crxthe-tools/user.profile.the";
   await waitFor(async () => (await snapshot()).buffer?.path === userPath, "separate user profile");

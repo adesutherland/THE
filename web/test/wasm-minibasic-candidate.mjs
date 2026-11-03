@@ -5,6 +5,8 @@ import { createHash } from "node:crypto";
 export async function minibasicCandidateSmoke({
   pageUrl, manifest, send, snapshot, evaluate, command, waitFor, openWorkspaceFile, consoleEnter, reloadAcceptingUnsaved,
 }) {
+  await command("Emulation.setDeviceMetricsOverride", {width: 1200, height: 900, deviceScaleFactor: 1, mobile: false});
+  await evaluate("new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))");
   if (!manifest.capabilities.minibasic_candidate) return;
   for (const capability of ["editor_address", "profile_source_compiler", "classic_rexx_highlighter", "classic_rexx_interpreter"])
     assert.equal(manifest.capabilities[capability], true, `MiniBASIC candidate requires ${capability}`);
@@ -197,7 +199,7 @@ export async function minibasicCandidateSmoke({
   assert.equal(await evaluate("window.__tools.job.state"), "Completed · status 0", "built THE macro status");
   assert.deepEqual(await durable(macroPath), savedMacro, "running the built macro did not rewrite its source");
   await openWorkspaceFile("RexxRunner.rexx");
-  await expectRole("/workspace/RexxRunner.rexx", "other");
+  await expectRole("/workspace/RexxRunner.rexx", "program");
   await openWorkspaceFile("BuildProbe.the");
   await expectCurrentAction(macroPath, "run", true, "built-macro");
   assert.equal(await evaluate("window.__tools.profile.build.state"), "ready",
@@ -297,7 +299,8 @@ export async function minibasicCandidateSmoke({
   assert.ok(selectedNamed?.length, "named profile selection is durable");
   await waitFor(() => evaluate("window.__tools.catalog.some(tool=>tool.id==='named-profile-probe'&&tool.extensions==='.namedprobe'&&tool.available)"),
     "named profile registration effect");
-  await command("Emulation.clearDeviceMetricsOverride");
+  await command("Emulation.setDeviceMetricsOverride", {width: 1200, height: 900, deviceScaleFactor: 1, mobile: false});
+  await evaluate("new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))");
   const namedGeneration = await evaluate("window.__minibasicGeneration=Math.random()");
   await reloadAcceptingUnsaved(namedGeneration);
   assert.deepEqual(await durable(namedPath), savedNamed, "named profile source survives reload");

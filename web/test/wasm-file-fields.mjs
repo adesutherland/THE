@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 // Runs inside the existing Chromium/Wasm harness. All setup uses public editor
 // and profile-build requests; source bytes are inspected through DOCUMENT/IDBFS.
 export async function fileFieldSmoke({ send, evaluate, command, waitFor, snapshot }) {
+  await command("Emulation.setDeviceMetricsOverride", {width: 1200, height: 900, deviceScaleFactor: 1, mobile: false});
+  await evaluate("new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))");
   const panelId = "user.wasmfields.pane", rawId = "user.wasmfields.raw";
   const source = `!pName: !uGuest   !p END ${"protected ".repeat(12)}\n!pOther: !uReady   !p END\n`;
   async function editorCommand(text) {
@@ -55,9 +57,12 @@ export async function fileFieldSmoke({ send, evaluate, command, waitFor, snapsho
   }
   await send({ type: "action", action: "file.save" });
   await waitFor(async () => !(await snapshot()).buffer.dirty, "Wasm profile saved");
+  const previousBuild = await evaluate("window.__tools.build?.job.id ?? 0");
+  const runtimeBeforeBuild = await evaluate("JSON.stringify(window.__tools.job)");
   await send({ type: "tool", action: "build" });
-  await waitFor(() => evaluate("window.__tools?.job.tool==='profile-compiler'&&!window.__tools.job.running"), "Wasm field profile compilation", 60000);
-  assert.equal(await evaluate("window.__tools.job.state"), "Completed · status 0");
+  await waitFor(() => evaluate(`window.__tools?.build?.job.id>${previousBuild}&&window.__tools.build.job.tool==='profile-compiler'&&!window.__tools.build.job.running`), "Wasm field profile compilation", 60000);
+  assert.equal(await evaluate("window.__tools.build.job.state"), "Completed · status 0");
+  assert.equal(await evaluate("JSON.stringify(window.__tools.job)"), runtimeBeforeBuild, "profile compilation preserves the Program job");
   await send({ type: "tool", action: "activate" });
   await waitFor(async () => (await snapshot()).last_message === "Profile activated", "Wasm configuration profile activation", 30000);
   // User profiles are intentionally untrusted for workbench definitions. The

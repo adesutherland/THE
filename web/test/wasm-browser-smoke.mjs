@@ -114,7 +114,11 @@ async function reloadAcceptingUnsaved(previousGeneration) {
 
 async function openWorkspaceFile(name) {
   await evaluate("document.querySelector('[aria-label=\"Open\"]').click()");
-  await waitFor(() => evaluate("!!document.querySelector('.root-switcher button')"), "workspace Files roots");
+  if (!await evaluate("!!document.querySelector('.root-switcher button')?.getClientRects().length")) {
+    await waitFor(() => evaluate("(() => {const button=document.querySelector('.file-explorer .pane-expand');return button?.getClientRects().length && button.textContent==='Expand pane';})()"), "visible Files Expand control");
+    await evaluate("document.querySelector('.file-explorer .pane-expand').click()");
+  }
+  await waitFor(() => evaluate("!!document.querySelector('.root-switcher button')?.getClientRects().length"), "workspace Files roots");
   await evaluate("document.querySelector('.root-switcher button').click()");
   await waitFor(() => evaluate("document.querySelector('.explorer-path > span')?.textContent==='/'"),
     "workspace Files root");
@@ -127,6 +131,7 @@ async function openWorkspaceFile(name) {
     () => evaluate(`document.querySelector('.buffer-tab-current span')?.textContent.trim() === ${JSON.stringify(name)}`),
     `${name} buffer`,
   );
+  await waitFor(() => evaluate("!!document.querySelector('.editor-scroll')?.getClientRects().length"), `${name} visible editor`);
 }
 
 async function selectBuffer(name) {
@@ -595,6 +600,7 @@ try {
     const image=await readFile(join(fixtureBuild, 'tool-example.rxbin'));
     await evaluate("document.querySelector('.tools-toggle').click()");
     await waitFor(() => evaluate("!!document.querySelector('.tools-profiles-pane')?.getClientRects().length"), "explicit program tools pane");
+    await evaluate("[...document.querySelectorAll('.tools-sections button')].find(node=>node.textContent==='File types & tools').click()");
     await evaluate(`(() => {
       const bytes = Uint8Array.from(atob('${image.toString('base64')}'), char => char.charCodeAt(0));
       const file = new File([bytes], 'ToolHello.rxbin', {type:'application/octet-stream'});

@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 // Level B is a compiled program here, distinct from the Classic source runner
 // and from THE macros/profiles that execute through ADDRESS THE.
 export async function levelBCandidateSmoke({ pageUrl, manifest, send, snapshot, evaluate, command, waitFor, openWorkspaceFile }) {
+  await command("Emulation.setDeviceMetricsOverride", {width: 1200, height: 900, deviceScaleFactor: 1, mobile: false});
+  await evaluate("new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))");
   assert.equal(manifest.capabilities.source_compiler, true);
   assert.equal(manifest.capabilities.classic_rexx_interpreter, true);
   const name = "LevelBSquares.crexx";
