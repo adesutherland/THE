@@ -353,6 +353,16 @@ function App() {
   }, [send]);
 
   const focusEditor = useCallback(() => inputRef.current?.focus(), []);
+  const setFilesVisible = useCallback((visible: boolean) => {
+    setExplorerOpen(visible);
+    if (visible) {
+      setMobilePane("files");
+      if (window.innerWidth >= 1100) setAuxExpanded(false);
+    } else {
+      setAuxExpanded(false);
+      window.setTimeout(focusEditor, 0);
+    }
+  }, [focusEditor]);
   const rememberPathFocus = useCallback(() => {
     const active = document.activeElement;
     pathReturnRef.current = menuRef.current?.contains(active)
@@ -804,11 +814,11 @@ function App() {
     if (id === "gui.tools-profiles") { selectToolsProfiles(); setOpenMenu(null); return true; }
     if (id === "gui.program") { selectProgramConsole(); setOpenMenu(null); return true; }
     if (id === "gui.files") {
-      setExplorerOpen(true); setMobilePane("files"); send({ type: "files", root: 0, path: "" }); setOpenMenu(null); return true;
+      setFilesVisible(true); send({ type: "files", root: 0, path: "" }); setOpenMenu(null); return true;
     }
     if (id === "help.keys") { setOpenMenu(null); send({ type: "key", key: "f10" }); focusEditor(); return true; }
     return false;
-  }, [focusEditor, openSettings, runEdit, selectProgramConsole, selectToolsProfiles, send]);
+  }, [focusEditor, openSettings, runEdit, selectProgramConsole, selectToolsProfiles, send, setFilesVisible]);
 
   const sendWorkbenchAction = useCallback((action: WorkbenchActionDefinition, argument?: string,
     restoreFocus = true) => {
@@ -856,8 +866,7 @@ function App() {
       setOpenMenu(null);
       if (id === "file.open" && argument === undefined) {
         setExplorerAction(null);
-        setExplorerOpen(true);
-        setMobilePane("files");
+        setFilesVisible(true);
         requestFiles();
         return;
       }
@@ -869,7 +878,7 @@ function App() {
       }
       sendAction(id, argument ?? "");
     },
-    [actionById, frontendUIAction, rememberPathFocus, requestFiles, sendAction],
+    [actionById, frontendUIAction, rememberPathFocus, requestFiles, sendAction, setFilesVisible],
   );
 
   const requestWorkbenchAction = useCallback((action: WorkbenchActionDefinition, argument?: string) => {
@@ -878,8 +887,7 @@ function App() {
     if (action.kind === "builtin" && action.builtin === "file.open"
         && !action.operand && argument === undefined) {
       setExplorerAction(action);
-      setExplorerOpen(true);
-      setMobilePane("files");
+      setFilesVisible(true);
       requestFiles();
       setOpenMenu(null);
       return;
@@ -895,7 +903,7 @@ function App() {
       return;
     }
     sendWorkbenchAction(action, argument);
-  }, [frontendUIAction, rememberPathFocus, requestFiles, sendWorkbenchAction]);
+  }, [frontendUIAction, rememberPathFocus, requestFiles, sendWorkbenchAction, setFilesVisible]);
 
   const footerRows = useMemo(() => snapshot?.panel ? [] :
     (snapshot?.screen_rows ?? []).filter(isFooterRow), [snapshot?.screen_rows, !!snapshot?.panel]);
@@ -1304,10 +1312,9 @@ function App() {
     namedLogRef.current.scrollTop = namedLogRef.current.scrollHeight;
   }, [activeNamedPanel?.id, activeNamedLog?.records.length]);
   const toggleFiles = () => {
-    if (window.innerWidth >= 1100 || activeMobilePane === "files") setExplorerOpen(!explorerOpen);
-    else setExplorerOpen(true);
-    setMobilePane("files");
-    if (!explorerOpen) requestFiles();
+    const visible = explorerOpen && (window.innerWidth >= 1100 ? !auxExpanded : activeMobilePane === "files");
+    setFilesVisible(!visible);
+    if (!visible) requestFiles();
   };
   const showOrFocusPanel = (panel: WorkbenchPanelDefinition) => {
     const state = panelState?.panels.find((item) => item.id === panel.id
@@ -1446,7 +1453,7 @@ function App() {
             <div class="explorer-heading">
               <span>Files</span>
               {lowerLayout ? <button type="button" class="pane-expand" onClick={() => { setAuxExpanded(!auxExpanded); if (auxExpanded) focusEditor(); }}>{auxExpanded ? "Return to editor" : "Expand pane"}</button> : null}
-              <button class="icon-button" type="button" title="Close files" aria-label="Close files" onClick={() => { setExplorerOpen(false); focusEditor(); }}><X size={16} /></button>
+              <button class="icon-button" type="button" title="Close files" aria-label="Close files" onClick={() => setFilesVisible(false)}><X size={16} /></button>
             </div>
             <div class="root-switcher" aria-label="Workspace roots">
               {files?.roots.map((root) => (
@@ -1486,7 +1493,7 @@ function App() {
                         requestWorkbenchAction(explorerAction, entry.target);
                         setExplorerAction(null);
                       } else requestAction("file.open", entry.target);
-                      setExplorerOpen(false);
+                      setFilesVisible(false);
                     }
                   }}
                 >

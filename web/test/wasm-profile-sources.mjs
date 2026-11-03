@@ -57,6 +57,18 @@ export async function profileSourcesSmoke({ send, evaluate, command, waitFor, sn
   // Edit profile. The remaining persistence lifecycle has a known wide layout.
   await command("Emulation.setDeviceMetricsOverride", {width: 820, height: 500, deviceScaleFactor: 1, mobile: false});
   await evaluate("new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))");
+  const sourceBeforeFilesClose = await snapshot();
+  for (const method of ["close", "toggle"]) {
+    await evaluate("[...document.querySelectorAll('.pane-switcher button')].find(node=>node.textContent==='Files').click()");
+    await waitFor(() => evaluate("!!document.querySelector('.file-explorer .pane-expand')?.getClientRects().length"), "compact Files heading");
+    await evaluate("document.querySelector('.file-explorer .pane-expand').click()");
+    await waitFor(() => evaluate("!!document.querySelector('.root-switcher button')?.getClientRects().length"), "expanded Files body before close");
+    await evaluate(method === "close" ? "document.querySelector('[aria-label=\"Close files\"]').click()"
+      : "[...document.querySelectorAll('.pane-switcher button')].find(node=>node.textContent==='Files').click()");
+    await waitFor(() => evaluate("!document.querySelector('.file-explorer') && !document.querySelector('.workspace').classList.contains('aux-expanded') && !!document.querySelector('.editor-scroll')?.getClientRects().length && !!document.querySelector('.key-hints')?.getClientRects().length"), `expanded Files ${method} returns to visible editor/footer`);
+    const after = await snapshot();
+    assert.deepEqual({ buffer: after.buffer, source: after.source }, { buffer: sourceBeforeFilesClose.buffer, source: sourceBeforeFilesClose.source }, "closing Files preserves source bytes, dirty state and identity");
+  }
   await openFile(names[0], "Profile sources");
   assert.equal(await evaluate("document.querySelector('.workspace').classList.contains('aux-expanded')"), false, "choosing a file leaves expanded Files mode");
   const jobBeforeSourceNavigation = await evaluate("JSON.stringify({job:window.__tools.job,chunks:window.__tools.chunks})");
@@ -72,7 +84,20 @@ export async function profileSourcesSmoke({ send, evaluate, command, waitFor, sn
   assert.equal(await evaluate("document.querySelector('.workspace').classList.contains('aux-expanded')"), false);
   assert.equal(await evaluate("document.querySelector('[aria-label=\"Compiled profile path\"]').value"), "/workspace/retained.profile.rxbin", "source navigation retains the setup draft");
   assert.equal(await evaluate("JSON.stringify({job:window.__tools.job,chunks:window.__tools.chunks})"), jobBeforeSourceNavigation, "source navigation preserves program job and output");
-  console.log("PASS compact source navigation: Files Expand/select and Tools Edit profile return to visible editor/footer while retaining setup draft and program state");
+  await command("Emulation.setDeviceMetricsOverride", {width: 1424, height: 836, deviceScaleFactor: 1, mobile: false});
+  await evaluate("new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))");
+  await evaluate("[...document.querySelectorAll('.pane-switcher button')].find(node=>node.textContent==='Files').click()");
+  await waitFor(() => evaluate("!!document.querySelector('.file-explorer')?.getClientRects().length"), "wide Files initially visible");
+  await evaluate("document.querySelector('.tools-toggle').click()");
+  await waitFor(() => evaluate("!!document.querySelector('.tools-profiles-pane')?.getClientRects().length"), "wide Tools body");
+  await evaluate("document.querySelector('.auxiliary-view-controls button').click()");
+  await waitFor(() => evaluate("document.querySelector('.workspace').classList.contains('aux-expanded')"), "wide expanded Tools");
+  assert.equal(await evaluate("[...document.querySelectorAll('.pane-switcher button')].find(node=>node.textContent==='Files').getAttribute('aria-pressed')"), "true", "Files can remain logically open while expanded Tools hides its picker");
+  await openFile(names[0], "Profile sources");
+  assert.equal(await evaluate("document.querySelector('.workspace').classList.contains('aux-expanded')"), false, "Files opened from wide expanded Tools reveals the picker and returns to editor after selection");
+  assert.equal(await evaluate("document.querySelector('[aria-label=\"Compiled profile path\"]').value"), "/workspace/retained.profile.rxbin", "wide Files navigation preserves setup draft");
+  assert.equal(await evaluate("JSON.stringify({job:window.__tools.job,chunks:window.__tools.chunks})"), jobBeforeSourceNavigation, "wide Files navigation preserves program state");
+  console.log("PASS source navigation: compact Files Expand/select/close/toggle and Tools Edit profile, wide expanded Tools to visible Files/editor, retained setup draft/program state");
   await command("Emulation.setDeviceMetricsOverride", {width: 1200, height: 900, deviceScaleFactor: 1, mobile: false});
   await evaluate("new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))");
 
