@@ -257,8 +257,10 @@ action state, JSON pages and explicit invocation. Borrowed object pointers
 expire on publication. Drivers copy an ID/generation and queue
 `THE_INPUT_WORKBENCH_INVOKE` through the [normalized input API](../src/inputevent.h);
 the editor invokes it at its input boundary. Choosers can supply the typed
-builtin argument without constructing a command string. Driver ABI 3 remains
-unchanged.
+builtin argument without constructing a command string. Driver modules require
+ABI 4, which includes the separate profile footer window and resolved layout
+metadata. Rebuild the editor and driver modules together; stale modules are
+rejected by the loader.
 
 Browser transports additionally use version-1 `workbench` list/invoke messages
 with action ID, expected generation and a request ID composed from the server's

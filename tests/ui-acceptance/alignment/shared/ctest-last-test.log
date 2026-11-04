@@ -1,0 +1,68 @@
+Start testing: Nov 04 10:58 GMT
+----------------------------------------------------------
+8/120 Testing: test_default_profile_CREXX
+8/120 Test: test_default_profile_CREXX
+Command: "/opt/homebrew/bin/python3" "/Users/adrian/CLionProjects/THE/tests/test_default_profiles.py" "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/the" "CREXX"
+Directory: /Users/adrian/CLionProjects/THE/build/gtk-focus-review
+"test_default_profile_CREXX" start time: Nov 04 10:58 GMT
+Output:
+----------------------------------------------------------
+Matched cREXX/Regina defaults verified
+CREXX: first-launch ruler, colors/profile, quiet optional parsers, insert/Enter, save, find/open/line prompts, prefix and empty-file editing passed
+<end of output>
+Test time =  20.62 sec
+----------------------------------------------------------
+Test Passed.
+"test_default_profile_CREXX" end time: Nov 04 10:59 GMT
+"test_default_profile_CREXX" time elapsed: 00:00:20
+----------------------------------------------------------
+
+17/120 Testing: test_default_profile_REGINA
+17/120 Test: test_default_profile_REGINA
+Command: "/opt/homebrew/bin/python3" "/Users/adrian/CLionProjects/THE/tests/test_default_profiles.py" "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/the" "REGINA"
+Directory: /Users/adrian/CLionProjects/THE/build/gtk-focus-review
+"test_default_profile_REGINA" start time: Nov 04 10:59 GMT
+Output:
+----------------------------------------------------------
+Matched cREXX/Regina defaults verified
+REGINA: first-launch ruler, colors/profile, quiet optional parsers, insert/Enter, save, find/open/line prompts, prefix and empty-file editing passed
+<end of output>
+Test time =   1.01 sec
+----------------------------------------------------------
+Test Passed.
+"test_default_profile_REGINA" end time: Nov 04 10:59 GMT
+"test_default_profile_REGINA" time elapsed: 00:00:01
+----------------------------------------------------------
+
+69/120 Testing: test_headlessdriver
+69/120 Test: test_headlessdriver
+Command: "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/test_headlessdriver"
+Directory: /Users/adrian/CLionProjects/THE/build/gtk-focus-review
+"test_headlessdriver" start time: Nov 04 10:59 GMT
+Output:
+----------------------------------------------------------
+<end of output>
+Test time =   0.26 sec
+----------------------------------------------------------
+Test Passed.
+"test_headlessdriver" end time: Nov 04 10:59 GMT
+"test_headlessdriver" time elapsed: 00:00:00
+----------------------------------------------------------
+
+76/120 Testing: test_named_footer
+76/120 Test: test_named_footer
+Command: "/opt/homebrew/bin/python3" "/Users/adrian/CLionProjects/THE/tests/test_named_footer.py" "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/the"
+Directory: /Users/adrian/CLionProjects/THE/build/gtk-focus-review
+"test_named_footer" start time: Nov 04 10:59 GMT
+Output:
+----------------------------------------------------------
+Named reserved footers: legacy and explicit band geometry, colour, OFF, replacement, inheritance, panel round trips and saved bytes passed
+<end of output>
+Test time =   0.12 sec
+----------------------------------------------------------
+Test Passed.
+"test_named_footer" end time: Nov 04 10:59 GMT
+"test_named_footer" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Nov 04 10:59 GMT

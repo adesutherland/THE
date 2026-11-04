@@ -1,0 +1,8 @@
+{
+  "input_count": 274,
+  "source_input_sha256": "674784ff786f0e50a5707c3cce8b2517cd0534cf53a216029b0a82f1c738a941",
+  "expected_source_input_sha256": "674784ff786f0e50a5707c3cce8b2517cd0534cf53a216029b0a82f1c738a941",
+  "matches_expected": true,
+  "individual_hash_mismatches": [],
+  "manifest_sha256": "e1a3cf2ef662c19cc6e196792d72ae3f4f12cf0e1f3fff39147287d418a3b5b8"
+}

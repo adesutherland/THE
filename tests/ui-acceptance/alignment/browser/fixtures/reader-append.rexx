@@ -1,0 +1,1 @@
+do n=1 to 80; say 'Retained row' right(n,3); end; say 'First reply:'; parse pull reply; do k=1 to 1000; x=k*k; end; do n=81 to 160; say 'Appended row' right(n,3); end; say 'Second reply:'; parse pull reply; say 'Received:' reply; return 0

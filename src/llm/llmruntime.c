@@ -231,6 +231,9 @@ int llm_runtime_screen_view(CHARTYPE scrno, LlmDriverScreenView *view)
       free(frame);
       return 0;
    }
+   if (STATUSLINEx == 'T' || STATUSLINEx == 'B')
+      view->regions.status = (UiRegion){STATUSLINEx == 'T' ? 0 : terminal_lines - 1,
+                                       1, 0, terminal_cols};
    {
       size_t row;
       int columns=min(view->cols,LLM_DRIVER_MAX_COLS);

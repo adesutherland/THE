@@ -1,0 +1,186 @@
+{
+  "format_version": 1,
+  "platform": "browser",
+  "reviewer": "design_conformance_review",
+  "observer_mode": "Informed independent actual UI review through supported CUA Chrome; no fresh participant claim",
+  "git_head": "3e87c88533ddc38a6e7e57a62378e8df9922f6ef",
+  "operator_origin_preserved": "127.0.0.1:64823",
+  "full_catalogue_execution": false,
+  "case_coverage": {
+    "S01": "Partial",
+    "S02": "Partial",
+    "S03": "NotRun",
+    "S04": "NotRun",
+    "S05": "Partial",
+    "S06": "Partial",
+    "S07": "Partial; LevelB exercised, LevelG variants not replayed",
+    "S08": "Partial",
+    "S09": "NotRun",
+    "S10": "NotRun",
+    "S11": "NotRun",
+    "S12": "Partial; initial concise summary only",
+    "S13": "NotRun",
+    "S14": "NotRun",
+    "S15": "NotRun; direct SET probes refused; profile route deferred",
+    "S16": "NotRun",
+    "S17": "Partial; B-W/B-K/B-N/B-S; coarse CDP failed",
+    "S18": "Partial; explicit Hide range fixed; cross-input retention fails",
+    "S19": "Fail; AB05 cross-input range loss",
+    "S20": "NotRun",
+    "S21": "Partial",
+    "S22": "Partial",
+    "S23": "Partial",
+    "S24": "NotRun",
+    "S25": "NotRun",
+    "S26": "NotRun",
+    "S27": "NotRun",
+    "S28": "NotRun",
+    "S29": "Partial; compact/coarse defects remain"
+  },
+  "baseline_work_not_closed": [
+    "D02 general Redo",
+    "D03 full source transfer/Save as",
+    "broader R10 owned macro/menu composition"
+  ],
+  "catalogue_sha256": "972dc82994c237a86f9cd0881f9cace5870e88a61745a5064cb6c7fbcf21ac9f",
+  "candidate_id": "browser-candidate02",
+  "gate_status": "changes_required",
+  "manifest_sha256": "aeb372c80d437fea54e0ec0bea3735595e0cd255116c5b43184a302c5a7f5d85",
+  "source_input_sha256": "71e46af9407a10c012bc9fdd110aca719fe1167ff545fa6a9c073111f446ff1f",
+  "receipt": "candidate02-inputs.json",
+  "verified_receipt": "candidate02/verified-inputs.json",
+  "closed_findings": [
+    "AB01",
+    "AB02"
+  ],
+  "open_findings": [
+    "AB03",
+    "AB04",
+    "AB05"
+  ],
+  "remaining_changed_mandatory_defect_count": 3,
+  "axes": {
+    "functional": "Fail: Tools-input cross-switch loses reader range",
+    "design_fidelity": "Fail: coarse size, clipped Settings and reader retention",
+    "aesthetics": "Fail: coarse controls below44px; Done clipped at820x500",
+    "discoverability": "Partial: association roles fixed; remaining states pending"
+  },
+  "checkpoints": [
+    {
+      "id": "C02-BW01",
+      "requirements": [
+        "R09",
+        "R18"
+      ],
+      "cases": [
+        "S12",
+        "S15",
+        "S29"
+      ],
+      "verdict": "Pass",
+      "observed": "Extension groups distinguish actual Run/Build vs Syntax/highlighting",
+      "evidence": [
+        "candidate02/evidence/C02-BW01-associations.jpg"
+      ]
+    },
+    {
+      "id": "C02-BW02",
+      "requirements": [
+        "R03",
+        "R14"
+      ],
+      "cases": [
+        "S18",
+        "S19"
+      ],
+      "verdict": "Pass",
+      "observed": "Two explicit Hide/Show cycles restore range612–628,row37,scroll710,draft",
+      "evidence": [
+        "candidate02/evidence/C02-BW02-range-replay.json"
+      ]
+    },
+    {
+      "id": "C02-BN-BS",
+      "requirements": [
+        "R13",
+        "R18"
+      ],
+      "cases": [
+        "S17",
+        "S18",
+        "S29"
+      ],
+      "verdict": "Pass",
+      "observed": "820x720 stacked and820x500 Expand/Return preserve task and setup draft",
+      "evidence": [
+        "candidate02/evidence/C02-BN01-live-program.jpg",
+        "candidate02/evidence/C02-BS02-expanded-program.jpg",
+        "candidate02/evidence/C02-BS04-setup-draft-restored.jpg"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "AB03",
+      "severity": "medium",
+      "requirements": [
+        "R13",
+        "R18"
+      ],
+      "cases": [
+        "S17",
+        "S29"
+      ],
+      "baseline_findings": [
+        "G06"
+      ],
+      "expected": "44px minimum button height on coarse input",
+      "observed": "Actual CDPcoarse=true targets36/38/40px, Syntax12px",
+      "evidence_basis": "Supplied actual CDP metrics/images with native semantic backend; not physical device or Wasm tools",
+      "evidence": [
+        "evidence/BT-coarse-before.json"
+      ]
+    },
+    {
+      "id": "AB04",
+      "severity": "medium",
+      "requirements": [
+        "R15",
+        "R18"
+      ],
+      "cases": [
+        "S17",
+        "S22",
+        "S29"
+      ],
+      "baseline_findings": [
+        "G06"
+      ],
+      "expected": "Stable heading/footer around scrolling Settings body",
+      "observed": "820x500 dialog20–480; Done467–497 clipped at entry, scrolling recovers it",
+      "evidence": [
+        "candidate02/evidence/C02-BS06-editor-dialog-geometry.json",
+        "candidate02/evidence/C02-BS06-settings-editor.jpg"
+      ]
+    },
+    {
+      "id": "AB05",
+      "severity": "medium",
+      "requirements": [
+        "R14"
+      ],
+      "cases": [
+        "S19"
+      ],
+      "expected": "Reader selection survives editing unrelated Tools arguments",
+      "observed": "Row38 range629–645 becomes collapsed after arguments edit and remains empty on Console return",
+      "evidence": [
+        "candidate02/evidence/C02-BW03-cross-input-range.json"
+      ]
+    }
+  ],
+  "limitations": [
+    "Direct SET layout probes refused by restricted frontend; not custom-footer proof",
+    "Native-backend production-UI fixture receipt is supplemental, not actual Wasm language proof"
+  ]
+}

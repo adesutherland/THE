@@ -212,6 +212,8 @@ int ui_frame_set_row(UiFrame *frame, size_t index, UiRowRole role,
    row->footer_text = NULL;
    row->footer_text_len = 0;
    row->footer_attr = THE_RENDER_ATTR_NORMAL;
+   row->footer_after_cmdline = 0;
+   row->physical_row = screen_row;
    row->line_number = line_number;
    row->screen_row = screen_row;
    row->logical_start_col = logical_start_col;

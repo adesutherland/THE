@@ -1,0 +1,188 @@
+[
+  {
+    "phase": "selected-completed-job",
+    "range": {
+      "anchorOffset": 408,
+      "anchorParent": "",
+      "focusOffset": 424,
+      "focusParent": "",
+      "isCollapsed": false,
+      "rangeCount": 1,
+      "text": "Retained row  25"
+    },
+    "state": {
+      "active": "Program output",
+      "buttons": [
+        {
+          "label": "Files",
+          "pressed": "false"
+        },
+        {
+          "label": "Console",
+          "pressed": "true"
+        },
+        {
+          "label": "Tools & Profiles",
+          "pressed": "false"
+        }
+      ],
+      "focusCell": "238",
+      "focusLine": "1",
+      "input": "",
+      "outputScroll": 278,
+      "source": [
+        "...+....9....+...10....+...11....+...12....+...13....+...14....+...15....+...16....+...17....+...18....+...19...",
+        "do n=1 to 80; say 'Retained row' right(n,3); end; say 'First reply:'; parse pull reply; do k=1 to 1000; x=k*k; end; do n=81 to 160; say 'Appended row' right(n,3); end; say 'Second reply:'; parse pull reply; say 'Received:' reply; return 0",
+        "*** Bottom of File ***",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "visibleProgram": true,
+      "visibleTools": false
+    }
+  },
+  {
+    "phase": "tools-input-edited",
+    "range": {
+      "anchorOffset": 1,
+      "anchorParent": "advanced-run-setup",
+      "focusOffset": 1,
+      "focusParent": "advanced-run-setup",
+      "isCollapsed": true,
+      "rangeCount": 1,
+      "text": ""
+    },
+    "state": {
+      "active": "Program arguments",
+      "buttons": [
+        {
+          "label": "Files",
+          "pressed": "false"
+        },
+        {
+          "label": "Console",
+          "pressed": "false"
+        },
+        {
+          "label": "Tools & Profiles",
+          "pressed": "true"
+        }
+      ],
+      "focusCell": "238",
+      "focusLine": "1",
+      "input": "",
+      "outputScroll": 0,
+      "source": [
+        "...+....9....+...10....+...11....+...12....+...13....+...14....+...15....+...16....+...17....+...18....+...19...",
+        "do n=1 to 80; say 'Retained row' right(n,3); end; say 'First reply:'; parse pull reply; do k=1 to 1000; x=k*k; end; do n=81 to 160; say 'Appended row' right(n,3); end; say 'Second reply:'; parse pull reply; say 'Received:' reply; return 0",
+        "*** Bottom of File ***",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "visibleProgram": false,
+      "visibleTools": true
+    }
+  },
+  {
+    "phase": "returned-after-tools-input",
+    "range": {
+      "anchorOffset": 408,
+      "anchorParent": "",
+      "focusOffset": 424,
+      "focusParent": "",
+      "isCollapsed": false,
+      "rangeCount": 1,
+      "text": "Retained row  25"
+    },
+    "state": {
+      "active": "Program output",
+      "buttons": [
+        {
+          "label": "Files",
+          "pressed": "false"
+        },
+        {
+          "label": "Console",
+          "pressed": "true"
+        },
+        {
+          "label": "Tools & Profiles",
+          "pressed": "false"
+        }
+      ],
+      "focusCell": "238",
+      "focusLine": "1",
+      "input": "",
+      "outputScroll": 278,
+      "source": [
+        "...+....9....+...10....+...11....+...12....+...13....+...14....+...15....+...16....+...17....+...18....+...19...",
+        "do n=1 to 80; say 'Retained row' right(n,3); end; say 'First reply:'; parse pull reply; do k=1 to 1000; x=k*k; end; do n=81 to 160; say 'Appended row' right(n,3); end; say 'Second reply:'; parse pull reply; say 'Received:' reply; return 0",
+        "*** Bottom of File ***",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "visibleProgram": true,
+      "visibleTools": false
+    }
+  }
+]

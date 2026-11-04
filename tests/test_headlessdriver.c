@@ -6,6 +6,7 @@
 #include "headlessdriver.h"
 #include "the.h"
 #include "utfterm.h"
+#include "reservedfooter.h"
 
 static int failures = 0;
 
@@ -731,6 +732,73 @@ static void test_filearea_cursor_updates_editor_state(void)
    expect_int("filearea.physical.col", physical.col, 2);
 }
 
+#ifdef USE_UTF8
+static void footer_test_write_cluster(TheDriverWindow *window, int row, int col,
+   const CHARTYPE *line, size_t length, TextCluster cluster,
+   TheDriverAttr colour, int advance)
+{
+   TheRenderCluster render;
+   expect_int("footer.cluster.make", the_render_cluster_from_text_cluster(
+      &render, line, length, cluster, colour, 0), 1);
+   render.advance_width = advance;
+   the_headless_driver_ops.write_render_cluster_at(window, row, col, &render);
+}
+
+static void test_footer_utf8_bounds(void)
+{
+   /* Neither display text nor per-byte colours has a trailing allocation. */
+   CHARTYPE text[] = {0xCE, 0xA9, 0xE7, 0x95, 0x8C, 'X'}; /* Ω界X */
+   TheDriverAttr colours[] = {11, 11, 22, 22, 22, 33};
+   RESERVED reserved;
+   TheDriverWindow *window;
+   TheRenderCell stored;
+   const TheDriverOps *ops = &the_headless_driver_ops;
+   struct { int columns, verify, scroll; uint32_t first, last; int last_col, colour; } cases[] = {
+      {1, 1, 0, 0x03A9, 0x03A9, 0, 11},
+      {2, 1, 0, 0x03A9, ' ', 1, 7},
+      {3, 1, 0, 0x03A9, 0x754C, 1, 22},
+      {4, 1, 0, 0x03A9, 'X', 3, 33},
+      {2, 2, 1, 0x754C, 0x754C, 0, 22},
+      {3, 2, 1, 0x754C, 'X', 2, 33},
+      {1, 2, 1, ' ', ' ', 0, 7},
+      {2, 3, 1, ' ', 'X', 1, 33},
+      {2, 5, 1, ' ', ' ', 1, 7},
+      {1, 5, 0, 0x03A9, 0x03A9, 0, 11},
+   };
+   size_t i;
+   utf8_terminal_profile_reset();
+   memset(&reserved, 0, sizeof(reserved));
+   reserved.disp = text;
+   reserved.disp_length = sizeof(text);
+   reserved.highlighting = colours;
+   headless_driver_reset();
+   window = headless_driver_create_screen_role(0, WINDOW_FOOTER, 1, 5, 0, 0);
+   for (i = 0; i < sizeof(cases)/sizeof(cases[0]); i++)
+   {
+      int col;
+      for (col = 0; col < 5; col++) ops->add_cell_at(window, 0, col, 'Z');
+      reserved.autoscroll = cases[i].scroll;
+      reserved_footer_paint_utf8(&reserved, window, 0, cases[i].columns,
+         cases[i].verify, 7, ops, footer_test_write_cluster);
+      headless_driver_render_cell_at(window, 0, 0, &stored);
+      expect_int("footer.first", stored.codepoints[0], cases[i].first);
+      headless_driver_render_cell_at(window, 0, cases[i].last_col, &stored);
+      expect_int("footer.last", stored.codepoints[0], cases[i].last);
+      expect_int("footer.byte.colour", (int)stored.attr, cases[i].colour);
+      headless_driver_render_cell_at(window, 0, cases[i].columns, &stored);
+      expect_int("footer.right.guard", stored.codepoints[0], 'Z');
+   }
+   reserved.disp_length = 2; /* Ω alone: byte length must not become glyph count. */
+   reserved.autoscroll = FALSE;
+   reserved_footer_paint_utf8(&reserved, window, 0, 3, 1, 7, ops, footer_test_write_cluster);
+   headless_driver_render_cell_at(window, 0, 1, &stored);
+   expect_int("footer.short.padding", stored.codepoints[0], ' ');
+   headless_driver_render_cell_at(window, 0, 2, &stored);
+   expect_int("footer.short.tail", stored.codepoints[0], ' ');
+   utf8_terminal_profile_reset();
+}
+#endif
+
 int main(void)
 {
    test_vtable_complete();
@@ -743,6 +811,9 @@ int main(void)
    test_terminal_report_ops();
    test_input_queue_and_adapter();
    test_filearea_cursor_updates_editor_state();
+#ifdef USE_UTF8
+   test_footer_utf8_bounds();
+#endif
    headless_driver_reset();
 
    if (failures != 0)

@@ -1,0 +1,402 @@
+{
+  "format_version": 1,
+  "platform": "browser",
+  "candidate_id": "browser-candidate01",
+  "gate_status": "changes_required",
+  "candidate": {
+    "url": "http://127.0.0.1:49293/",
+    "git_head": "3e87c88533ddc38a6e7e57a62378e8df9922f6ef",
+    "tracked_diff_sha256": "04ef12d468fe0d21f81988a0f8d981c02ccca2960b71f2621aa7af7607234872",
+    "manifest_sha256": "0557d6cbcfa7bd1841a84696b5301b1a7977de644a0665b62615cfe1633d6f2c",
+    "fingerprints_verified_before_ui": true,
+    "asset_freeze": "Coordinator froze candidate01 assets throughout these observations; source-only repairs are pending and not claimed as exercised."
+  },
+  "review": {
+    "reviewer": "design_conformance_review",
+    "observer_mode": "informed independent actual UI reviewer; not a fresh goal-only participant",
+    "tool": "supported CUA Chrome session",
+    "tab_id": "1052210946",
+    "operator_origin_preserved": "127.0.0.1:64823",
+    "started_utc": "2026-11-04 10:50 UTC",
+    "paused_utc": "2026-11-04 11:07 UTC",
+    "reference": "Unchanged frozen workbench-polish.html through local viewer49442, reference screenshot at1440×900; light reference/dark actual; no pixel colour-diff claim.",
+    "cleanup": "Reference tab closed. Candidate01 tab retained without reload for coordinator candidate02; no live job. Owned read-only reference server44045 remains for subsequent stages."
+  },
+  "samples": [
+    {
+      "id": "B-W",
+      "actual_css_px": [
+        1440,
+        900
+      ],
+      "dpr": 1,
+      "pointer": "fine",
+      "coarse": false,
+      "status": "affected wide checkpoints executed"
+    },
+    {
+      "id": "B-K",
+      "actual_css_px": [
+        1280,
+        900
+      ],
+      "dpr": 1,
+      "input": "keyboard only after sample starting focus at THE command; no pointer rescue during recorded route",
+      "status": "targeted menu/focus/dialog checkpoints executed"
+    },
+    {
+      "id": "B-N",
+      "status": "NotRun; scheduled candidate02"
+    },
+    {
+      "id": "B-S",
+      "status": "NotRun; scheduled candidate02"
+    },
+    {
+      "id": "B-T",
+      "status": "NotRun; scheduled candidate02; actual coarse/touch support to verify"
+    }
+  ],
+  "axes": {
+    "functional": {
+      "verdict": "Fail",
+      "summary": "cREXX unsaved build/run, Classic, BASIC/input, draft/job/scroll, unread/Latest and keyboard dialogs work; target Hide destroys reader selection."
+    },
+    "design_fidelity": {
+      "verdict": "Fail",
+      "summary": "Stock wide footer order and simpler common hierarchy match; G03 role labels and selection preservation block acceptance. Custom footer authority and compact layouts remain pending."
+    },
+    "aesthetics": {
+      "verdict": "Partial",
+      "summary": "Wide common hierarchy is comfortable with a single auxiliary heading,13–14px UI text,34px pane/action buttons,12px pane-control inset and14px auxiliary body inset. No duplicated title bands. Remaining compact/touch/custom states require review; no universal pixel golden."
+    },
+    "discoverability": {
+      "verdict": "Fail",
+      "summary": "Ordinary visible routes to build/run/setup/Settings/About are clear in this informed replay; misleading highlighter Run labels remain. No fresh participant/user-study claim."
+    }
+  },
+  "checkpoints": [
+    {
+      "id": "BW01",
+      "case_id": "S01",
+      "requirement_ids": [
+        "R01",
+        "R06",
+        "R11",
+        "R18"
+      ],
+      "baseline_finding_ids": [
+        "G01",
+        "G05",
+        "G06"
+      ],
+      "observed": "Wide stock Text editor, no runner warning; Response/command then guide then status; coherent pane controls.",
+      "verdict": "Pass",
+      "evidence": [
+        "tests/ui-acceptance/alignment/browser/evidence/BW01-text-startup.jpg"
+      ]
+    },
+    {
+      "id": "BW02",
+      "case_id": "S12",
+      "requirement_ids": [
+        "R09",
+        "R18"
+      ],
+      "baseline_finding_ids": [
+        "G02",
+        "G06"
+      ],
+      "observed": "Concise Default editor settings/no user applied summary, Edit profile and workflow; advanced details/import collapsed. Applied/startup state remains to review.",
+      "verdict": "Pass",
+      "evidence": [
+        "tests/ui-acceptance/alignment/browser/evidence/BW02-profiles.jpg"
+      ]
+    },
+    {
+      "id": "BW03",
+      "case_id": "S29",
+      "requirement_ids": [
+        "R09",
+        "R18"
+      ],
+      "baseline_finding_ids": [
+        "G03"
+      ],
+      "observed": "Association-first list/profile link present, but language entries wrongly advertise Run.",
+      "verdict": "Fail",
+      "evidence": [
+        "tests/ui-acceptance/alignment/browser/evidence/BW03-associations.jpg",
+        "tests/ui-acceptance/alignment/browser/evidence/BW03-metrics.json"
+      ]
+    },
+    {
+      "id": "BW04",
+      "case_id": "S07",
+      "requirement_ids": [
+        "R02",
+        "R06"
+      ],
+      "baseline_finding_ids": [],
+      "observed": "Harmless unsaved marker in LevelBSquares captured at revision12, built status0, Run outputs sum55. Unsaved state retained until explicitly saved later.",
+      "verdict": "Pass",
+      "evidence": [
+        "tests/ui-acceptance/alignment/browser/evidence/BW04-unsaved-build-results.jpg",
+        "tests/ui-acceptance/alignment/browser/evidence/BW05-crexx-run.jpg"
+      ]
+    },
+    {
+      "id": "BW06",
+      "case_id": "S19",
+      "requirement_ids": [
+        "R06",
+        "R14"
+      ],
+      "baseline_finding_ids": [
+        "G07"
+      ],
+      "observed": "Switching to another file retains output and says Output retained from another file rather than Buffer changed.",
+      "verdict": "Pass",
+      "evidence": [
+        "tests/ui-acceptance/alignment/browser/evidence/BW06-retained-other-file.jpg"
+      ]
+    },
+    {
+      "id": "BW08",
+      "case_id": "S18",
+      "requirement_ids": [
+        "R03"
+      ],
+      "baseline_finding_ids": [
+        "G04"
+      ],
+      "observed": "Tools target repeated activation hides it and returns to editor; no automatic sibling rendering. Files toggles; Console visibility toggles.",
+      "verdict": "Pass",
+      "evidence": [
+        "tests/ui-acceptance/alignment/browser/evidence/BW08-tools-hidden-editor.jpg",
+        "tests/ui-acceptance/alignment/browser/evidence/BW11-pane-state.json"
+      ]
+    },
+    {
+      "id": "BW09",
+      "case_id": "S18",
+      "requirement_ids": [
+        "R03",
+        "R08",
+        "R14"
+      ],
+      "baseline_finding_ids": [
+        "G04"
+      ],
+      "observed": "Live Classic job/input draft and scroll710 survive cross-switch and target hide/restore; native reader selection fails only on target hide.",
+      "verdict": "Fail",
+      "evidence": [
+        "tests/ui-acceptance/alignment/browser/evidence/BW09-live-draft.jpg",
+        "tests/ui-acceptance/alignment/browser/evidence/BW10-reader-before.jpg",
+        "tests/ui-acceptance/alignment/browser/evidence/BW11-pane-state.json",
+        "tests/ui-acceptance/alignment/browser/evidence/BW12d-native-selection.json"
+      ]
+    },
+    {
+      "id": "BW13",
+      "case_id": "S19",
+      "requirement_ids": [
+        "R08",
+        "R14"
+      ],
+      "baseline_finding_ids": [],
+      "observed": "Sending retained draft produces Received:review draft, unread cue while scrolled back; Jump to latest removes cue and follows output.",
+      "verdict": "Pass",
+      "evidence": [
+        "tests/ui-acceptance/alignment/browser/evidence/BW13-reader-unread.jpg"
+      ]
+    },
+    {
+      "id": "BW14",
+      "case_id": "S08",
+      "requirement_ids": [
+        "R07",
+        "R08"
+      ],
+      "baseline_finding_ids": [],
+      "observed": "MiniBASIC immediate run outputs SUM=55, accepts7 and reports nonnegative7/status0.",
+      "verdict": "Pass",
+      "evidence": [
+        "tests/ui-acceptance/alignment/browser/evidence/BW14-basic-output.jpg"
+      ]
+    },
+    {
+      "id": "BK01",
+      "case_id": "S05",
+      "requirement_ids": [
+        "R05",
+        "R15"
+      ],
+      "baseline_finding_ids": [],
+      "observed": "Keyboard-only F10→RightRight→Down3→Enter opens Settings; Tab traversal opens Editor; Escape returns THE command; Help/About reached through arrows.",
+      "verdict": "Pass",
+      "evidence": [
+        "tests/ui-acceptance/alignment/browser/evidence/BK01-settings-keyboard.jpg",
+        "tests/ui-acceptance/alignment/browser/evidence/BK02-editor-settings-keyboard.jpg",
+        "tests/ui-acceptance/alignment/browser/evidence/BK03-about-keyboard.jpg"
+      ]
+    },
+    {
+      "id": "BK04",
+      "case_id": "S02",
+      "requirement_ids": [
+        "R02",
+        "R06"
+      ],
+      "baseline_finding_ids": [],
+      "observed": "Harmless edited LevelB source remains after file/pane changes and is explicitly saved in isolated origin.",
+      "verdict": "Pass",
+      "evidence": [
+        "tests/ui-acceptance/alignment/browser/evidence/BK04-source-retained-saved.jpg"
+      ]
+    },
+    {
+      "id": "BW07-CG",
+      "case_id": "S06",
+      "requirement_ids": [
+        "R07",
+        "R08"
+      ],
+      "baseline_finding_ids": [],
+      "observed": "ClassicDemo completed Helloλ/Total6/Routine6 in actual AX observation; the saved BW07 image shows startup only and is not completion proof. The separate Classic reader fixture visibly ran80rows, accepted review draft and completed Received:review draft/status0.",
+      "verdict": "Pass",
+      "evidence": [
+        "tests/ui-acceptance/alignment/browser/evidence/BW09-live-draft.jpg",
+        "tests/ui-acceptance/alignment/browser/evidence/BW13-reader-unread.jpg"
+      ],
+      "evidence_limit": "ClassicDemo completion is tool-trace observation; local image evidence primarily qualifies the Classic reader fixture."
+    }
+  ],
+  "findings": [
+    {
+      "id": "AB01",
+      "baseline_findings": [
+        "G03"
+      ],
+      "requirements": [
+        "R09",
+        "R18"
+      ],
+      "scenarios": [
+        "S12",
+        "S15",
+        "S29"
+      ],
+      "severity": "medium",
+      "status": "Open",
+      "axes": [
+        "design_fidelity",
+        "discoverability"
+      ],
+      "title": "Association summary assigns Run to language/highlighter registrations",
+      "expected": "Primary file-type relationships describe admitted execution/build actions; syntax registrations do not advertise Run. Compiled source communicates Build→Run clearly.",
+      "observed": "B-W primary list displays Classic Rexx highlighter — Run and MiniBASIC syntax — Run; cREXX execution/compiler entries appear as separate Run and Build rows. List-first positioning and the profile-edit link are implemented.",
+      "evidence": [
+        "tests/ui-acceptance/alignment/browser/evidence/BW03-associations.jpg",
+        "tests/ui-acceptance/alignment/browser/evidence/BW03-metrics.json"
+      ],
+      "coordinator_status": "Acknowledged; role-aware grouping/labels source repair prepared for combined candidate02."
+    },
+    {
+      "id": "AB02",
+      "baseline_findings": [
+        "G04"
+      ],
+      "requirements": [
+        "R03",
+        "R14"
+      ],
+      "scenarios": [
+        "S18",
+        "S19"
+      ],
+      "severity": "medium",
+      "status": "Open",
+      "axes": [
+        "functional",
+        "design_fidelity"
+      ],
+      "title": "Returning to editor on target hide collapses the Program reader selection",
+      "expected": "Hide/restore retains output reader selection, scroll, input draft, job and source state. Cross-switch and target hide are distinct transitions.",
+      "observed": "With an80-line Classic fixture waiting, selected text Retained row  37 survives Tools→Program, but active Console Hide collapses the native selection to an empty range. Reopening does not restore it. Scroll710, input review draft and Waiting job survive. Both panes are hidden after target hide, and editor focus returns, matching D08 visibility policy.",
+      "native_range_proof": {
+        "before": {
+          "text": "Retained row  37",
+          "anchorOffset": 612,
+          "focusOffset": 628,
+          "rangeCount": 1,
+          "isCollapsed": false
+        },
+        "after_cross_switch": "identical",
+        "after_hide_and_show": {
+          "text": "",
+          "anchorOffset": 3,
+          "focusOffset": 3,
+          "rangeCount": 1,
+          "isCollapsed": true
+        }
+      },
+      "evidence": [
+        "tests/ui-acceptance/alignment/browser/evidence/BW10b-reader-selection-before.jpg",
+        "tests/ui-acceptance/alignment/browser/evidence/BW11-reader-restored.jpg",
+        "tests/ui-acceptance/alignment/browser/evidence/BW11-pane-state.json",
+        "tests/ui-acceptance/alignment/browser/evidence/BW12-selection-before-cross.jpg",
+        "tests/ui-acceptance/alignment/browser/evidence/BW12b-selection-after-cross.jpg",
+        "tests/ui-acceptance/alignment/browser/evidence/BW12c-selection-after-target-hide.jpg",
+        "tests/ui-acceptance/alignment/browser/evidence/BW12d-native-selection.json"
+      ],
+      "coordinator_status": "Acknowledged for bounded range preservation repair; no source/job ownership changes requested."
+    }
+  ],
+  "remaining_changed_mandatory_defect_count": 2,
+  "case_coverage": {
+    "S01": "Partial",
+    "S02": "Partial",
+    "S03": "NotRun",
+    "S04": "NotRun",
+    "S05": "Partial",
+    "S06": "Partial",
+    "S07": "Partial; LevelB exercised, LevelG variants not replayed",
+    "S08": "Partial",
+    "S09": "NotRun",
+    "S10": "NotRun",
+    "S11": "NotRun",
+    "S12": "Partial; common summary only; profile build/apply/restart pending",
+    "S13": "NotRun",
+    "S14": "NotRun",
+    "S15": "NotRun; candidate02 custom/off/multiple/footer authority pending",
+    "S16": "NotRun",
+    "S17": "Partial; wide+keyboard sample only",
+    "S18": "Fail; target-hide selection checkpoint fails; remaining compact steps pending",
+    "S19": "Fail; selection retention on target hide fails; other sampled scroll/draft/unread/Latest checks pass",
+    "S20": "NotRun",
+    "S21": "Partial",
+    "S22": "Partial",
+    "S23": "Partial",
+    "S24": "NotRun",
+    "S25": "NotRun",
+    "S26": "NotRun",
+    "S27": "NotRun",
+    "S28": "NotRun",
+    "S29": "Partial; wide/dialog metrics and judgement done; compact/touch pending"
+  },
+  "full_catalogue_execution": false,
+  "baseline_work_not_closed": [
+    "D02 general Redo",
+    "D03 full source transfer/Save as",
+    "broader R10 owned macro/menu composition"
+  ],
+  "limitations": [
+    "No candidate02 fixes exercised yet.",
+    "No custom band/Unicode/page-navigation qualification on candidate01, per coordinator core-audit instruction.",
+    "Initial multiline typeText fixture setup did not produce separate source lines; source was replaced through SelectAll with a valid semicolon-separated one-line fixture. Multiline paste correctness is not qualified here.",
+    "Restricted EDIT command was refused; ordinary New file dialog successfully created the isolated fixture. This is not claimed as a new capability defect.",
+    "Build results still displays detailed UUID path; primary Profiles no longer does. No separate new blocker raised for an advanced diagnostic view."
+  ],
+  "catalogue_sha256": "972dc82994c237a86f9cd0881f9cace5870e88a61745a5064cb6c7fbcf21ac9f"
+}

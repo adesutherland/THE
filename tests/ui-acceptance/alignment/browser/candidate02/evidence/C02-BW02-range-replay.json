@@ -1,0 +1,254 @@
+[
+  {
+    "checkpoint": "before",
+    "selection": {
+      "anchorOffset": 612,
+      "anchorParent": "",
+      "focusOffset": 628,
+      "focusParent": "",
+      "isCollapsed": false,
+      "rangeCount": 1,
+      "text": "Retained row  37"
+    },
+    "pane": {
+      "active": "Program output",
+      "buttons": [
+        {
+          "label": "Files",
+          "pressed": "false"
+        },
+        {
+          "label": "Console · Input requested",
+          "pressed": "true"
+        },
+        {
+          "label": "Tools & Profiles",
+          "pressed": "false"
+        }
+      ],
+      "focusCell": "3",
+      "focusLine": "2",
+      "input": "candidate02 draft",
+      "outputScroll": 710,
+      "source": [
+        "|...+....1....+....2....+....3....+....4....+....5....+....6....+....7.]..+....8....+....9....+...10....+...11..",
+        "*** Top of File ***",
+        "do n=1 to 80; say 'Retained row' right(n,3); end; say 'Reply when ready:'; parse pull reply; say 'Received:' reply; return 0",
+        "*** Bottom of File ***",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "visibleProgram": true,
+      "visibleTools": false
+    }
+  },
+  {
+    "checkpoint": "hidden",
+    "selection": {
+      "anchorOffset": 3,
+      "anchorParent": "",
+      "focusOffset": 3,
+      "focusParent": "",
+      "isCollapsed": true,
+      "rangeCount": 1,
+      "text": ""
+    },
+    "pane": {
+      "active": "Editor input",
+      "buttons": [
+        {
+          "label": "Files",
+          "pressed": "false"
+        },
+        {
+          "label": "Console · Input requested",
+          "pressed": "false"
+        },
+        {
+          "label": "Tools & Profiles",
+          "pressed": "false"
+        }
+      ],
+      "focusCell": "3",
+      "focusLine": "2",
+      "input": "candidate02 draft",
+      "outputScroll": 0,
+      "source": [
+        "|...+....1....+....2....+....3....+....4....+....5....+....6....+....7.]..+....8....+....9....+...10....+...11....+...12....+...13....+...14....+...15....+...16",
+        "*** Top of File ***",
+        "do n=1 to 80; say 'Retained row' right(n,3); end; say 'Reply when ready:'; parse pull reply; say 'Received:' reply; return 0",
+        "*** Bottom of File ***",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "visibleProgram": false,
+      "visibleTools": false
+    }
+  },
+  {
+    "checkpoint": "restored",
+    "selection": {
+      "anchorOffset": 612,
+      "anchorParent": "",
+      "focusOffset": 628,
+      "focusParent": "",
+      "isCollapsed": false,
+      "rangeCount": 1,
+      "text": "Retained row  37"
+    },
+    "pane": {
+      "active": "Program output",
+      "buttons": [
+        {
+          "label": "Files",
+          "pressed": "false"
+        },
+        {
+          "label": "Console · Input requested",
+          "pressed": "true"
+        },
+        {
+          "label": "Tools & Profiles",
+          "pressed": "false"
+        }
+      ],
+      "focusCell": "3",
+      "focusLine": "2",
+      "input": "candidate02 draft",
+      "outputScroll": 710,
+      "source": [
+        "|...+....1....+....2....+....3....+....4....+....5....+....6....+....7.]..+....8....+....9....+...10....+...11..",
+        "*** Top of File ***",
+        "do n=1 to 80; say 'Retained row' right(n,3); end; say 'Reply when ready:'; parse pull reply; say 'Received:' reply; return 0",
+        "*** Bottom of File ***",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "visibleProgram": true,
+      "visibleTools": false
+    }
+  },
+  {
+    "checkpoint": "restored-second-cycle",
+    "selection": {
+      "anchorOffset": 612,
+      "anchorParent": "",
+      "focusOffset": 628,
+      "focusParent": "",
+      "isCollapsed": false,
+      "rangeCount": 1,
+      "text": "Retained row  37"
+    },
+    "pane": {
+      "active": "Program output",
+      "buttons": [
+        {
+          "label": "Files",
+          "pressed": "false"
+        },
+        {
+          "label": "Console · Input requested",
+          "pressed": "true"
+        },
+        {
+          "label": "Tools & Profiles",
+          "pressed": "false"
+        }
+      ],
+      "focusCell": "3",
+      "focusLine": "2",
+      "input": "candidate02 draft",
+      "outputScroll": 710,
+      "source": [
+        "|...+....1....+....2....+....3....+....4....+....5....+....6....+....7.]..+....8....+....9....+...10....+...11..",
+        "*** Top of File ***",
+        "do n=1 to 80; say 'Retained row' right(n,3); end; say 'Reply when ready:'; parse pull reply; say 'Received:' reply; return 0",
+        "*** Bottom of File ***",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "visibleProgram": true,
+      "visibleTools": false
+    }
+  }
+]

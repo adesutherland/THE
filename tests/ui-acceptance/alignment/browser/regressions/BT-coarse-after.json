@@ -1,0 +1,831 @@
+{
+  "fixture": "semantic-protocol browser presentation",
+  "assets": "/tmp/the-alignment-coarse-ui",
+  "viewport": {
+    "width": 390,
+    "height": 844,
+    "deviceScaleFactor": 1
+  },
+  "input": {
+    "coarse": true,
+    "fine": false,
+    "hover": false,
+    "maxTouchPoints": 1,
+    "zoom": 1
+  },
+  "captures": [
+    {
+      "name": "console",
+      "controls": [
+        {
+          "label": "Menu",
+          "class": "menu-trigger ",
+          "x": 7,
+          "y": 11.5,
+          "width": 67.65625,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Syntax: ready",
+          "class": "parser-status",
+          "x": 84.65625,
+          "y": 19,
+          "width": 82.578125,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Open",
+          "class": "icon-button",
+          "x": 277,
+          "y": 11.5,
+          "width": 44,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Save",
+          "class": "icon-button",
+          "x": 321,
+          "y": 11.5,
+          "width": 44,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "example.rexx",
+          "class": "buffer-tab buffer-tab-current",
+          "x": 0,
+          "y": 68,
+          "width": 104.640625,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Files",
+          "class": "",
+          "x": 6,
+          "y": 117,
+          "width": 45.796875,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Console · Input requested",
+          "class": "console-toggle",
+          "x": 57.796875,
+          "y": 117,
+          "width": 173.921875,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Tools & Profiles",
+          "class": "tools-toggle",
+          "x": 237.71875,
+          "y": 117,
+          "width": 111.90625,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Run with Classic Rexx",
+          "class": "file-action-run",
+          "x": 8,
+          "y": 192,
+          "width": 155.53125,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Execute",
+          "class": "",
+          "x": 247.484375,
+          "y": 435,
+          "width": 68.0625,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "History",
+          "class": "command-history-toggle",
+          "x": 319.546875,
+          "y": 435,
+          "width": 63.453125,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Expand pane",
+          "class": "pane-expand",
+          "x": 233.8125,
+          "y": 575,
+          "width": 94.1875,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Hide program console",
+          "class": "",
+          "x": 334,
+          "y": 575,
+          "width": 44,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Stop",
+          "class": "",
+          "x": 270,
+          "y": 640,
+          "width": 50.234375,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Clear",
+          "class": "",
+          "x": 328.234375,
+          "y": 640,
+          "width": 53.765625,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Send",
+          "class": "",
+          "x": 244.6875,
+          "y": 792,
+          "width": 52.984375,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "End input",
+          "class": "",
+          "x": 302.671875,
+          "y": 792,
+          "width": 79.328125,
+          "height": 44,
+          "font": "13px"
+        }
+      ],
+      "undersized": []
+    },
+    {
+      "name": "profiles",
+      "controls": [
+        {
+          "label": "Menu",
+          "class": "menu-trigger ",
+          "x": 7,
+          "y": 11.5,
+          "width": 67.65625,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Syntax: ready",
+          "class": "parser-status",
+          "x": 84.65625,
+          "y": 19,
+          "width": 82.578125,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Open",
+          "class": "icon-button",
+          "x": 277,
+          "y": 11.5,
+          "width": 44,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Save",
+          "class": "icon-button",
+          "x": 321,
+          "y": 11.5,
+          "width": 44,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "example.rexx",
+          "class": "buffer-tab buffer-tab-current",
+          "x": 0,
+          "y": 68,
+          "width": 104.640625,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Files",
+          "class": "",
+          "x": 6,
+          "y": 117,
+          "width": 45.796875,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Console · Input requested",
+          "class": "console-toggle",
+          "x": 57.796875,
+          "y": 117,
+          "width": 173.921875,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Tools & Profiles",
+          "class": "tools-toggle",
+          "x": 237.71875,
+          "y": 117,
+          "width": 111.90625,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Run with Classic Rexx",
+          "class": "file-action-run",
+          "x": 8,
+          "y": 192,
+          "width": 155.53125,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Execute",
+          "class": "",
+          "x": 247.484375,
+          "y": 435,
+          "width": 68.0625,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "History",
+          "class": "command-history-toggle",
+          "x": 319.546875,
+          "y": 435,
+          "width": 63.453125,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Expand pane",
+          "class": "pane-expand",
+          "x": 233.8125,
+          "y": 575,
+          "width": 94.1875,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Hide",
+          "class": "",
+          "x": 334,
+          "y": 575,
+          "width": 44,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Profiles",
+          "class": "",
+          "x": 14,
+          "y": 640,
+          "width": 63.53125,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "File types & tools",
+          "class": "",
+          "x": 83.53125,
+          "y": 640,
+          "width": 122.25,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Build results",
+          "class": "",
+          "x": 211.78125,
+          "y": 640,
+          "width": 92.546875,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Edit profile",
+          "class": "edit-profile",
+          "x": 14,
+          "y": 797.625,
+          "width": 87.421875,
+          "height": 44,
+          "font": "13px"
+        }
+      ],
+      "undersized": []
+    },
+    {
+      "name": "associations",
+      "controls": [
+        {
+          "label": "Menu",
+          "class": "menu-trigger ",
+          "x": 7,
+          "y": 11.5,
+          "width": 67.65625,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Syntax: ready",
+          "class": "parser-status",
+          "x": 84.65625,
+          "y": 19,
+          "width": 82.578125,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Open",
+          "class": "icon-button",
+          "x": 277,
+          "y": 11.5,
+          "width": 44,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Save",
+          "class": "icon-button",
+          "x": 321,
+          "y": 11.5,
+          "width": 44,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "example.rexx",
+          "class": "buffer-tab buffer-tab-current",
+          "x": 0,
+          "y": 68,
+          "width": 104.640625,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Files",
+          "class": "",
+          "x": 6,
+          "y": 117,
+          "width": 45.796875,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Console · Input requested",
+          "class": "console-toggle",
+          "x": 57.796875,
+          "y": 117,
+          "width": 173.921875,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Tools & Profiles",
+          "class": "tools-toggle",
+          "x": 237.71875,
+          "y": 117,
+          "width": 111.90625,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Run with Classic Rexx",
+          "class": "file-action-run",
+          "x": 8,
+          "y": 192,
+          "width": 155.53125,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Execute",
+          "class": "",
+          "x": 247.484375,
+          "y": 435,
+          "width": 68.0625,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "History",
+          "class": "command-history-toggle",
+          "x": 319.546875,
+          "y": 435,
+          "width": 63.453125,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Expand pane",
+          "class": "pane-expand",
+          "x": 233.8125,
+          "y": 575,
+          "width": 94.1875,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Hide",
+          "class": "",
+          "x": 334,
+          "y": 575,
+          "width": 44,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Profiles",
+          "class": "",
+          "x": 14,
+          "y": 640,
+          "width": 63.53125,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "File types & tools",
+          "class": "",
+          "x": 83.53125,
+          "y": 640,
+          "width": 122.25,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Build results",
+          "class": "",
+          "x": 211.78125,
+          "y": 640,
+          "width": 92.546875,
+          "height": 44,
+          "font": "13px"
+        }
+      ],
+      "undersized": []
+    },
+    {
+      "name": "files",
+      "controls": [
+        {
+          "label": "Menu",
+          "class": "menu-trigger ",
+          "x": 7,
+          "y": 11.5,
+          "width": 67.65625,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Syntax: ready",
+          "class": "parser-status",
+          "x": 84.65625,
+          "y": 19,
+          "width": 82.578125,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Open",
+          "class": "icon-button",
+          "x": 277,
+          "y": 11.5,
+          "width": 44,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Save",
+          "class": "icon-button",
+          "x": 321,
+          "y": 11.5,
+          "width": 44,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "example.rexx",
+          "class": "buffer-tab buffer-tab-current",
+          "x": 0,
+          "y": 68,
+          "width": 104.640625,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Files",
+          "class": "",
+          "x": 6,
+          "y": 117,
+          "width": 45.796875,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Console · Input requested",
+          "class": "console-toggle",
+          "x": 57.796875,
+          "y": 117,
+          "width": 173.921875,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Tools & Profiles",
+          "class": "tools-toggle",
+          "x": 237.71875,
+          "y": 117,
+          "width": 111.90625,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Run with Classic Rexx",
+          "class": "file-action-run",
+          "x": 8,
+          "y": 192,
+          "width": 155.53125,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Expand pane",
+          "class": "pane-expand",
+          "x": 239.671875,
+          "y": 570.5,
+          "width": 99.328125,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Close files",
+          "class": "icon-button",
+          "x": 339,
+          "y": 570.5,
+          "width": 44,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Workspace",
+          "class": "root-current",
+          "x": 0,
+          "y": 621,
+          "width": 105.3125,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Parent directory",
+          "class": "icon-button",
+          "x": 3,
+          "y": 671.5,
+          "width": 44,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Refresh files",
+          "class": "icon-button",
+          "x": 343,
+          "y": 671.5,
+          "width": 44,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "example.rexx",
+          "class": "",
+          "x": 0,
+          "y": 726,
+          "width": 390,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Execute",
+          "class": "",
+          "x": 247.484375,
+          "y": 435,
+          "width": 68.0625,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "History",
+          "class": "command-history-toggle",
+          "x": 319.546875,
+          "y": 435,
+          "width": 63.453125,
+          "height": 44,
+          "font": "13px"
+        }
+      ],
+      "undersized": []
+    },
+    {
+      "name": "menu",
+      "controls": [
+        {
+          "label": "Menu",
+          "class": "menu-trigger menu-trigger-open",
+          "x": 7,
+          "y": 11.5,
+          "width": 67.65625,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "File",
+          "class": "",
+          "x": 13,
+          "y": 63.5,
+          "width": 44,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Edit",
+          "class": "",
+          "x": 59,
+          "y": 63.5,
+          "width": 44,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "View",
+          "class": "",
+          "x": 105,
+          "y": 63.5,
+          "width": 45.171875,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Tools",
+          "class": "",
+          "x": 152.171875,
+          "y": 63.5,
+          "width": 48.046875,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Help",
+          "class": "",
+          "x": 202.21875,
+          "y": 63.5,
+          "width": 44,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "OpenCtrl+O",
+          "class": "",
+          "x": 8,
+          "y": 119.5,
+          "width": 364,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "SaveCtrl+S",
+          "class": "",
+          "x": 8,
+          "y": 163.5,
+          "width": 364,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Syntax: ready",
+          "class": "parser-status",
+          "x": 84.65625,
+          "y": 19,
+          "width": 82.578125,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Open",
+          "class": "icon-button",
+          "x": 277,
+          "y": 11.5,
+          "width": 44,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Save",
+          "class": "icon-button",
+          "x": 321,
+          "y": 11.5,
+          "width": 44,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Run with Classic Rexx",
+          "class": "file-action-run",
+          "x": 8,
+          "y": 192,
+          "width": 155.53125,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Expand pane",
+          "class": "pane-expand",
+          "x": 239.671875,
+          "y": 570.5,
+          "width": 99.328125,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Close files",
+          "class": "icon-button",
+          "x": 339,
+          "y": 570.5,
+          "width": 44,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Workspace",
+          "class": "root-current",
+          "x": 0,
+          "y": 621,
+          "width": 105.3125,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Parent directory",
+          "class": "icon-button",
+          "x": 3,
+          "y": 671.5,
+          "width": 44,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Refresh files",
+          "class": "icon-button",
+          "x": 343,
+          "y": 671.5,
+          "width": 44,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "example.rexx",
+          "class": "",
+          "x": 0,
+          "y": 726,
+          "width": 390,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "Execute",
+          "class": "",
+          "x": 247.484375,
+          "y": 435,
+          "width": 68.0625,
+          "height": 44,
+          "font": "13px"
+        },
+        {
+          "label": "History",
+          "class": "command-history-toggle",
+          "x": 319.546875,
+          "y": 435,
+          "width": 63.453125,
+          "height": 44,
+          "font": "13px"
+        }
+      ],
+      "undersized": []
+    }
+  ]
+}

@@ -1,0 +1,143 @@
+{
+  "assets": "/tmp/the-alignment-coarse-ui",
+  "captures": [
+    {
+      "width": 820,
+      "height": 500,
+      "coarse": false,
+      "geometry": {
+        "dialog": {
+          "top": 20,
+          "bottom": 480,
+          "left": 70,
+          "right": 750,
+          "height": 460
+        },
+        "heading": {
+          "top": 21,
+          "bottom": 80,
+          "left": 71,
+          "right": 749,
+          "height": 59
+        },
+        "body": {
+          "top": 80,
+          "bottom": 424,
+          "left": 71,
+          "right": 749,
+          "height": 344
+        },
+        "footer": {
+          "top": 424,
+          "bottom": 479,
+          "left": 71,
+          "right": 749,
+          "height": 55
+        },
+        "done": {
+          "top": 437,
+          "bottom": 467,
+          "left": 659,
+          "right": 733,
+          "height": 30
+        },
+        "scrollHeight": 405,
+        "clientHeight": 344,
+        "outerScrollHeight": 458,
+        "outerClientHeight": 458
+      }
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "coarse": true,
+      "geometry": {
+        "dialog": {
+          "top": 50.5,
+          "bottom": 793.5,
+          "left": 20,
+          "right": 370,
+          "height": 743
+        },
+        "heading": {
+          "top": 51.5,
+          "bottom": 124.5,
+          "left": 21,
+          "right": 369,
+          "height": 73
+        },
+        "body": {
+          "top": 124.5,
+          "bottom": 723.5,
+          "left": 21,
+          "right": 369,
+          "height": 599
+        },
+        "footer": {
+          "top": 723.5,
+          "bottom": 792.5,
+          "left": 21,
+          "right": 369,
+          "height": 69
+        },
+        "done": {
+          "top": 736.5,
+          "bottom": 780.5,
+          "left": 301.15625,
+          "right": 353,
+          "height": 44
+        },
+        "scrollHeight": 599,
+        "clientHeight": 599,
+        "outerScrollHeight": 741,
+        "outerClientHeight": 741
+      }
+    },
+    {
+      "width": 390,
+      "height": 500,
+      "coarse": true,
+      "geometry": {
+        "dialog": {
+          "top": 20,
+          "bottom": 480,
+          "left": 20,
+          "right": 370,
+          "height": 460
+        },
+        "heading": {
+          "top": 21,
+          "bottom": 94,
+          "left": 21,
+          "right": 369,
+          "height": 73
+        },
+        "body": {
+          "top": 94,
+          "bottom": 410,
+          "left": 21,
+          "right": 369,
+          "height": 316
+        },
+        "footer": {
+          "top": 410,
+          "bottom": 479,
+          "left": 21,
+          "right": 369,
+          "height": 69
+        },
+        "done": {
+          "top": 423,
+          "bottom": 467,
+          "left": 301.15625,
+          "right": 353,
+          "height": 44
+        },
+        "scrollHeight": 599,
+        "clientHeight": 316,
+        "outerScrollHeight": 458,
+        "outerClientHeight": 458
+      }
+    }
+  ]
+}

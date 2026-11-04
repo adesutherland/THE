@@ -1,0 +1,214 @@
+[
+  {
+    "checkpoint": "before",
+    "state": {
+      "active": "Program output",
+      "buttons": [
+        {
+          "label": "Files",
+          "pressed": "false"
+        },
+        {
+          "label": "Console · Input requested",
+          "pressed": "true"
+        },
+        {
+          "label": "Tools & Profiles",
+          "pressed": "false"
+        }
+      ],
+      "focusCell": "124",
+      "focusLine": "1",
+      "input": "review draft",
+      "outputScroll": 710,
+      "source": [
+        "..6....+....7.]..+....8....+....9....+...10....+...11....+...12....+...13....+...14....+...15....+...16....+....",
+        "do n=1 to 80; say 'Retained row' right(n,3); end; say 'Reply when ready:'; parse pull reply; say 'Received:' reply; return 0",
+        "*** Bottom of File ***",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "visibleProgram": true,
+      "visibleTools": false
+    }
+  },
+  {
+    "checkpoint": "cross-switch-restored",
+    "state": {
+      "active": null,
+      "buttons": [
+        {
+          "label": "Files",
+          "pressed": "false"
+        },
+        {
+          "label": "Console · Input requested",
+          "pressed": "true"
+        },
+        {
+          "label": "Tools & Profiles",
+          "pressed": "false"
+        }
+      ],
+      "focusCell": "124",
+      "focusLine": "1",
+      "input": "review draft",
+      "outputScroll": 710,
+      "source": [
+        "..6....+....7.]..+....8....+....9....+...10....+...11....+...12....+...13....+...14....+...15....+...16....+....",
+        "do n=1 to 80; say 'Retained row' right(n,3); end; say 'Reply when ready:'; parse pull reply; say 'Received:' reply; return 0",
+        "*** Bottom of File ***",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "visibleProgram": true,
+      "visibleTools": false
+    }
+  },
+  {
+    "checkpoint": "hidden-to-editor",
+    "state": {
+      "active": "Editor input",
+      "buttons": [
+        {
+          "label": "Files",
+          "pressed": "false"
+        },
+        {
+          "label": "Console · Input requested",
+          "pressed": "false"
+        },
+        {
+          "label": "Tools & Profiles",
+          "pressed": "false"
+        }
+      ],
+      "focusCell": "124",
+      "focusLine": "1",
+      "input": "review draft",
+      "outputScroll": 0,
+      "source": [
+        "..6....+....7.]..+....8....+....9....+...10....+...11....+...12....+...13....+...14....+...15....+...16....+...17....+...18....+...19....+...20....+...21....+..",
+        "do n=1 to 80; say 'Retained row' right(n,3); end; say 'Reply when ready:'; parse pull reply; say 'Received:' reply; return 0",
+        "*** Bottom of File ***",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "visibleProgram": false,
+      "visibleTools": false
+    }
+  },
+  {
+    "checkpoint": "shown-again",
+    "state": {
+      "active": null,
+      "buttons": [
+        {
+          "label": "Files",
+          "pressed": "false"
+        },
+        {
+          "label": "Console · Input requested",
+          "pressed": "true"
+        },
+        {
+          "label": "Tools & Profiles",
+          "pressed": "false"
+        }
+      ],
+      "focusCell": "124",
+      "focusLine": "1",
+      "input": "review draft",
+      "outputScroll": 710,
+      "source": [
+        "..6....+....7.]..+....8....+....9....+...10....+...11....+...12....+...13....+...14....+...15....+...16....+....",
+        "do n=1 to 80; say 'Retained row' right(n,3); end; say 'Reply when ready:'; parse pull reply; say 'Received:' reply; return 0",
+        "*** Bottom of File ***",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "visibleProgram": true,
+      "visibleTools": false
+    }
+  }
+]

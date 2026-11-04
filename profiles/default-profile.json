@@ -109,10 +109,10 @@
     "set cursorstyle insert ibeam steady",
     "set cursorstyle overwrite block steady",
     "set reserved -2 normal         F10 Menu  F6 Cmd/File  Esc Cmd  F1 Help  Ctrl-S Save  Shift-Tab Controls",
-    "set footer keys -2",
+    "set footer keys -2 aftercmdline",
     "set reserved -1 #D4D4D4 on #202328",
     "set footer response -1",
-    "set msgline on -2 1"
+    "set msgline on -3 1"
   ],
   "web_commands": [],
   "wasm_commands": [

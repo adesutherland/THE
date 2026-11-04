@@ -1,0 +1,2 @@
+# Preserve the captured CMake compiler flags verbatim, including its final line.
+headless-flags.make.txt -whitespace

@@ -1,0 +1,3 @@
+Candidate02 closes AB01 role aggregation and AB02 explicit-Hide range restoration. Two target Hide/Show cycles restored the native reader range, draft and scroll. Targeted 820×720 and 820×500 layouts preserved task data and exposed Expand/Return controls.
+
+AB03 coarse targets below44px, AB04 clipped short Settings Done, and AB05 range loss after editing Tools arguments required repair. Direct layout commands were refused by the restricted frontend; custom footer authority was deferred to the actual profile Build/Apply workflow. The native-backend production-UI fixture is supplemental evidence, not Wasm language proof. Full catalogue scripts remain Partial/NotRun beyond these checkpoints.

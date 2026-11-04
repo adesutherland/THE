@@ -1367,6 +1367,7 @@ FOOTER [*]
 
      footer.0        - the number of named footer rows
      footer.1        - name followed by the reserved position specification
+                       and AFTERCMDLINE when explicitly placed in the band
      footer.n        - name followed by the reserved position specification
 
 RESERved [*]

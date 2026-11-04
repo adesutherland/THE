@@ -131,6 +131,7 @@ export async function minibasicCandidateSmoke({
     assert.equal(await durable(`/workspace/${name}`), null, `${name} left for the visible Import RXBIN flow`);
     await showTools();
     await evaluate("[...document.querySelectorAll('.tools-sections button')].find(node=>node.textContent==='File types & tools').click()");
+    await evaluate("(() => {const details=document.querySelector('.advanced-run-setup');if(!details.open)details.querySelector('summary').click();})()");
     await waitFor(() => evaluate("[...document.querySelectorAll('.tools-profiles-pane button')].some(button=>button.textContent==='Import RXBIN'&&button.getClientRects().length&&!button.disabled)"), "visible Import RXBIN control");
     await evaluate(`(() => {
       const bytes=Uint8Array.from(atob(${JSON.stringify(bytes.toString("base64"))}),c=>c.charCodeAt(0));
@@ -324,6 +325,7 @@ export async function minibasicCandidateSmoke({
   async function applyProfilePath(path) {
     await showTools();
     await evaluate("[...document.querySelectorAll('.tools-sections button')].find(node=>node.textContent==='Profiles').click()");
+    await evaluate("(() => {const details=document.querySelector('.compiled-profile-setup');if(!details.open)details.querySelector('summary').click();})()");
     await waitFor(() => evaluate("!!document.querySelector('[aria-label=\"Compiled profile path\"]')"),
       "compiled profile path control");
     await evaluate(`(() => { const input=document.querySelector('[aria-label="Compiled profile path"]');

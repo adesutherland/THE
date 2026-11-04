@@ -4,6 +4,8 @@ export interface ScreenRow {
   r: number;
   role: string;
   footer?: string;
+  footer_placement?: "inline" | "aftercmdline";
+  physical_row?: number;
   footer_text?: string;
   footer_colour?: PanelColour;
   line: number;
@@ -48,6 +50,7 @@ export type ConsoleColours = Partial<Record<"body" | "header" | "input" | "contr
 export type DiagnosticColours = Partial<Record<"error" | "warning" | "information", PanelColour>>;
 
 export interface Snapshot {
+  regions?: Partial<Record<"filearea" | "command" | "footer" | "status", { row: number; rows: number; col: number; cols: number }>>;
   console_colours?: ConsoleColours;
   diagnostic_colours?: DiagnosticColours;
   status_pmsg?: { text: string; severity: string; start: number; length: number; colour?: PanelColour } | null;

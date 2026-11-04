@@ -60,6 +60,8 @@ typedef struct
    char footer[THE_FOOTER_NAME_MAX + 1];
    char footer_text[LLM_DRIVER_MAX_COLS + 1];
    TheRenderAttr footer_attr;
+   int footer_after_cmdline;
+   int physical_row;
    int logical_start_col;
    int editable;
    int current;
@@ -111,6 +113,7 @@ typedef struct
 {
    int rows;
    int cols;
+   UiRegions regions;
    LogicalCursor cursor;
    int cursor_screen_row;
    int cursor_screen_col;

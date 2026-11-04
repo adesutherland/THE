@@ -1,0 +1,29 @@
+{
+  "evidence_mode": "Reviewer inspected coordinator/browser-agent CDP-emulated native semantic fixture screenshots and metrics; not a physical touch device and not Wasm language execution. Reviewer actual CUA390x844 remains fine-pointer.",
+  "input": {
+    "coarse": true,
+    "fine": false,
+    "hover": false,
+    "maxTouchPoints": 1,
+    "zoom": 1
+  },
+  "before_undersized": {
+    "console": 15,
+    "profiles": 15,
+    "associations": 14,
+    "files": 15
+  },
+  "after_undersized": {
+    "console": 0,
+    "profiles": 0,
+    "associations": 0,
+    "files": 0,
+    "menu": 0
+  },
+  "production_css": "build/wasm-review-candidate/site/assets/index-DBNJq38p.css",
+  "fixture_css": "/tmp/the-alignment-coarse-ui/assets/index-DBNJq38p.css",
+  "production_css_sha256": "c8226909cd3700e105fc9b9c67d3ca845181b074781e819fb32a022e9b544944",
+  "fixture_css_sha256": "c8226909cd3700e105fc9b9c67d3ca845181b074781e819fb32a022e9b544944",
+  "css_equal": true,
+  "visual_judgement": "13px labels and44px controls give clear hierarchy at390px; auxiliary expansion remains explicit; phone editor area is reduced with both source and input visible. Settings heading/Done stay separated from scroll body. No new measured spacing defect in these supplied states."
+}

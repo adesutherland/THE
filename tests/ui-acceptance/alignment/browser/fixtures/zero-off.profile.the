@@ -1,0 +1,1 @@
+options levelb; address THE; 'set reserved -2 off'; 'set reserved -4 off'; 'set reserved -3 off'; 'set reserved +3 off'; 'set reserved -1 off'; 'set statusline off'; 'set cmdline off'; return 0;

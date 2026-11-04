@@ -1,0 +1,191 @@
+[
+  {
+    "checkpoint": "selected-new-passage",
+    "selection": {
+      "anchorOffset": 629,
+      "anchorParent": "",
+      "focusOffset": 645,
+      "focusParent": "",
+      "isCollapsed": false,
+      "rangeCount": 1,
+      "text": "Retained row  38"
+    },
+    "pane": {
+      "active": "Program output",
+      "buttons": [
+        {
+          "label": "Files",
+          "pressed": "false"
+        },
+        {
+          "label": "Console",
+          "pressed": "true"
+        },
+        {
+          "label": "Tools & Profiles",
+          "pressed": "false"
+        }
+      ],
+      "focusCell": "3",
+      "focusLine": "2",
+      "input": "",
+      "outputScroll": 710,
+      "source": [
+        "|...+....1....+....2....+....3....+....4....+....5....+....6....+....7.]..+....8....+....9....+...10....+...11..",
+        "*** Top of File ***",
+        "do n=1 to 80; say 'Retained row' right(n,3); end; say 'Reply when ready:'; parse pull reply; say 'Received:' reply; return 0",
+        "*** Bottom of File ***",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "visibleProgram": true,
+      "visibleTools": false
+    }
+  },
+  {
+    "checkpoint": "after-tools-arguments-edit",
+    "selection": {
+      "anchorOffset": 1,
+      "anchorParent": "advanced-run-setup",
+      "focusOffset": 1,
+      "focusParent": "advanced-run-setup",
+      "isCollapsed": true,
+      "rangeCount": 1,
+      "text": ""
+    },
+    "pane": {
+      "active": "Program arguments",
+      "buttons": [
+        {
+          "label": "Files",
+          "pressed": "false"
+        },
+        {
+          "label": "Console",
+          "pressed": "false"
+        },
+        {
+          "label": "Tools & Profiles",
+          "pressed": "true"
+        }
+      ],
+      "focusCell": "3",
+      "focusLine": "2",
+      "input": "",
+      "outputScroll": 0,
+      "source": [
+        "|...+....1....+....2....+....3....+....4....+....5....+....6....+....7.]..+....8....+....9....+...10....+...11..",
+        "*** Top of File ***",
+        "do n=1 to 80; say 'Retained row' right(n,3); end; say 'Reply when ready:'; parse pull reply; say 'Received:' reply; return 0",
+        "*** Bottom of File ***",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "visibleProgram": false,
+      "visibleTools": true
+    }
+  },
+  {
+    "checkpoint": "returned-program",
+    "selection": {
+      "anchorOffset": 1,
+      "anchorParent": "advanced-run-setup",
+      "focusOffset": 1,
+      "focusParent": "advanced-run-setup",
+      "isCollapsed": true,
+      "rangeCount": 1,
+      "text": ""
+    },
+    "pane": {
+      "active": null,
+      "buttons": [
+        {
+          "label": "Files",
+          "pressed": "false"
+        },
+        {
+          "label": "Console",
+          "pressed": "true"
+        },
+        {
+          "label": "Tools & Profiles",
+          "pressed": "false"
+        }
+      ],
+      "focusCell": "3",
+      "focusLine": "2",
+      "input": "",
+      "outputScroll": 710,
+      "source": [
+        "|...+....1....+....2....+....3....+....4....+....5....+....6....+....7.]..+....8....+....9....+...10....+...11..",
+        "*** Top of File ***",
+        "do n=1 to 80; say 'Retained row' right(n,3); end; say 'Reply when ready:'; parse pull reply; say 'Received:' reply; return 0",
+        "*** Bottom of File ***",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        ""
+      ],
+      "visibleProgram": true,
+      "visibleTools": false
+    }
+  }
+]

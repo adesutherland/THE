@@ -149,6 +149,30 @@ static void append_footer_colour(char *out, size_t out_len, size_t *used,
    append_colour(out, out_len, used, attr, pretty);
 }
 
+static void append_footer_placement(char *out, size_t out_len, size_t *used,
+                                    const LlmDriverScreenLine *line)
+{
+   appendf(out, out_len, used, ",\"physical_row\":%d", line->physical_row);
+   if (line->footer_after_cmdline)
+      appendf(out, out_len, used, ",\"footer_placement\":\"aftercmdline\"");
+}
+
+static void append_regions(char *out, size_t out_len, size_t *used,
+                            const UiRegions *regions)
+{
+   const UiRegion *items[] = {&regions->filearea, &regions->command,
+                              &regions->footer, &regions->status};
+   const char *names[] = {"filearea", "command", "footer", "status"};
+   size_t i;
+   appendf(out, out_len, used, ",\"regions\":{");
+   for (i = 0; i < 4; i++)
+      appendf(out, out_len, used,
+         "%s\"%s\":{\"row\":%d,\"rows\":%d,\"col\":%d,\"cols\":%d}",
+         i ? "," : "", names[i], items[i]->row, items[i]->rows,
+         items[i]->col, items[i]->cols);
+   appendf(out, out_len, used, "}");
+}
+
 static void append_diagnostic_metadata(char *out, size_t out_len, size_t *used,
                                        const LlmDriverScreenView *view)
 {
@@ -853,6 +877,8 @@ int llm_driver_screen_view_set_row(LlmDriverScreenView *view, size_t index,
    line->footer[0] = '\0';
    line->footer_text[0] = '\0';
    line->footer_attr = THE_RENDER_ATTR_NORMAL;
+   line->footer_after_cmdline = 0;
+   line->physical_row = logical_row;
    line->logical_start_col = logical_start_col;
    line->editable = editable;
    line->current = current;
@@ -891,6 +917,7 @@ int llm_driver_screen_view_from_frame(const UiFrame *frame,
                                frame->cursor.valid
                                ? frame->cursor.cursor
                                : logical_cursor_invalid());
+   view->regions = frame->regions;
    for (i = 0; i < frame->row_count && i < LLM_DRIVER_MAX_ROWS; i++)
    {
       const UiFrameRow *row = &frame->row[i];
@@ -909,6 +936,8 @@ int llm_driver_screen_view_from_frame(const UiFrame *frame,
                   line->footer[0] != '\0' ? (const char *)row->footer_text : NULL,
                   row->footer_text_len);
       line->footer_attr = line->footer[0] != '\0' ? row->footer_attr : THE_RENDER_ATTR_NORMAL;
+      line->footer_after_cmdline = row->footer_after_cmdline;
+      line->physical_row = row->physical_row;
       line->logical_start_col = row->logical_start_col;
       line->editable = row->editable;
       line->current = has_cursor && cursor_index == i;
@@ -1165,6 +1194,7 @@ size_t llm_driver_format_semantic_view_with_options(
                          llm_driver_view_mode_name(options->mode));
       appendf(out, out_len, &used,
               ",\"rows\":%d,\"cols\":%d", view->rows, view->cols);
+      append_regions(out, out_len, &used, &view->regions);
       if (options->include_cursor)
       {
          appendf(out, out_len, &used,
@@ -1258,6 +1288,7 @@ size_t llm_driver_format_semantic_view_with_options(
             appendf(out, out_len, &used, ",\"footer_text\":");
             append_json_string(out, out_len, &used, line->footer_text);
             append_footer_colour(out, out_len, &used, line->footer_attr, 0);
+            append_footer_placement(out, out_len, &used, line);
          }
          appendf(out, out_len, &used,
                  ",\"sc\":%d,\"line\":%ld,\"cur\":%d",
@@ -1294,8 +1325,10 @@ size_t llm_driver_format_semantic_view_with_options(
    append_json_string(out, out_len, &used,
                       llm_driver_view_mode_name(options->mode));
    appendf(out, out_len, &used,
-           ",\n  \"screen\": {\"rows\": %d, \"cols\": %d},\n",
+           ",\n  \"screen\": {\"rows\": %d, \"cols\": %d}",
            view->rows, view->cols);
+   append_regions(out, out_len, &used, &view->regions);
+   appendf(out, out_len, &used, ",\n");
    appendf(out, out_len, &used,
            "  \"focus\": {\"zone\": ");
    append_json_string(out, out_len, &used,
@@ -1394,6 +1427,7 @@ size_t llm_driver_format_semantic_view_with_options(
          appendf(out, out_len, &used, ", \"footer_text\": ");
          append_json_string(out, out_len, &used, line->footer_text);
          append_footer_colour(out, out_len, &used, line->footer_attr, 1);
+         append_footer_placement(out, out_len, &used, line);
       }
       appendf(out, out_len, &used,
               ", \"line\": %ld, \"screen_row\": %d, \"start_cell\": %d, "
@@ -1451,6 +1485,8 @@ static int llm_driver_line_changed(const LlmDriverScreenLine *left,
        || strcmp(left->footer, right->footer) != 0
        || strcmp(left->footer_text, right->footer_text) != 0
        || left->footer_attr != right->footer_attr
+       || left->footer_after_cmdline != right->footer_after_cmdline
+       || left->physical_row != right->physical_row
        || left->cursor != right->cursor
        || strcmp(left->prefix, right->prefix) != 0
        || strcmp(left->prefix_command, right->prefix_command) != 0
@@ -1509,6 +1545,7 @@ size_t llm_driver_format_delta_view(const LlmDriverScreenView *previous,
         || strcmp(previous->buffer_path, current->buffer_path) != 0,
            current->last_message_serial);
    append_json_string(out, out_len, &used, current->last_message);
+   append_regions(out, out_len, &used, &current->regions);
    if (options->include_status)
    {
       appendf(out, out_len, &used, ",\"status_line\":");
@@ -1541,6 +1578,7 @@ size_t llm_driver_format_delta_view(const LlmDriverScreenView *previous,
          appendf(out, out_len, &used, ",\"footer_text\":");
          append_json_string(out, out_len, &used, line->footer_text);
          append_footer_colour(out, out_len, &used, line->footer_attr, 0);
+         append_footer_placement(out, out_len, &used, line);
       }
       appendf(out, out_len, &used, ",\"line\":%ld,\"cur\":%d",
               (long)line->line_number, line->cursor);

@@ -1,0 +1,1 @@
+options levelb; address THE; 'set cmdline bottom'; 'set statusline bottom'; 'set color reserved #c0c0c0 on #000000'; 'set reserved -4 off'; 'set reserved -3 off'; 'set reserved +3 off'; 'set reserved -2 normal REVIEW GUIDE: F10 Menu  F6 Cmd/File'; 'set footer keys -2 aftercmdline'; 'set reserved -1 normal '; 'set footer response -1'; 'set number on'; return 0;

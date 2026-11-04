@@ -86,6 +86,7 @@
 #include "screenframe.h"
 #include "driverlayout.h"
 #include "parserdiagnostics.h"
+#include "reservedfooter.h"
 #ifdef USE_UTF8
 # include "utflayout.h"
 # include "utfrepair.h"
@@ -2766,15 +2767,42 @@ void repaint_screen(void)
 #endif
 
 /***********************************************************************/
+static void sync_footer_windows(void)
+{
+   static bool rebuilding = FALSE;
+   int i;
+   bool changed = FALSE;
+   if (rebuilding) return;
+   for (i = 0; i < display_screens; i++)
+      if (screen[i].rows[WINDOW_FOOTER] !=
+          reserved_footer_rows(SCREEN_VIEW(i), screen[i].screen_rows))
+         changed = TRUE;
+   if (!changed) return;
+   rebuilding = TRUE;
+   set_screen_defaults();
+   for (i = 0; i < display_screens; i++)
+   {
+      if (!SCREEN_VIEW(i)) continue;
+      set_up_windows(i);
+      SCREEN_VIEW(i)->current_row = calculate_actual_row(
+         SCREEN_VIEW(i)->current_base, SCREEN_VIEW(i)->current_off,
+         screen[i].rows[WINDOW_FILEAREA], TRUE);
+      build_screen((CHARTYPE)i);
+   }
+   rebuilding = FALSE;
+}
+
 void build_screen(CHARTYPE scrno)
 /***********************************************************************/
 {
    LINE *curr=NULL;
    LINE *save_curr=NULL;
-   short crow = SCREEN_VIEW(scrno)->current_row;
+   short crow;
    LINETYPE cline = SCREEN_VIEW(scrno)->current_line;
 
    TRACE_FUNCTION("show.c:    build_screen");
+   sync_footer_windows();
+   crow = SCREEN_VIEW(scrno)->current_row;
    hexshow_curr = save_curr = curr = lll_find(SCREEN_FILE(scrno)->first_line,SCREEN_FILE(scrno)->last_line,
                                               cline,SCREEN_FILE(scrno)->number_lines);
    displayed_max_line_length = 0;
@@ -2872,6 +2900,31 @@ void display_screen(CHARTYPE scrno)
    prepare_screen_for_display(scrno);
 
    show_lines(scrno);
+   if (driver_screen_role_exists(scrno, WINDOW_FOOTER))
+   {
+      int row;
+      TheDriverWindow *window = driver_screen_role_window(scrno, WINDOW_FOOTER);
+      for (row = 0; row < screen[scrno].rows[WINDOW_FOOTER]; row++)
+      {
+         RESERVED *reserved = reserved_footer_at(SCREEN_FILE(scrno)->first_reserved,
+            row, screen[scrno].rows[WINDOW_FILEAREA] + screen[scrno].rows[WINDOW_FOOTER]);
+         if (!reserved) continue;
+#ifdef USE_UTF8
+         reserved_footer_paint_utf8(reserved, window, row,
+            screen[scrno].cols[WINDOW_FOOTER], SCREEN_VIEW(scrno)->verify_col,
+            set_colour(reserved->attr), the_driver, show_write_utf8_cluster_at);
+#else
+         {
+            int offset = reserved->autoscroll ? min(reserved->disp_length,
+                                                    SCREEN_VIEW(scrno)->verify_col - 1) : 0;
+            display_syntax_line_left(window, set_colour(reserved->attr),
+               reserved->disp + offset, reserved->highlighting + offset,
+               row, screen[scrno].cols[WINDOW_FOOTER]);
+         }
+#endif
+      }
+      the_driver->refresh_window(window);
+   }
    /*
     * If we have the file tabs window show it
     */
@@ -5754,8 +5807,8 @@ LINETYPE find_next_current_line(LINETYPE num_pages,short direction)
     * Determine the number of file lines displayed...
     */
    num_display_lines = (CURRENT_SCREEN.rows[WINDOW_FILEAREA]) - 1;
-   for (i=0;curr_reserved!=NULL;i++)
-       curr_reserved = curr_reserved->next;
+   for (i=0;curr_reserved!=NULL;curr_reserved=curr_reserved->next)
+      if (!curr_reserved->footer_after_cmdline) i++;
    num_display_lines -= i;
    if (CURRENT_VIEW->scale_on)
       num_display_lines--;

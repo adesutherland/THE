@@ -1,0 +1,699 @@
+{
+  "aborted50kTrial": [
+    {
+      "phase": "selected-before-cross-input",
+      "range": {
+        "anchorOffset": 408,
+        "anchorParent": "",
+        "focusOffset": 424,
+        "focusParent": "",
+        "isCollapsed": false,
+        "rangeCount": 1,
+        "text": "Retained row  25"
+      },
+      "state": {
+        "active": "Program output",
+        "buttons": [
+          {
+            "label": "Files",
+            "pressed": "false"
+          },
+          {
+            "label": "Console · Input requested",
+            "pressed": "true"
+          },
+          {
+            "label": "Tools & Profiles",
+            "pressed": "false"
+          }
+        ],
+        "focusCell": "239",
+        "focusLine": "1",
+        "input": "candidate04 draft",
+        "outputScroll": 278,
+        "source": [
+          "...+...18....+...19....+...20....+...21....+...22....+...23....+...24....+...25....+...26....+...27....+...28...",
+          "do n=1 to 80; say 'Retained row' right(n,3); end; say 'First reply:'; parse pull reply; do k=1 to 50000; x=k*k; end; do n=81 to 160; say 'Appended row' right(n,3); end; say 'Second reply:'; parse pull reply; say 'Received:' reply; return 0",
+          "*** Bottom of File ***",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "visibleProgram": true,
+        "visibleTools": false
+      }
+    },
+    {
+      "phase": "returned-before-trigger",
+      "range": {
+        "anchorOffset": 408,
+        "anchorParent": "",
+        "focusOffset": 424,
+        "focusParent": "",
+        "isCollapsed": false,
+        "rangeCount": 1,
+        "text": "Retained row  25"
+      },
+      "state": {
+        "active": "Program output",
+        "buttons": [
+          {
+            "label": "Files",
+            "pressed": "false"
+          },
+          {
+            "label": "Console · Input requested",
+            "pressed": "true"
+          },
+          {
+            "label": "Tools & Profiles",
+            "pressed": "false"
+          }
+        ],
+        "focusCell": "239",
+        "focusLine": "1",
+        "input": "candidate04 draft",
+        "outputScroll": 278,
+        "source": [
+          "...+...18....+...19....+...20....+...21....+...22....+...23....+...24....+...25....+...26....+...27....+...28...",
+          "do n=1 to 80; say 'Retained row' right(n,3); end; say 'First reply:'; parse pull reply; do k=1 to 50000; x=k*k; end; do n=81 to 160; say 'Appended row' right(n,3); end; say 'Second reply:'; parse pull reply; say 'Received:' reply; return 0",
+          "*** Bottom of File ***",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "visibleProgram": true,
+        "visibleTools": false
+      }
+    },
+    {
+      "phase": "hidden-after-trigger",
+      "range": {
+        "anchorOffset": 3,
+        "anchorParent": "",
+        "focusOffset": 3,
+        "focusParent": "",
+        "isCollapsed": true,
+        "rangeCount": 1,
+        "text": ""
+      },
+      "state": {
+        "active": "Editor input",
+        "buttons": [
+          {
+            "label": "Files",
+            "pressed": "false"
+          },
+          {
+            "label": "Console · Running",
+            "pressed": "false"
+          },
+          {
+            "label": "Tools & Profiles",
+            "pressed": "false"
+          }
+        ],
+        "focusCell": "239",
+        "focusLine": "1",
+        "input": "",
+        "outputScroll": 0,
+        "source": [
+          "...+...18....+...19....+...20....+...21....+...22....+...23....+...24....+...25....+...26....+...27....+...28....+...29....+...30....+...31....+...32....+...33.",
+          "do n=1 to 80; say 'Retained row' right(n,3); end; say 'First reply:'; parse pull reply; do k=1 to 50000; x=k*k; end; do n=81 to 160; say 'Appended row' right(n,3); end; say 'Second reply:'; parse pull reply; say 'Received:' reply; return 0",
+          "*** Bottom of File ***",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "visibleProgram": false,
+        "visibleTools": false
+      },
+      "output": {
+        "text": "ed row  72\nRetained row  73\nRetained row  74\nRetained row  75\nRetained row  76\nRetained row  77\nRetained row  78\nRetained row  79\nRetained row  80\nFirst reply:\n› candidate04 draft\n",
+        "total": 1393
+      }
+    },
+    {
+      "phase": "still-hidden-output-observation",
+      "state": {
+        "active": "Editor input",
+        "buttons": [
+          {
+            "label": "Files",
+            "pressed": "false"
+          },
+          {
+            "label": "Console · Running",
+            "pressed": "false"
+          },
+          {
+            "label": "Tools & Profiles",
+            "pressed": "false"
+          }
+        ],
+        "focusCell": "239",
+        "focusLine": "1",
+        "input": "",
+        "outputScroll": 0,
+        "source": [
+          "...+...18....+...19....+...20....+...21....+...22....+...23....+...24....+...25....+...26....+...27....+...28....+...29....+...30....+...31....+...32....+...33.",
+          "do n=1 to 80; say 'Retained row' right(n,3); end; say 'First reply:'; parse pull reply; do k=1 to 50000; x=k*k; end; do n=81 to 160; say 'Appended row' right(n,3); end; say 'Second reply:'; parse pull reply; say 'Received:' reply; return 0",
+          "*** Bottom of File ***",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "visibleProgram": false,
+        "visibleTools": false
+      },
+      "output": {
+        "text": "ed row  72\nRetained row  73\nRetained row  74\nRetained row  75\nRetained row  76\nRetained row  77\nRetained row  78\nRetained row  79\nRetained row  80\nFirst reply:\n› candidate04 draft\n",
+        "total": 1393
+      }
+    },
+    {
+      "phase": "reselected-with-unsent-draft",
+      "range": {
+        "anchorOffset": 408,
+        "anchorParent": "",
+        "focusOffset": 424,
+        "focusParent": "",
+        "isCollapsed": false,
+        "rangeCount": 1,
+        "text": "Retained row  25"
+      },
+      "state": {
+        "active": "Program output",
+        "buttons": [
+          {
+            "label": "Files",
+            "pressed": "false"
+          },
+          {
+            "label": "Console · Running",
+            "pressed": "true"
+          },
+          {
+            "label": "Tools & Profiles",
+            "pressed": "false"
+          }
+        ],
+        "focusCell": "239",
+        "focusLine": "1",
+        "input": "unsent followup",
+        "outputScroll": 278,
+        "source": [
+          "...+...18....+...19....+...20....+...21....+...22....+...23....+...24....+...25....+...26....+...27....+...28...",
+          "do n=1 to 80; say 'Retained row' right(n,3); end; say 'First reply:'; parse pull reply; do k=1 to 50000; x=k*k; end; do n=81 to 160; say 'Appended row' right(n,3); end; say 'Second reply:'; parse pull reply; say 'Received:' reply; return 0",
+          "*** Bottom of File ***",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "visibleProgram": true,
+        "visibleTools": false
+      }
+    },
+    {
+      "phase": "hidden-with-unsent-draft",
+      "range": {
+        "anchorOffset": 3,
+        "anchorParent": "",
+        "focusOffset": 3,
+        "focusParent": "",
+        "isCollapsed": true,
+        "rangeCount": 1,
+        "text": ""
+      },
+      "state": {
+        "active": "Editor input",
+        "buttons": [
+          {
+            "label": "Files",
+            "pressed": "false"
+          },
+          {
+            "label": "Console · Running",
+            "pressed": "false"
+          },
+          {
+            "label": "Tools & Profiles",
+            "pressed": "false"
+          }
+        ],
+        "focusCell": "239",
+        "focusLine": "1",
+        "input": "unsent followup",
+        "outputScroll": 0,
+        "source": [
+          "...+...18....+...19....+...20....+...21....+...22....+...23....+...24....+...25....+...26....+...27....+...28....+...29....+...30....+...31....+...32....+...33.",
+          "do n=1 to 80; say 'Retained row' right(n,3); end; say 'First reply:'; parse pull reply; do k=1 to 50000; x=k*k; end; do n=81 to 160; say 'Appended row' right(n,3); end; say 'Second reply:'; parse pull reply; say 'Received:' reply; return 0",
+          "*** Bottom of File ***",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "visibleProgram": false,
+        "visibleTools": false
+      },
+      "output": {
+        "tail": "etained row  77\nRetained row  78\nRetained row  79\nRetained row  80\nFirst reply:\n› candidate04 draft\n",
+        "total": 1393
+      }
+    }
+  ],
+  "completed1000Trial": [
+    {
+      "phase": "before-trigger",
+      "range": {
+        "anchorOffset": 408,
+        "anchorParent": "",
+        "focusOffset": 424,
+        "focusParent": "",
+        "isCollapsed": false,
+        "rangeCount": 1,
+        "text": "Retained row  25"
+      },
+      "state": {
+        "active": "Program output",
+        "buttons": [
+          {
+            "label": "Files",
+            "pressed": "false"
+          },
+          {
+            "label": "Console · Input requested",
+            "pressed": "true"
+          },
+          {
+            "label": "Tools & Profiles",
+            "pressed": "false"
+          }
+        ],
+        "focusCell": "238",
+        "focusLine": "1",
+        "input": "go",
+        "outputScroll": 278,
+        "source": [
+          "...+....9....+...10....+...11....+...12....+...13....+...14....+...15....+...16....+...17....+...18....+...19...",
+          "do n=1 to 80; say 'Retained row' right(n,3); end; say 'First reply:'; parse pull reply; do k=1 to 1000; x=k*k; end; do n=81 to 160; say 'Appended row' right(n,3); end; say 'Second reply:'; parse pull reply; say 'Received:' reply; return 0",
+          "*** Bottom of File ***",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "visibleProgram": true,
+        "visibleTools": false
+      },
+      "output": {
+        "tail": "w  77\nRetained row  78\nRetained row  79\nRetained row  80\nFirst reply:\n",
+        "total": 1373
+      }
+    },
+    {
+      "phase": "hidden-before-append",
+      "range": {
+        "anchorOffset": 3,
+        "anchorParent": "",
+        "focusOffset": 3,
+        "focusParent": "",
+        "isCollapsed": true,
+        "rangeCount": 1,
+        "text": ""
+      },
+      "state": {
+        "active": "Editor input",
+        "buttons": [
+          {
+            "label": "Files",
+            "pressed": "false"
+          },
+          {
+            "label": "Console · Running",
+            "pressed": "false"
+          },
+          {
+            "label": "Tools & Profiles",
+            "pressed": "false"
+          }
+        ],
+        "focusCell": "238",
+        "focusLine": "1",
+        "input": "followup retained",
+        "outputScroll": 0,
+        "source": [
+          "...+....9....+...10....+...11....+...12....+...13....+...14....+...15....+...16....+...17....+...18....+...19....+...20....+...21....+...22....+...23....+...24.",
+          "do n=1 to 80; say 'Retained row' right(n,3); end; say 'First reply:'; parse pull reply; do k=1 to 1000; x=k*k; end; do n=81 to 160; say 'Appended row' right(n,3); end; say 'Second reply:'; parse pull reply; say 'Received:' reply; return 0",
+          "*** Bottom of File ***",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "visibleProgram": false,
+        "visibleTools": false
+      },
+      "output": {
+        "tail": "ained row  76\nRetained row  77\nRetained row  78\nRetained row  79\nRetained row  80\nFirst reply:\n› go\n",
+        "total": 1378
+      }
+    },
+    {
+      "phase": "hidden-output-observation",
+      "state": {
+        "active": "Editor input",
+        "buttons": [
+          {
+            "label": "Files",
+            "pressed": "false"
+          },
+          {
+            "label": "Console · Running",
+            "pressed": "false"
+          },
+          {
+            "label": "Tools & Profiles",
+            "pressed": "false"
+          }
+        ],
+        "focusCell": "238",
+        "focusLine": "1",
+        "input": "followup retained",
+        "outputScroll": 0,
+        "source": [
+          "...+....9....+...10....+...11....+...12....+...13....+...14....+...15....+...16....+...17....+...18....+...19....+...20....+...21....+...22....+...23....+...24.",
+          "do n=1 to 80; say 'Retained row' right(n,3); end; say 'First reply:'; parse pull reply; do k=1 to 1000; x=k*k; end; do n=81 to 160; say 'Appended row' right(n,3); end; say 'Second reply:'; parse pull reply; say 'Received:' reply; return 0",
+          "*** Bottom of File ***",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "visibleProgram": false,
+        "visibleTools": false
+      },
+      "output": {
+        "tail": " row  71\nRetained row  72\nRetained row  73\nRetained row  74\nRetained row  75\nRetained row  76\nRetained row  77\nRetained row  78\nRetained row  79\nRetained row  80\nFirst reply:\n› go\n",
+        "total": 1378
+      }
+    },
+    {
+      "phase": "hidden-output-observation2",
+      "state": {
+        "active": "Editor input",
+        "buttons": [
+          {
+            "label": "Files",
+            "pressed": "false"
+          },
+          {
+            "label": "Console · Input requested",
+            "pressed": "false"
+          },
+          {
+            "label": "Tools & Profiles",
+            "pressed": "false"
+          }
+        ],
+        "focusCell": "238",
+        "focusLine": "1",
+        "input": "followup retained",
+        "outputScroll": 0,
+        "source": [
+          "...+....9....+...10....+...11....+...12....+...13....+...14....+...15....+...16....+...17....+...18....+...19....+...20....+...21....+...22....+...23....+...24.",
+          "do n=1 to 80; say 'Retained row' right(n,3); end; say 'First reply:'; parse pull reply; do k=1 to 1000; x=k*k; end; do n=81 to 160; say 'Appended row' right(n,3); end; say 'Second reply:'; parse pull reply; say 'Received:' reply; return 0",
+          "*** Bottom of File ***",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "visibleProgram": false,
+        "visibleTools": false
+      },
+      "output": {
+        "tail": "nded row 151\nAppended row 152\nAppended row 153\nAppended row 154\nAppended row 155\nAppended row 156\nAppended row 157\nAppended row 158\nAppended row 159\nAppended row 160\nSecond reply:\n",
+        "total": 2752
+      }
+    },
+    {
+      "phase": "restored-after-hidden-append",
+      "range": {
+        "anchorOffset": 408,
+        "anchorParent": "",
+        "focusOffset": 424,
+        "focusParent": "",
+        "isCollapsed": false,
+        "rangeCount": 1,
+        "text": "Retained row  25"
+      },
+      "state": {
+        "active": "Program output",
+        "buttons": [
+          {
+            "label": "Files",
+            "pressed": "false"
+          },
+          {
+            "label": "Console · Input requested",
+            "pressed": "true"
+          },
+          {
+            "label": "Tools & Profiles",
+            "pressed": "false"
+          }
+        ],
+        "focusCell": "238",
+        "focusLine": "1",
+        "input": "followup retained",
+        "outputScroll": 278,
+        "source": [
+          "...+....9....+...10....+...11....+...12....+...13....+...14....+...15....+...16....+...17....+...18....+...19...",
+          "do n=1 to 80; say 'Retained row' right(n,3); end; say 'First reply:'; parse pull reply; do k=1 to 1000; x=k*k; end; do n=81 to 160; say 'Appended row' right(n,3); end; say 'Second reply:'; parse pull reply; say 'Received:' reply; return 0",
+          "*** Bottom of File ***",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          ""
+        ],
+        "visibleProgram": true,
+        "visibleTools": false
+      },
+      "output": {
+        "tail": "\nAppended row 156\nAppended row 157\nAppended row 158\nAppended row 159\nAppended row 160\nSecond reply:\n",
+        "total": 2752
+      }
+    }
+  ]
+}

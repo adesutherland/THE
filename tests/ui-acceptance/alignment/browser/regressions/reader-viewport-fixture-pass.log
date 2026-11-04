@@ -1,0 +1,9 @@
+PASS form coordinator: hidden/removed/replaced sibling panes and refused focus retain drafts without retry loops
+PASS clipboard coordinator: permission refusals, clipboard-before-cut, stale cut, large Unicode and atomic paste token
+PASS source selection presentation: exclusive CUA, reverse endpoints, horizontal clipping, full-line metadata, clear and protected rows
+PASS file-field coordinator: exact tokens, serialized Apply, IME, protected spans, stale draft retention, explicit Reload and lifetime isolation
+Closed-pane responsive geometry: [{"width":390,"height":844,"workspace":597.40625,"editor":597.40625,"surface":478.40625,"controls":45},{"width":800,"height":700,"workspace":482.203125,"editor":482.203125,"surface":385.203125,"controls":51}]
+PASS browser file-field pane: typed bounded rows, protected fixed cells, exact tokens, serialized Apply, IME, Cancel/Reload, stale retention and wide/narrow/phone scrolling
+PASS Guided Workbench: 320/390/768/1280/1920 layouts, explicit profile footers/status, visible Run availability, shared F10 menu/navigation/focus return, contextual Tab, panel/dialog ownership, quiet idle responses, semantic history, separate program input, retained drafts/job and scrollback
+Coarse-pointer controls: [{"name":"console","undersized":[]},{"name":"profiles","undersized":[]},{"name":"associations","undersized":[]},{"name":"files","undersized":[]},{"name":"menu","undersized":[]}]
+PASS Settings layout: fixed heading/Done footer and independent long-content scrolling at 820x500, coarse 390x844 and coarse 390x500

@@ -17,9 +17,9 @@ with tempfile.TemporaryDirectory(prefix='CRXTHE named footer ') as temporary:
     other.write_bytes(b'other\n')
     env = dict(os.environ, THE_REXX_INTERPRETER='NONE')
 
-    def run(commands):
+    def run(commands, target=sample):
         result = subprocess.run(
-            [str(binary), '--driver', 'llm', '-n', str(sample)],
+            [str(binary), '--driver', 'llm', '-n', str(target)],
             input='\n'.join(commands + ['quit'])+'\n', cwd=root, env=env,
             text=True, encoding='utf-8', capture_output=True, timeout=30,
             check=True)
@@ -132,4 +132,96 @@ with tempfile.TemporaryDirectory(prefix='CRXTHE named footer ') as temporary:
     assert not names(snapshot) and all(r['role']!='reserved' for r in rows(snapshot)), snapshot
     assert sample.read_bytes()==b'alpha\nsecond\n' and other.read_bytes()==b'other\n'
 
-print('Named reserved footers: custom text, order, OFF, replacement, inheritance, XEDIT and saved bytes passed')
+    # Explicit band placement changes geometry for any name, never by text.
+    records = run([
+        'command set prefix on left 8 1',
+        'command set reserved -3 #AA2200 on #FFF4CC Build on Friday',
+        'command set footer build -3 aftercmdline',
+        'command set reserved -2 normal Second custom guide',
+        'command set footer arbitrary-name -2 aftercmdline',
+        'command set reserved -1 normal Response area',
+        'command set footer answer -1',
+        'command cursor goto 1 3', 'look full compact',
+        'command set cmdline top', 'look full compact',
+        'command set cmdline off', 'command set statusline off', 'look full compact',
+        'command set cmdline bottom', 'command set statusline bottom',
+        'command set footer build -3', 'look full compact',
+        'command set footer arbitrary-name off', 'look full compact',
+        'command set footer build -3 aftercmdline',
+        'command edit "'+str(other)+'"', 'look full compact',
+        'command set reserved * off', 'look full compact',
+        'command edit "'+str(sample)+'"', 'look full compact',
+        'command set eolout lf', 'command save',
+    ])
+    band, top, hidden, legacy, detached, inherited, removed, original = [
+        r for r in records if 'screen_rows' in r]
+    band_rows = lambda s: [r for r in rows(s) if r.get('footer_placement') == 'aftercmdline']
+    assert [r['footer'] for r in band_rows(band)] == ['build', 'arbitrary-name'], band
+    answer = next(r for r in rows(band) if r.get('footer') == 'answer')
+    assert answer['physical_row'] + 1 == band['regions']['command']['row'], band
+    assert [r['physical_row'] for r in band_rows(band)] == [
+        band['regions']['command']['row']+1, band['regions']['command']['row']+2], band
+    assert band_rows(band)[-1]['physical_row']+1 == band['regions']['status']['row'], band
+    assert band_rows(band)[0]['footer_colour']['foreground'] == '#AA2200', band
+    assert top['regions']['command']['row'] < top['regions']['filearea']['row'], top
+    assert top['regions']['filearea']['row']+top['regions']['filearea']['rows'] == top['regions']['footer']['row'], top
+    assert hidden['regions']['command']['rows'] == hidden['regions']['status']['rows'] == 0, hidden
+    assert hidden['regions']['footer']['rows'] == 2, hidden
+    assert [r['footer'] for r in band_rows(legacy)] == ['arbitrary-name'], legacy
+    assert next(r for r in rows(legacy) if r.get('footer') == 'build')['physical_row'] < legacy['regions']['command']['row'], legacy
+    assert not band_rows(detached) and detached['regions']['footer']['rows'] == 0, detached
+    assert any(r['t'].endswith('guide') and 'footer' not in r for r in rows(detached)), detached
+    assert [r['footer'] for r in band_rows(inherited)] == ['build'], inherited
+    assert not band_rows(removed) and removed['regions']['footer']['rows'] == 0, removed
+    assert [r['footer'] for r in band_rows(original)] == ['build'], original
+    assert all(s['buffer']['dirty'] == 0 for s in [band,top,hidden,legacy,detached,inherited,removed,original])
+    assert sample.read_bytes()==b'alpha\nsecond\n' and other.read_bytes()==b'other\n'
+
+    split = run([
+        'command set reserved -2 normal Any custom band',
+        'command set footer arbitrary -2 aftercmdline',
+        'command set screen 2 horizontal', 'look full compact',
+        'command nextwindow', 'look full compact',
+        'command set footer arbitrary off', 'look full compact',
+        'command nextwindow', 'look full compact',
+        'command set footer arbitrary -2 aftercmdline',
+        'command set screen 2 vertical', 'look full compact',
+        'command nextwindow', 'look full compact',
+    ])
+    first, second, off_second, off_first, left, right = [r for r in split if 'screen_rows' in r]
+    assert first['regions']['footer']['rows'] == second['regions']['footer']['rows'] == 1, split
+    assert first['regions']['footer']['row'] < second['regions']['filearea']['row'], split
+    assert off_second['regions']['footer']['rows'] == off_first['regions']['footer']['rows'] == 0, split
+    assert left['regions']['footer']['rows'] == right['regions']['footer']['rows'] == 1, split
+    assert left['regions']['footer']['col'] != right['regions']['footer']['col'], split
+    assert sample.read_bytes()==b'alpha\nsecond\n' and other.read_bytes()==b'other\n'
+
+    # Docked rows are already outside FILEAREA; page stepping counts only
+    # inline reserved rows, and both directions retain the expected overlap.
+    paging = root/'paging.txt'
+    paging_bytes = b''.join(f'line {i:03d}\n'.encode() for i in range(1,301))
+    paging.write_bytes(paging_bytes)
+    page_records = run([
+        'command set scale off', 'command set tabline off', 'command set hexshow off',
+        'command set reserved -4 normal Band one',
+        'command set footer docked-one -4 aftercmdline',
+        'command set reserved -3 normal Band two',
+        'command set footer docked-two -3 aftercmdline',
+        'command set reserved -2 normal Inline one',
+        'command set reserved -1 normal Inline two',
+        'command cursor goto 100 1', 'look full compact',
+        'command forward', 'look full compact',
+        'command backward', 'look full compact',
+        'command backward', 'look full compact',
+        'command forward', 'look full compact',
+        'command set eolout lf', 'command save',
+    ], paging)
+    page_views = [r for r in page_records if 'screen_rows' in r]
+    first_lines = [min(row['line'] for row in rows(s) if row['role']=='file') for s in page_views]
+    page_step = page_views[0]['regions']['filearea']['rows'] - 1 - 2
+    assert first_lines == [first_lines[0], first_lines[0]+page_step,
+                           first_lines[0], first_lines[0]-page_step, first_lines[0]], first_lines
+    assert all(len(band_rows(s)) == 2 and s['buffer']['dirty'] == 0 for s in page_views), page_views
+    assert paging.read_bytes() == paging_bytes
+
+print('Named reserved footers: legacy and explicit band geometry, colour, OFF, replacement, inheritance, panel round trips and saved bytes passed')

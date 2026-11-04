@@ -1,0 +1,22 @@
+Executed from /Users/adrian/CLionProjects/THE; exit status 0.
+Compile/link inputs are preserved alongside this command.
+
+python3 - <<'PY'
+from pathlib import Path
+import os,shlex,subprocess,tempfile
+repo=Path.cwd()
+build=repo/'build/gtk-focus-review'
+flags=(build/'CMakeFiles/test_headlessdriver.dir/flags.make').read_text().splitlines()
+values={line.split(' = ',1)[0]:line.split(' = ',1)[1] for line in flags if ' = ' in line}
+link=shlex.split((build/'CMakeFiles/test_headlessdriver.dir/link.txt').read_text())
+objects=[arg for arg in link if arg.endswith('.o')]
+sources=[str(repo/arg.removeprefix('CMakeFiles/test_headlessdriver.dir/').removesuffix('.o')) for arg in objects]
+libraries=[str(build/arg) for arg in link if arg.endswith('.a')]
+with tempfile.TemporaryDirectory(prefix='THE footer ASan ') as temporary:
+    binary=Path(temporary)/'test-footer-headless-asan'
+    command=['/usr/bin/clang',*shlex.split(values['C_DEFINES']),*shlex.split(values['C_INCLUDES']),*shlex.split(values['C_FLAGS']),'-fsanitize=address,undefined','-fno-omit-frame-pointer',*sources,*libraries,'-o',str(binary)]
+    subprocess.run(command,check=True,timeout=60)
+    env=dict(os.environ,ASAN_OPTIONS='abort_on_error=1',UBSAN_OPTIONS='halt_on_error=1:print_stacktrace=1')
+    subprocess.run([str(binary)],check=True,env=env,timeout=30)
+print('PASS: production footer painter in headless target under AddressSanitizer and UBSan')
+PY

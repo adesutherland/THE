@@ -1,0 +1,146 @@
+[
+  {
+    "class": "settings-dialog",
+    "clientHeight": 458,
+    "overflow": "auto",
+    "rect": {
+      "bottom": 480,
+      "height": 460,
+      "left": 70,
+      "right": 750,
+      "top": 20,
+      "width": 680,
+      "x": 70,
+      "y": 20
+    },
+    "scrollHeight": 492,
+    "scrollTop": 0,
+    "text": "SettingsCloseAppearanceEdito"
+  },
+  {
+    "class": "",
+    "clientHeight": 28,
+    "overflow": "visible",
+    "rect": {
+      "bottom": 67,
+      "height": 30,
+      "left": 681.1484375,
+      "right": 733,
+      "top": 37,
+      "width": 51.8515625,
+      "x": 681.1484375,
+      "y": 37
+    },
+    "scrollHeight": 28,
+    "scrollTop": 0,
+    "text": "Close"
+  },
+  {
+    "class": "settings-body",
+    "clientHeight": 371,
+    "overflow": "visible",
+    "rect": {
+      "bottom": 451,
+      "height": 371,
+      "left": 87,
+      "right": 733,
+      "top": 80,
+      "width": 646,
+      "x": 87,
+      "y": 80
+    },
+    "scrollHeight": 371,
+    "scrollTop": 0,
+    "text": "AppearanceEditorTools & Prof"
+  },
+  {
+    "class": "settings-nav",
+    "clientHeight": 371,
+    "overflow": "visible",
+    "rect": {
+      "bottom": 451,
+      "height": 371,
+      "left": 87,
+      "right": 247,
+      "top": 80,
+      "width": 160,
+      "x": 87,
+      "y": 80
+    },
+    "scrollHeight": 371,
+    "scrollTop": 0,
+    "text": "AppearanceEditorTools & Prof"
+  },
+  {
+    "class": "settings-content",
+    "clientHeight": 371,
+    "overflow": "visible",
+    "rect": {
+      "bottom": 451,
+      "height": 371,
+      "left": 267,
+      "right": 733,
+      "top": 80,
+      "width": 466,
+      "x": 267,
+      "y": 80
+    },
+    "scrollHeight": 371,
+    "scrollTop": 0,
+    "text": "Current file/workspace/Align"
+  },
+  {
+    "class": "settings-scope",
+    "clientHeight": 18,
+    "overflow": "visible",
+    "rect": {
+      "bottom": 128,
+      "height": 18,
+      "left": 267,
+      "right": 733,
+      "top": 110,
+      "width": 466,
+      "x": 267,
+      "y": 110
+    },
+    "scrollHeight": 18,
+    "scrollTop": 0,
+    "text": "/workspace/AlignmentReader.r"
+  },
+  {
+    "class": "settings-tab-width",
+    "clientHeight": 26,
+    "overflow": "visible",
+    "rect": {
+      "bottom": 337,
+      "height": 26,
+      "left": 267,
+      "right": 733,
+      "top": 311,
+      "width": 466,
+      "x": 267,
+      "y": 311
+    },
+    "scrollHeight": 26,
+    "scrollTop": 0,
+    "text": "Tab increment"
+  },
+  {
+    "class": "",
+    "clientHeight": 28,
+    "overflow": "visible",
+    "rect": {
+      "bottom": 497,
+      "height": 30,
+      "left": 659,
+      "right": 733,
+      "top": 467,
+      "width": 74,
+      "x": 659,
+      "y": 467
+    },
+    "scrollHeight": 28,
+    "scrollTop": 0,
+    "text": "Done"
+  }
+]

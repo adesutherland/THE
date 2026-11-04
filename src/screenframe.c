@@ -4,6 +4,7 @@
 #include <stdio.h>
 
 #include "the.h"
+#include "reservedfooter.h"
 #ifdef THE_WASM_HIGHLIGHT
 #include "wasm/highlighter.h"
 #endif
@@ -231,6 +232,23 @@ static const CHARTYPE *screenframe_text_for_row(VIEW_DETAILS *view,
    return row->contents;
 }
 
+static void screenframe_footer(UiFrameRow *row, RESERVED *reserved)
+{
+   if (!reserved || !reserved->footer[0]) return;
+   row->footer = reserved->footer;
+   row->footer_text = reserved->disp;
+   row->footer_text_len = reserved->disp_length;
+   row->footer_after_cmdline = reserved->footer_after_cmdline;
+   if (reserved->attr)
+   {
+      const COLOUR_ATTR *attr = reserved->attr;
+      row->footer_attr = attr->fg != THE_COLOR_UNSPECIFIED
+                        && attr->bg != THE_COLOR_UNSPECIFIED
+         ? the_render_attr_make(attr->fg, attr->bg, attr->style)
+         : the_render_attr_from_style(attr->mono_style);
+   }
+}
+
 int screenframe_build(CHARTYPE scrno, UiFrame *frame)
 {
    SCREEN_DETAILS *details;
@@ -248,6 +266,15 @@ int screenframe_build(CHARTYPE scrno, UiFrame *frame)
 
    ui_frame_init(frame, details->rows[WINDOW_FILEAREA],
                  details->cols[WINDOW_FILEAREA]);
+   frame->regions.filearea = (UiRegion){details->start_row[WINDOW_FILEAREA],
+      details->rows[WINDOW_FILEAREA], details->screen_start_col, details->screen_cols};
+   if (details->rows[WINDOW_COMMAND])
+      frame->regions.command = (UiRegion){details->start_row[WINDOW_COMMAND], 1,
+         details->screen_start_col, details->screen_cols};
+   if (details->rows[WINDOW_FOOTER])
+      frame->regions.footer = (UiRegion){details->start_row[WINDOW_FOOTER],
+         details->rows[WINDOW_FOOTER], details->start_col[WINDOW_FOOTER],
+         details->cols[WINDOW_FOOTER]};
    rows = details->rows[WINDOW_FILEAREA];
    if (rows > UI_DRIVER_MAX_ROWS)
       rows = UI_DRIVER_MAX_ROWS;
@@ -269,25 +296,31 @@ int screenframe_build(CHARTYPE scrno, UiFrame *frame)
       ui_frame_set_row_prefix(frame, i, show_row->prefix,
                               strlen((const char *)show_row->prefix),
                               show_row->prefix_enterable);
+      frame->row[i].physical_row = details->start_row[WINDOW_FILEAREA] + (int)i;
       if (role == UI_ROW_RESERVED && show_row->rsrvd != NULL
       &&  show_row->rsrvd->footer[0] != '\0')
       {
-         frame->row[i].footer = show_row->rsrvd->footer;
-         frame->row[i].footer_text = show_row->rsrvd->disp;
-         frame->row[i].footer_text_len = show_row->rsrvd->disp_length;
-         if (show_row->rsrvd->attr != NULL)
-         {
-            const COLOUR_ATTR *attr = show_row->rsrvd->attr;
-            frame->row[i].footer_attr = attr->fg != THE_COLOR_UNSPECIFIED
-                                      && attr->bg != THE_COLOR_UNSPECIFIED
-               ? the_render_attr_make(attr->fg, attr->bg, attr->style)
-               : the_render_attr_from_style(attr->mono_style);
-         }
+         screenframe_footer(&frame->row[i], show_row->rsrvd);
       }
 #ifdef THE_WASM_HIGHLIGHT
       if (!the_wasm_highlight_row(SCREEN_FILE(scrno), frame, i))
 #endif
          screenframe_add_syntax_styles(frame, i, show_row, SCREEN_FILE(scrno));
+   }
+
+   for (i = 0; i < (size_t)details->rows[WINDOW_FOOTER]
+                && frame->row_count < UI_DRIVER_MAX_ROWS; i++)
+   {
+      size_t index = frame->row_count;
+      int physical_row = details->start_row[WINDOW_FOOTER] + (int)i;
+      RESERVED *reserved = reserved_footer_at(view->file_for_view->first_reserved,
+         (int)i, details->rows[WINDOW_FILEAREA] + details->rows[WINDOW_FOOTER]);
+      if (!reserved) continue;
+      ui_frame_set_row(frame, index, UI_ROW_RESERVED, -1,
+         physical_row - details->start_row[WINDOW_FILEAREA], 0,
+         reserved->disp, reserved->disp_length, FALSE);
+      frame->row[index].physical_row = physical_row;
+      screenframe_footer(&frame->row[index], reserved);
    }
 
    ui_frame_set_cursor_rebased(frame, view->logical_cursor.current);

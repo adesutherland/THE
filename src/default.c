@@ -38,6 +38,7 @@
 #include "workbenchdocument.h"
 #include "workbench.h"
 #include "tools.h"
+#include "reservedfooter.h"
 
 /*--------------------------- global data -----------------------------*/
 /*#define DEBUG 1*/
@@ -1065,6 +1066,7 @@ short default_file_attributes(FILE_DETAILS *fd)
                break;
             }
             memcpy(copy->footer, curr->footer, sizeof(copy->footer));
+            copy->footer_after_cmdline = curr->footer_after_cmdline;
             curr = curr->next;
          }
       }
@@ -1269,6 +1271,24 @@ void set_screen_defaults(void)
             screen[i].rows[WINDOW_ARROW] = 0;
             screen[i].cols[WINDOW_ARROW] = 0;
             break;
+      }
+      {
+         int footer_rows = reserved_footer_rows(screen[i].screen_view,
+                                                 screen[i].screen_rows);
+         screen[i].rows[WINDOW_FILEAREA] -= footer_rows;
+         screen[i].rows[WINDOW_FOOTER] = footer_rows;
+         if (footer_rows)
+         {
+            screen[i].cols[WINDOW_FOOTER] = screen[i].screen_cols;
+            screen[i].start_col[WINDOW_FOOTER] = screen[i].screen_start_col;
+            screen[i].start_row[WINDOW_FOOTER] = screen[i].screen_start_row
+                                                + screen[i].screen_rows - footer_rows;
+            if (cmdline == 'B')
+            {
+               screen[i].start_row[WINDOW_COMMAND] -= footer_rows;
+               screen[i].start_row[WINDOW_ARROW] -= footer_rows;
+            }
+         }
       }
       screen[i].start_col[WINDOW_ARROW] = screen[i].screen_start_col;
       screen[i].start_col[WINDOW_COMMAND] = screen[i].screen_start_col+((my_arrow)?my_prefix_width:0);

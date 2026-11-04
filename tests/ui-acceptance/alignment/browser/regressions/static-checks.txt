@@ -1,0 +1,16 @@
+Recorded existing check results; no checks were repeated while preserving this receipt.
+
+cwd: /Users/adrian/CLionProjects/THE/web
+command: ./node_modules/.bin/tsc --noEmit
+exit: 0
+stdout: empty
+
+cwd: /Users/adrian/CLionProjects/THE
+command: node --check web/test/workbench-smoke.mjs
+exit: 0
+stdout: empty
+
+cwd: /Users/adrian/CLionProjects/THE
+command: git diff --check
+exit: 0
+stdout: empty

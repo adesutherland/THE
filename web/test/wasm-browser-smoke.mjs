@@ -601,6 +601,7 @@ try {
     await evaluate("document.querySelector('.tools-toggle').click()");
     await waitFor(() => evaluate("!!document.querySelector('.tools-profiles-pane')?.getClientRects().length"), "explicit program tools pane");
     await evaluate("[...document.querySelectorAll('.tools-sections button')].find(node=>node.textContent==='File types & tools').click()");
+    await evaluate("(() => {const details=document.querySelector('.advanced-run-setup');if(!details.open)details.querySelector('summary').click();})()");
     await evaluate(`(() => {
       const bytes = Uint8Array.from(atob('${image.toString('base64')}'), char => char.charCodeAt(0));
       const file = new File([bytes], 'ToolHello.rxbin', {type:'application/octet-stream'});

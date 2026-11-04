@@ -85,6 +85,8 @@ typedef struct
    const CHARTYPE *footer_text; /* complete display text, before prefix split */
    size_t footer_text_len;
    TheRenderAttr footer_attr; /* profile colour for a named reserved row */
+   int footer_after_cmdline;
+   int physical_row; /* terminal row; screen_row remains file-area-relative */
    LINETYPE line_number;
    int screen_row;
    int logical_start_col;
@@ -106,8 +108,19 @@ typedef struct
 
 typedef struct
 {
+   int row, rows, col, cols;
+} UiRegion;
+
+typedef struct
+{
+   UiRegion filearea, command, footer, status;
+} UiRegions;
+
+typedef struct
+{
    int rows;
    int cols;
+   UiRegions regions;
    size_t row_count;
    UiFrameRow row[UI_DRIVER_MAX_ROWS];
    UiCursorOverlay cursor;

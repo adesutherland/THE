@@ -1,0 +1,215 @@
+{
+  "format_version": 1,
+  "platform": "browser",
+  "reviewer": "design_conformance_review",
+  "observer_mode": "Informed independent actual UI review through supported CUA Chrome; no fresh participant claim",
+  "git_head": "3e87c88533ddc38a6e7e57a62378e8df9922f6ef",
+  "operator_origin_preserved": "127.0.0.1:64823",
+  "full_catalogue_execution": false,
+  "case_coverage": {
+    "S01": "Partial",
+    "S02": "Partial",
+    "S03": "NotRun",
+    "S04": "NotRun",
+    "S05": "Partial",
+    "S06": "Partial",
+    "S07": "Partial; LevelB exercised, LevelG variants not replayed",
+    "S08": "Partial",
+    "S09": "NotRun",
+    "S10": "NotRun",
+    "S11": "NotRun",
+    "S12": "Partial; source Build/Apply and applied/startup summary, including reload persistence; compiled import variants not replayed",
+    "S13": "NotRun",
+    "S14": "NotRun",
+    "S15": "Partial; custom two bands/colours/Unicode/inline/TOP/undock/zero/OFF/restore; broader composition not replayed",
+    "S16": "NotRun",
+    "S17": "Partial; targeted wide, keyboard,820x720,820x500,fine390x844 plus coarse CDP emulation",
+    "S18": "Partial; changed checkpoints pass, full script not replayed",
+    "S19": "Partial; changed checkpoints pass, full script not replayed",
+    "S20": "NotRun",
+    "S21": "Partial",
+    "S22": "Partial",
+    "S23": "Partial",
+    "S24": "NotRun",
+    "S25": "NotRun",
+    "S26": "NotRun",
+    "S27": "NotRun",
+    "S28": "NotRun",
+    "S29": "Partial; targeted four-axis aesthetic checkpoints, not all scenario scripts"
+  },
+  "baseline_work_not_closed": [
+    "D02 general Redo",
+    "D03 full source transfer/Save as",
+    "broader R10 owned macro/menu composition"
+  ],
+  "catalogue_sha256": "972dc82994c237a86f9cd0881f9cace5870e88a61745a5064cb6c7fbcf21ac9f",
+  "candidate_id": "browser-candidate04",
+  "gate_status": "pass_changed_mandatory_scope",
+  "remaining_changed_mandatory_defect_count": 0,
+  "manifest_sha256": "c422314ef22107857e2ffe9e2c19f257e46c7897f60f3ece3d798e17fd3a8238",
+  "source_input_sha256": "611ce04c144fa9bfca471f07d1d88fcb03432d7c48bc4007996e81ff6aab3a33",
+  "receipt": "candidate04-inputs.json",
+  "verified_receipt": "candidate04/verified-inputs.json",
+  "accepted_scope": {
+    "baseline_findings": [
+      "G01",
+      "G02",
+      "G03",
+      "G04",
+      "G05",
+      "G06",
+      "G07"
+    ],
+    "sample_matrix": [
+      "B-W actual1440x900 fine DPR1",
+      "B-K actual1280x900 keyboard",
+      "B-N actual820x720 fine",
+      "B-S actual820x500 fine",
+      "B-T actual390x844 fine plus explicitly separate CDP390x844 coarse emulation"
+    ],
+    "boundary": "Changed mandatory checkpoints and affected targeted regressions across4axes; full29 scripts not completed"
+  },
+  "closed_findings": [
+    "AB01",
+    "AB02",
+    "AB03",
+    "AB04",
+    "AB05",
+    "AB06"
+  ],
+  "open_findings": [],
+  "axes": {
+    "functional": {
+      "verdict": "Pass",
+      "summary": "Actual targeted edit/save/unsaved cREXX build/run, Classic/BASIC/input and profile Build/Apply regressions plus pane/data/reader transitions pass; see inherited candidates for source boundaries"
+    },
+    "design_fidelity": {
+      "verdict": "Pass",
+      "summary": "Stock footer and arbitrary profile authority, concise setup/role relationships, common hierarchy, target-toggle policy and stable reader match accepted contract on changed checkpoints"
+    },
+    "aesthetics": {
+      "verdict": "Pass",
+      "summary": "Measured wide spacing/control hierarchy, narrow/short expansion and stable Settings plus fine phone presentation and separately qualified coarse44px controls are coherent; custom profile colours remain authoritative"
+    },
+    "discoverability": {
+      "verdict": "Pass",
+      "summary": "Visible purpose-specific file actions, single navigation, concise profile workflow/association roles, Settings/About and keyboard route pass informed review; no user-study claim"
+    }
+  },
+  "inherited_evidence": [
+    {
+      "candidate": "candidate01",
+      "result": "candidate01-result.json",
+      "accepted_unchanged_checkpoints": [
+        "BW01",
+        "BW02",
+        "BW04",
+        "BW06",
+        "BW08",
+        "BW13",
+        "BW14",
+        "BK01",
+        "BK04",
+        "BW07-CG"
+      ],
+      "reason": "Coordinator froze subsequent fixes to bounded role aggregation/core band and reader/coarse/Settings repairs; no replays of unaffected language journeys"
+    },
+    {
+      "candidate": "candidate02",
+      "result": "candidate02-result.json",
+      "accepted_unchanged_checkpoints": [
+        "C02-BW01",
+        "C02-BW02",
+        "C02-BN-BS"
+      ]
+    },
+    {
+      "candidate": "candidate03",
+      "result": "candidate03-result.json",
+      "accepted_unchanged_checkpoints": [
+        "C03-BW01",
+        "C03-BW02",
+        "C03-BW03",
+        "C03-BW04",
+        "C03-BS01",
+        "C03-BT-FINE",
+        "C03-BT-CDP"
+      ],
+      "reason": "Only rexx-console.tsx product source changed between C03/C04; CSS unchanged; exact receipts retained"
+    }
+  ],
+  "checkpoints": [
+    {
+      "id": "C04-BW04",
+      "requirements": [
+        "R03",
+        "R08",
+        "R14"
+      ],
+      "cases": [
+        "S18",
+        "S19"
+      ],
+      "baseline_findings": [
+        "G04"
+      ],
+      "verdict": "Pass",
+      "closes": "AB06",
+      "expected": "Hidden same-job append preserves reader viewport/range/draft/source",
+      "observed": "Actual Wasm Classic source prints80rows, waits, bounded1000 arithmetic loop then80more rows and second wait. Hidden-before output1378chars; while both auxiliary controlsfalse it grows2752 with Appended81–160/Second reply. Show restores Retained row25 range408–424 noncollapsed,scroll278,unsent followup retained and unchanged source/revision.",
+      "evidence": [
+        "candidate04/evidence/C04-BW02-before-append.jpg",
+        "candidate04/evidence/C04-BW03-hidden-after-append.jpg",
+        "candidate04/evidence/C04-BW04-restored-after-append.jpg",
+        "candidate04/evidence/C04-BW04-reader-replay.json"
+      ],
+      "limitation": "First50k timing trial stopped after30-second bound; a single smaller1000 retry supplied actual hidden-append proof. No performance claim."
+    },
+    {
+      "id": "C04-BW05",
+      "requirements": [
+        "R14"
+      ],
+      "cases": [
+        "S19"
+      ],
+      "verdict": "Pass",
+      "closes": "AB05",
+      "observed": "After job completion, select row25/range408–424/scroll278; switchTools→edit Program arguments collapses browser selection there; returnConsole restores exact original range and viewport.",
+      "evidence": [
+        "candidate04/evidence/C04-BW05-tools-input-range.json",
+        "candidate04/evidence/C04-BW05-return-after-tools-input.jpg"
+      ]
+    },
+    {
+      "id": "C04-STARTUP",
+      "requirements": [
+        "R09",
+        "R11"
+      ],
+      "cases": [
+        "S12",
+        "S15"
+      ],
+      "verdict": "Pass",
+      "observed": "Reload candidate04 startup restores previously applied user profile REVIEW GUIDE band and concise source state. Actual AX observation only; candidate03 screenshot supplies applied state."
+    }
+  ],
+  "supplemental_evidence": [
+    {
+      "path": "regressions/reader-viewport-fixture-pass.log",
+      "kind": "Coordinator fresh native-backend production-UI strict fixture stdout; supplemental, not actual Wasm tool proof"
+    },
+    {
+      "path": "candidate03/coarse-review.json",
+      "kind": "Reviewer verified production CSS equality and inspected CDP images/metrics; emulation only"
+    }
+  ],
+  "limitations": [
+    "Full29 catalogue scripts remain Partial/NotRun as recorded; no all-platform/release/physical-device qualification",
+    "General Redo, full source transfer/Save as and broad owned macro/menu composition remain baseline work",
+    "Source editing test setup after completed reader required a fresh disposable buffer; abandoned select-all attempts did not change saved source. No additional setup-path capability claim.",
+    "No GTK/console alignment reviewed yet"
+  ],
+  "cleanup": "Owned job completed; temporary arguments draft cleared; viewport reset; owned review tab closed; operator64823 untouched. Read-only reference server retained for subsequent platform reference review."
+}

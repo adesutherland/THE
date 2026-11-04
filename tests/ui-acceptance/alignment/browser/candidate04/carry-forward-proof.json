@@ -1,0 +1,7 @@
+{
+  "changed_receipt_inputs_from_candidate03": [
+    "web/src/rexx-console.tsx"
+  ],
+  "css_sha256": "c8226909cd3700e105fc9b9c67d3ca845181b074781e819fb32a022e9b544944",
+  "css_identical_to_candidate03_coarse_fixture": true
+}

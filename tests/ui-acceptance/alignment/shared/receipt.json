@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "scope": "Shared D04 footer core verification; native semantic and bounded painter evidence",
+  "source_state": "main working tree; 21 shared core/profile files identified below",
+  "source_sha256": "79dfd8a41b2441d29fe2984bf4a10dcdb6626d68f5331be96a1817371ed4a051",
+  "source_hash_algorithm": "For each source_files entry in order, SHA256 update(path UTF-8 + NUL + exact file bytes + NUL). Tests and platform UI files excluded.",
+  "source_files": [
+    "src/commset1.c",
+    "src/default.c",
+    "src/drivers/llm/headlessdriver.c",
+    "src/llm/llmdriver.c",
+    "src/llm/llmdriver.h",
+    "src/llm/llmruntime.c",
+    "src/query.c",
+    "src/query1.c",
+    "src/reserved.c",
+    "src/reservedfooter.h",
+    "src/screenframe.c",
+    "src/show.c",
+    "src/the.h",
+    "src/thedriver.h",
+    "src/uidriver.c",
+    "src/uidriver.h",
+    "profiles/default-profile.json",
+    "profile.the",
+    "profile_regina.the",
+    "web-profile.the",
+    "web-profile-regina.the"
+  ],
+  "driver_module_abi": 4,
+  "native_build_directory": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review",
+  "configured_crexx_source_revision": "43807b4368cb3dcda49d67c0ac15599cf1e22594",
+  "configured_runtime_inputs": {
+    "CMAKE_BUILD_TYPE": "Debug",
+    "CREXXSAA_LIBRARY": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin/libcrexxsaa.dylib",
+    "CREXX_DRIVER_EXECUTABLE": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin/crexx",
+    "CREXX_LIBRARY_RXBIN": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin/library.rxbin",
+    "CREXX_RXAS_EXECUTABLE": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin/rxas",
+    "CREXX_RXC_EXECUTABLE": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin/rxc"
+  },
+  "commands": {
+    "build": "cmake --build build/gtk-focus-review --target the test_headlessdriver --parallel 8",
+    "ctest": "ctest --test-dir build/gtk-focus-review -R '^(test_headlessdriver|test_named_footer|test_default_profile_CREXX|test_default_profile_REGINA)$' --output-on-failure",
+    "sanitizer": "Exact previously executed command is preserved in asan-ubsan-command.txt; matching CMake flag/link inputs are copied alongside."
+  },
+  "results": {
+    "native_build": "passed",
+    "ctest": {
+      "passed": 4,
+      "failed": 0,
+      "total_seconds": 22.02,
+      "tests": {
+        "test_default_profile_CREXX": 20.62,
+        "test_default_profile_REGINA": 1.01,
+        "test_headlessdriver": 0.26,
+        "test_named_footer": 0.12
+      }
+    },
+    "sanitizer": {
+      "address_sanitizer": "passed",
+      "undefined_behavior_sanitizer": "passed",
+      "exit_code": 0,
+      "stdout_file": "asan-ubsan-result.log"
+    }
+  },
+  "audit_findings_fixed": [
+    {
+      "issue": "Byte-counted syntax output could overread UTF-8 footer text/highlights and clip or pad wide glyphs incorrectly.",
+      "repair": "Band-specific bounded cluster painter uses byte-length decoding, physical profile metrics, byte-indexed colours and logical VERIFY scrolling; existing native cluster writer retains terminal policy.",
+      "proof": "Production band painter exercised with exact-length non-NUL \u03a9/\u754c arrays, narrow widths, right-edge guard cells, colours, padding and VERIFY before/inside/after a wide glyph; same target passed ASan/UBSan."
+    },
+    {
+      "issue": "Page stepping subtracted docked footer rows again after geometry had already removed them from FILEAREA.",
+      "repair": "find_next_current_line skips footer_after_cmdline nodes in its inline reserved-row subtraction. Other first_reserved loops inspected; none has analogous geometry subtraction.",
+      "proof": "300-line disposable fixture, two docked rows and two inline rows, expected forward/backward page distances, round trips, clean dirty state and byte-identical saved file."
+    }
+  ],
+  "boundary": "Focused local core/native proof only. Browser, GTK and console visual gates, hosted CI, installation, publication and release qualification are separate. Original test binaries were not retained or hashed as immutable candidates."
+}

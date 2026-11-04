@@ -4787,7 +4787,8 @@ COMMAND
      set footer - name an existing reserved row for footer presentation
 
 SYNTAX
-     [SET] FOOTER name +|-n|OFF
+     [SET] FOOTER name +|-n [AFTERCMDLINE]
+     [SET] FOOTER name OFF
 
 DESCRIPTION
      SET FOOTER associates an existing <reserved line> with an explicit
@@ -4802,12 +4803,15 @@ DESCRIPTION
      inherit names with their reserved rows except in XEDIT compatibility
      mode, where reserved rows are not copied.
 
-     Native drivers retain the SET RESERVED row position. A frontend may
-     present explicitly named rows in its footer, in their screen order.
-     Unnamed reserved rows retain their ordinary arbitrary-row meaning.
-     The stock profile uses keys for its key guide and response for its
-     blank editor-response row. <SET STATUSLINE>, <SET CMDLINE> and
-     <SET MSGLINE> continue to control their existing core display areas.
+     With two operands, the row keeps its SET RESERVED position. Optional
+     AFTERCMDLINE explicitly places it in a separate footer band below a
+     bottom command line, in reserved-position order. The band remains at
+     the bottom when CMDLINE is TOP or OFF. Text, colours and row count
+     remain profile-owned. OFF or the two-operand form restores ordinary
+     reserved placement. Unnamed rows retain their arbitrary-row meaning.
+     The stock profile opts its keys row into this band and leaves response
+     at the end of the file area. <SET STATUSLINE>, <SET CMDLINE> and
+     <SET MSGLINE> continue to control their core display areas.
 
 COMPATIBILITY
      XEDIT: N/A
@@ -4822,18 +4826,24 @@ STATUS
 short Footer(CHARTYPE *params)
 /***********************************************************************/
 {
-   CHARTYPE *word[4];
-   CHARTYPE strip[3] = {STRIP_BOTH,STRIP_BOTH,STRIP_BOTH};
+   CHARTYPE *word[5];
+   CHARTYPE strip[4] = {STRIP_BOTH,STRIP_BOTH,STRIP_BOTH,STRIP_BOTH};
    unsigned short count;
    short base=0,off=0,rc;
    size_t i,length;
    char name[THE_FOOTER_NAME_MAX+1];
    RESERVED *curr,*target=NULL;
 
-   count = param_split(params,word,3,WORD_DELIMS,TEMP_PARAM,strip,FALSE);
-   if (count != 2)
+   count = param_split(params,word,4,WORD_DELIMS,TEMP_PARAM,strip,FALSE);
+   if (count < 2 || count > 3)
    {
       display_error(count < 2 ? 3 : 1,count < 2 ? (CHARTYPE *)"" : word[2],FALSE);
+      return RC_INVALID_OPERAND;
+   }
+   if (count == 3 && (!equal((CHARTYPE *)"aftercmdline",word[2],12)
+                    || equal((CHARTYPE *)"off",word[1],3)))
+   {
+      display_error(1,word[2],FALSE);
       return RC_INVALID_OPERAND;
    }
    length = strlen((const char *)word[0]);
@@ -4867,8 +4877,16 @@ short Footer(CHARTYPE *params)
       }
    }
    for (curr=CURRENT_FILE->first_reserved;curr != NULL;curr=curr->next)
-      if (strcmp(curr->footer,name) == 0) curr->footer[0] = '\0';
-   if (target != NULL) strcpy(target->footer,name);
+      if (strcmp(curr->footer,name) == 0)
+      {
+         curr->footer[0] = '\0';
+         curr->footer_after_cmdline = FALSE;
+      }
+   if (target != NULL)
+   {
+      strcpy(target->footer,name);
+      target->footer_after_cmdline = count == 3;
+   }
    build_screen(current_screen);
    display_screen(current_screen);
    return RC_OK;

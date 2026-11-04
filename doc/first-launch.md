@@ -109,31 +109,40 @@ Browser Esc focuses its command input and Esc again returns to editing.
 F6 is also handled when the browser delivers it. Ctrl-L remains a console
 shortcut because browsers generally reserve it for their address bar.
 
-Profiles name reserved footer rows explicitly. For example:
+Profiles name reserved footer rows explicitly. These are THE commands; in a
+Rexx profile, quote each command and send it to `ADDRESS THE`. In the browser,
+use Edit profile, Build profile and Apply profile for these settings; the
+interactive command field admits a smaller command set. For example:
 
 ```text
 set reserved -3 normal Project-specific editing hints
 set footer project-hints -3
 set reserved -2 normal F10 Menu  F6 Cmd/File  Esc Cmd  F1 Help  Ctrl-S Save  Shift-Tab Controls
-set footer keys -2
+set footer keys -2 aftercmdline
 set reserved -1 normal
 set footer response -1
-set msgline on -2 1
+set msgline on -3 1
 ```
 
 `SET RESERVED` still controls arbitrary text, colour and screen position.
 `SET FOOTER name position` annotates an existing reserved row, using the same
-position specification. Names begin with an ASCII letter, contain up to 31
+position specification. Optional `AFTERCMDLINE` places that row in a separate
+profile-owned band below a bottom command line. The stock layout is response,
+THE command, key guide, then status. The band stays at the bottom when the
+command line is at the top or turned off. Names begin with an ASCII letter,
+contain up to 31
 letters, digits, underscores or hyphens, and ignore case. Each row has one
 name, and each name identifies one row in the current file. Assign a name to
 another reserved row to move it, or use `SET FOOTER name OFF` to remove the
-name while retaining the reserved text. Replacing or deleting a reserved row
+name while retaining the reserved text at its ordinary position. The two-operand
+form also restores ordinary reserved placement. Replacing or deleting a reserved row
 also removes its name. New buffers inherit the names with their reserved
 rows; XEDIT compatibility continues to omit reserved rows from new buffers.
 
-Native frontends display these rows at their reserved positions. The browser
-places named rows in its footer in screen order and renders their profile
-text and base colour; ordinary unnamed reserved rows stay among the editor rows.
+Rows keep their reserved positions unless the profile explicitly opts them into
+the band. Browser and native frontends render the same resolved placement,
+text and colours. Multiple band rows follow their declared position order;
+arbitrary inline named and unnamed reserved rows stay among the editor rows.
 The stock names are `keys` and `response`. The browser's `response` row shows
 the current editor response in place of its blank placeholder. There is no
 text-pattern detection. `SET STATUSLINE`, `SET CMDLINE` and `SET MSGLINE`
@@ -142,7 +151,9 @@ footer names do not replace those commands. Semantic row snapshots expose a
 name as the optional `footer` field on a `reserved` row. Its `footer_text`
 contains the complete display text, including spaces, before the native
 prefix/gap split; `footer_colour` carries the reserved row's base style and
-colours. `EXTRACT /FOOTER */` returns `name position` values for
+colours. Band rows also expose `footer_placement: "aftercmdline"` and
+`physical_row`; snapshot `regions` describes the file, command, footer and
+status geometry. `EXTRACT /FOOTER */` returns `name position [AFTERCMDLINE]` values for
 macros that save and restore reserved rows, such as the supplied panel demos.
 
 Left at the first text column enters the current record's last editable prefix

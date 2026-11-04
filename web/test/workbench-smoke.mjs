@@ -23,6 +23,7 @@ let workbenchRuns = 0;
 let holdWorkbenchResult = false;
 let heldWorkbenchResult = null;
 let customFooter = true;
+let profileGuide = true;
 let presentDiagnostic = false;
 let fixturePanels = [];
 let fixturePanelState = null;
@@ -85,9 +86,14 @@ const tools = {
   profile: { sourcePath: "/workspace/.crxthe-tools/profile.the", build: { sourceId: 0, revision: 0, image: "", state: "none" }, active: { image: "" } },
   fileResult: { serial: 0, action: "", sourceId: 0, revision: 0, code: "", rc: 0, message: "" },
   catalog: [
-    { id: "classic-rexx", label: "Classic Rexx", role: "runner", image: "runner.rxbin", extensions: ".rexx", available: true },
+    { id: "classic-rexx", label: "Classic Rexx", role: "runner", image: "runner.rxbin", extensions: ".rexx,.rex", available: true },
+    { id: "crexx", label: "cREXX", role: "runner", image: "@built", extensions: ".crexx", available: true },
     { id: "rxbin", label: "RXBIN", role: "program", image: "", extensions: ".rxbin", available: true },
-    { id: "profile-compiler", label: "Profile compiler", role: "compiler", image: "", extensions: ".crexx", available: true },
+    { id: "profile-compiler", label: "cREXX compiler", role: "compiler", image: "", extensions: ".the,.crexx", available: true },
+    { id: "classic-highlight", label: "Classic Rexx highlighter", role: "language", image: "", extensions: ".rexx,.rex", available: true },
+    { id: "minibasic", label: "MiniBASIC", role: "runner", image: "MiniBASIC.rxbin", extensions: ".bas", available: true },
+    { id: "minibasic-syntax", label: "MiniBASIC syntax", role: "language", image: "MiniBASICHighlight.rxbin", extensions: ".bas", available: true },
+    { id: "syntax-only", label: "Syntax-only fixture service", role: "language", image: "Syntax.rxbin", extensions: ".syntax", available: true },
   ],
 };
 let client;
@@ -109,7 +115,8 @@ function publishSnapshot() {
     t: "Response placement placeholder must not become static chrome",
   };
   const guide = snapshot.screen_rows.length - 1;
-  snapshot.screen_rows[guide] = { r: guide, role: "reserved", footer: "keys", line: 0, cur: 0, sc: 0,
+  if (profileGuide) snapshot.screen_rows[guide] = { r: guide, role: "reserved", footer: "keys", line: 0, cur: 0, sc: 0,
+    footer_placement: "aftercmdline", physical_row: 23,
     t: "F1 Profile help F6 Cmd/File F10 Menu Esc Cmd Ctrl-S Save" };
   client?.send(JSON.stringify(snapshot));
 }
@@ -311,7 +318,10 @@ ws.on("connection", (connection) => {
           state: "complete", code: "ok", rc: 0, revision: 5, message: "" }));
       }
     } else if (message.type === "tool" && ["run", "file-run"].includes(message.action)) {
-      Object.assign(tools.job, { id: tools.job.id + 1, running: true, waiting: false, state: "Running" });
+      Object.assign(tools.job, { id: tools.job.id + 1, running: true, waiting: false, state: "Running",
+        sourceId: message.sourceId ?? snapshot.source.id, revision: message.revision ?? snapshot.source.revision,
+        filename: message.tool === "rxbin" ? message.text : snapshot.buffer.path,
+        tool: message.tool || tools.currentFile.actions.find((action) => action.id === "run")?.tool || "" });
       tools.visible = true;
       publishTools();
     }
@@ -360,6 +370,98 @@ async function key(key, modifiers = 0) {
   await cdp("Input.dispatchKeyEvent", { type: "keyDown", ...parameters });
   await cdp("Input.dispatchKeyEvent", { type: "keyUp", ...parameters });
 }
+async function coarsePointerSmoke(probe = false) {
+  await viewport(390, 844);
+  await cdp("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 1 });
+  const input = await evaluate("({coarse:matchMedia('(pointer:coarse)').matches,fine:matchMedia('(pointer:fine)').matches,hover:matchMedia('(hover:hover)').matches,maxTouchPoints:navigator.maxTouchPoints,zoom:visualViewport.scale})");
+  assert.equal(input.coarse, true, "CDP touch emulation actually selects coarse-pointer CSS");
+  fixturePanels = []; fixturePanelState = null; publishWorkbench(1000, 0, "");
+  tools.job.id++; tools.job.running = true; tools.job.waiting = true; tools.job.eof = false;
+  tools.job.state = "Waiting for input"; publishTools();
+  await wait(() => evaluate("!!document.querySelector('.program-console-pane')?.getClientRects().length"), "coarse Program console");
+  const captures = [];
+  const destination = process.env.THE_WORKBENCH_COARSE_EVIDENCE && resolve(process.env.THE_WORKBENCH_COARSE_EVIDENCE);
+  const stage = process.env.THE_WORKBENCH_COARSE_STAGE || "check";
+  if (destination) await mkdir(destination, { recursive: true });
+  async function tap(selector) {
+    const box = await geometry(selector), x = box.left + box.width / 2, y = box.top + box.height / 2;
+    assert(box.visible && x >= 0 && x <= 390 && y >= 0 && y <= 844, `touch target is reachable: ${selector}`);
+    await cdp("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+    await cdp("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await evaluate("new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))");
+  }
+  async function capture(name) {
+    const controls = await evaluate(`Array.from(document.querySelectorAll('button:not(.prefix-cell)')).filter(button=>{
+      const r=button.getBoundingClientRect();if(!button.getClientRects().length||r.width<=0||r.height<=0)return false;
+      const x=Math.max(0,Math.min(innerWidth-1,r.left+r.width/2)),y=Math.max(0,Math.min(innerHeight-1,r.top+r.height/2));
+      return r.right>0&&r.left<innerWidth&&r.bottom>0&&r.top<innerHeight&&button.contains(document.elementFromPoint(x,y));
+    }).map(button=>{const r=button.getBoundingClientRect();return {label:button.getAttribute('aria-label')||button.textContent.trim(),class:button.className,x:r.x,y:r.y,width:r.width,height:r.height,font:getComputedStyle(button).fontSize};})`);
+    captures.push({ name, controls, undersized: controls.filter((control) => control.height < 43.99 || control.width < 43.99) });
+    if (destination) {
+      const screenshot = await cdp("Page.captureScreenshot", { format: "png" });
+      await writeFile(join(destination, `BT-coarse-${stage}-${name}.png`), Buffer.from(screenshot.data, "base64"));
+    }
+  }
+  await capture("console");
+  await tap(".tools-toggle");
+  await wait(() => evaluate("document.querySelector('.tools-toggle').getAttribute('aria-pressed')==='true' && !!document.querySelector('.tools-profiles-pane').getClientRects().length"), "touch opens Tools and Profiles");
+  await evaluate("[...document.querySelectorAll('.tools-sections button')].find(button=>button.textContent==='Profiles').click()");
+  await capture("profiles");
+  await tap(".tools-sections button:nth-child(2)");
+  await wait(() => evaluate("!!document.querySelector('.tool-associations').getClientRects().length"), "touch selects file associations");
+  await capture("associations");
+  await tap(".pane-switcher button:first-child");
+  await wait(() => evaluate("!!document.querySelector('.file-explorer').getClientRects().length"), "touch opens Files");
+  await capture("files");
+  await tap(".menu-trigger");
+  await wait(() => evaluate("!!document.querySelector('.menu-popover')?.getClientRects().length"), "touch opens Menu");
+  await capture("menu");
+  const receipt = { fixture: "semantic-protocol browser presentation", assets, viewport: { width: 390, height: 844, deviceScaleFactor: 1 }, input, captures };
+  if (destination) await writeFile(join(destination, `BT-coarse-${stage}.json`), JSON.stringify(receipt, null, 2) + "\n");
+  console.log("Coarse-pointer controls: " + JSON.stringify(captures.map(({ name, undersized }) => ({ name, undersized }))));
+  if (!probe) assert(captures.every((capture) => !capture.undersized.length), "visible coarse-pointer workbench buttons meet the 44 CSS px minimum");
+  await cdp("Emulation.setTouchEmulationEnabled", { enabled: false });
+}
+
+async function settingsLayoutSmoke() {
+  const captures = [], destination = process.env.THE_WORKBENCH_LAYOUT_EVIDENCE && resolve(process.env.THE_WORKBENCH_LAYOUT_EVIDENCE);
+  if (destination) await mkdir(destination, { recursive: true });
+  for (const [width, height, coarse] of [[820, 500, false], [390, 844, true], [390, 500, true]]) {
+    await viewport(width, height);
+    await cdp("Emulation.setTouchEmulationEnabled", { enabled: coarse, maxTouchPoints: 1 });
+    assert.equal(await evaluate("matchMedia('(pointer:coarse)').matches"), coarse, "Settings input mode is actually emulated");
+    if (!await evaluate("!!document.querySelector('.menu-popover')")) await evaluate("document.querySelector('.menu-trigger').click()");
+    await menuGroup("View");
+    await evaluate("document.querySelector('[data-action-id=\"gui.settings\"]').click()");
+    await wait(() => evaluate("!!document.querySelector('.settings-dialog')"), "Settings dialog layout");
+    await evaluate("[...document.querySelectorAll('.settings-nav button')].find(button=>button.textContent==='Editor').click()");
+    await evaluate("new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))");
+    const before = await evaluate(`(() => {const root=document.querySelector('.settings-dialog'),body=root.querySelector('.settings-body');
+      const rect=element=>{const r=element.getBoundingClientRect();return {top:r.top,bottom:r.bottom,left:r.left,right:r.right,height:r.height};};
+      return {dialog:rect(root),heading:rect(root.querySelector('.dialog-heading')),body:rect(body),footer:rect(root.querySelector('.dialog-actions')),done:rect(root.querySelector('.dialog-actions button')),scrollHeight:body.scrollHeight,clientHeight:body.clientHeight,outerScrollHeight:root.scrollHeight,outerClientHeight:root.clientHeight};})()`);
+    assert(before.dialog.top >= 19 && before.dialog.bottom <= height - 19, "Settings fits the short or touch viewport");
+    assert(before.done.top >= before.footer.top && before.done.bottom <= before.footer.bottom && before.footer.bottom <= before.dialog.bottom,
+      "Done is fully visible inside a stable Settings footer on entry");
+    assert(before.outerScrollHeight <= before.outerClientHeight + 1, "the Settings shell does not scroll its header or footer");
+    if (height === 500) assert(before.scrollHeight > before.clientHeight, "long Editor settings scroll inside the body");
+    await evaluate("document.querySelector('.settings-body').scrollTop=document.querySelector('.settings-body').scrollHeight");
+    const after = await geometry(".settings-dialog .dialog-actions button");
+    assert.equal(after.top, before.done.top, "scrolling Settings content leaves Done fixed");
+    assert.equal(after.bottom, before.done.bottom, "scrolling Settings content retains the entire Done target");
+    if (coarse) assert(before.done.height >= 44, "coarse Settings Done retains its 44 CSS px target");
+    captures.push({ width, height, coarse, geometry: before });
+    if (destination) {
+      const screenshot = await cdp("Page.captureScreenshot", { format: "png" });
+      await writeFile(join(destination, `BS-dialog-${width}x${height}-${coarse ? "coarse" : "fine"}.png`), Buffer.from(screenshot.data, "base64"));
+    }
+    await evaluate("document.querySelector('.settings-dialog .dialog-actions button').click()");
+    await wait(() => evaluate("!document.querySelector('.settings-dialog')"), "Settings Done closes dialog");
+  }
+  if (destination) await writeFile(join(destination, "BS-dialog-layout.json"), JSON.stringify({ assets, captures }, null, 2) + "\n");
+  await cdp("Emulation.setTouchEmulationEnabled", { enabled: false });
+  console.log("PASS Settings layout: fixed heading/Done footer and independent long-content scrolling at 820x500, coarse 390x844 and coarse 390x500");
+}
+
 try {
   const port = await wait(async () => { try { return +(await readFile(join(profile, "DevToolsActivePort"), "utf8")).split("\n")[0]; } catch { return false; } }, "Chrome port");
   const target = await (await fetch(`http://127.0.0.1:${port}/json/new?about:blank`, { method: "PUT" })).json();
@@ -377,6 +479,11 @@ try {
   await cdp("Page.navigate", { url: `http://127.0.0.1:${server.address().port}/` });
   await wait(() => evaluate("!!document.querySelector('.status-line[data-focus-line=\"1\"]')"), "initial editor");
   await cdp("Page.bringToFront");
+  if (process.env.THE_WORKBENCH_COARSE_ONLY) {
+    await coarsePointerSmoke(process.env.THE_WORKBENCH_COARSE_ONLY === "probe");
+  } else if (process.env.THE_WORKBENCH_SETTINGS_ONLY) {
+    await settingsLayoutSmoke();
+  } else {
   assert.equal(await evaluate("document.querySelectorAll('.dock-entry').length"), 0, "initial snapshot must not fabricate a response event");
   assert.equal(await evaluate("document.querySelector('.latest-response').textContent"), "", "idle response strip stays quiet");
   assert.equal(await evaluate("document.querySelector('.editor-details')"), null);
@@ -390,10 +497,41 @@ try {
   assert.equal(await evaluate("getComputedStyle(document.querySelector('[data-footer=build]')).color"), "rgb(170, 34, 0)", "profile footer foreground survives relocation");
   assert.equal(await evaluate("getComputedStyle(document.querySelector('[data-footer=build]')).backgroundColor"), "rgb(255, 244, 204)", "profile footer background survives relocation");
   assert.equal(await evaluate("document.querySelector('[data-footer=build] .syntax-keyword').textContent"), "profile", "named footer preserves semantic styles after prefix split");
+  assert.equal(await evaluate("!!document.querySelector('.editor-grid [data-footer=build]')"), true,
+    "legacy named reserved footer retains its declared inline position");
+  assert.equal(await evaluate("document.querySelector('.editor-footer .key-hints').textContent"), "F1 Profile help F6 Cmd/File F10 Menu Esc Cmd Ctrl-S Save",
+    "only an explicit after-command footer enters the band");
   assert.equal(await evaluate("document.querySelector('[data-footer=response]')"), null, "response placement does not add a static line");
   assert.equal(await evaluate("document.querySelector('.dock-heading')"), null, "command heading does not consume a row");
   assert.equal(await evaluate("document.querySelector('.latest-response').hidden"), true, "empty response consumes no footer height");
-  assert.deepEqual(await evaluate("[...document.querySelectorAll('.editor-grid .role-reserved:not(.profile-footer-source)')].map(n=>n.textContent.trim())"),
+  const initialFileActions = tools.currentFile;
+  tools.currentFile = { ...initialFileActions, role: "text", actions: [
+    { id: "run", label: "Run", enabled: false, reason: "no-run-tool", tool: "", target: "current-file" },
+  ] };
+  client.send(JSON.stringify({ ...tools, version: ++tools.version }));
+  await wait(() => evaluate("document.querySelector('.current-file-tools').dataset.fileRole==='text'"), "ordinary Text role");
+  assert.equal(await evaluate("document.querySelector('.current-file-status').textContent.includes('runner')"), false,
+    "ordinary Text does not carry a persistent runner warning");
+  assert.equal(await evaluate("document.querySelector('.file-action-run')"), null, "Text has no implied runnable action");
+  tools.currentFile = initialFileActions; publishTools();
+  snapshot.regions = { filearea: { row: 2, rows: 20, col: 0, cols: 80 },
+    command: { row: 0, rows: 1, col: 0, cols: 80 }, footer: { row: 23, rows: 1, col: 0, cols: 80 },
+    status: { row: 1, rows: 1, col: 0, cols: 80 } };
+  publishSnapshot();
+  await wait(async () => (await geometry(".command-area")).bottom <= (await geometry(".editor-status")).top,
+    "core top command/status region order");
+  assert((await geometry(".editor-status")).bottom <= (await geometry(".editor-scroll")).top,
+    "profile TOP regions remain above the file area");
+  snapshot.regions.command.rows = snapshot.regions.status.rows = 0; publishSnapshot();
+  await wait(() => evaluate("!document.querySelector('#the-command') && document.querySelector('.status-line').hidden"),
+    "core CMDLINE OFF and STATUSLINE OFF are respected");
+  assert.equal((await geometry(".key-hints")).visible, true, "OFF command/status do not remove the profile's independent footer band");
+  delete snapshot.regions;
+  profileGuide = false; publishSnapshot();
+  await wait(() => evaluate("!!document.querySelector('#the-command') && !document.querySelector('.key-hints')"),
+    "profile guide OFF has no replacement browser shortcut row");
+  profileGuide = true; publishSnapshot();
+  assert.deepEqual(await evaluate("[...document.querySelectorAll('.editor-grid .role-reserved:not([data-footer])')].map(n=>n.textContent.trim())"),
     ["Profile note: keep this reserved row in the editor", "F1 Reserved note F6 Another note F10 Keep in grid"], "ordinary reserved rows stay in the grid even when they look like shortcuts");
   customFooter = false; publishSnapshot();
   await wait(() => evaluate("!document.querySelector('[data-footer=build]')"), "profile removes custom footer");
@@ -507,7 +645,50 @@ try {
   tools.catalog.forEach(candidate => candidate.available = true); publishTools();
   await wait(() => evaluate("!document.querySelector('.file-action-run').disabled"), "runtime available again");
   await pane("Files"); await pane("Tools & Profiles");
+  assert.equal(await evaluate("!document.querySelector('.profile-details').open && !document.querySelector('.compiled-profile-setup').open"), true,
+    "profile technical details and compiled-image workflow are secondary on entry");
+  assert.equal(await evaluate("document.querySelector('.profile-summary').textContent.includes('Default editor settings')"), true,
+    "profile entry begins with the actual friendly active state");
+  assert.equal(await evaluate("[...document.querySelectorAll('.auxiliary-rail strong')].filter(n=>n.getClientRects().length && n.textContent==='Tools & Profiles').length"), 1,
+    "one visible Tools and Profiles pane heading");
+  await evaluate("[...document.querySelectorAll('.tools-sections button')].find(n=>n.textContent==='File types & tools').click()");
+  assert.equal(await evaluate("!!document.querySelector('.tool-associations').getClientRects().length && !document.querySelector('.advanced-run-setup').open"), true,
+    "file associations precede the collapsed advanced run and import workflow");
+  assert.deepEqual(await evaluate("[...document.querySelectorAll('.tool-associations [data-extensions=\".rexx,.rex\"] [data-tool-role]')].map(n=>({role:n.dataset.toolRole,text:n.textContent}))"), [
+    { role: "runner", text: "Run · Classic Rexx" },
+    { role: "language", text: "Syntax / highlighting · Classic Rexx highlighter" },
+  ], "equivalent Rexx extensions group their runner and syntax registrations without inventing another Run action");
+  assert.equal(await evaluate("document.querySelector('.tool-associations [data-extensions=\".bas\"] [data-tool-role=language]').textContent"),
+    "Syntax / highlighting · MiniBASIC syntax", "MiniBASIC syntax service is never described as a runner");
+  assert.equal(await evaluate("document.querySelector('.tool-associations [data-extensions=\".syntax\"]').textContent.includes('Run')"), false,
+    "a language-only association has no implied execution action");
+  assert.deepEqual(await evaluate("[...document.querySelectorAll('.tool-associations [data-extensions=\".crexx\"] [data-tool-role]')].map(n=>n.dataset.toolRole)"),
+    ["compiler", "runner"], "cREXX build and run registrations appear in one file-type group in workflow order");
+  const associationFile = tools.currentFile, associationBuffer = snapshot.buffer, associationSource = snapshot.source;
+  snapshot.buffer = { ...snapshot.buffer, path: "/workspace/Example.crexx" };
+  snapshot.source = { id: 90, revision: 1 };
+  tools.currentFile = { sourceId: 90, revision: 1, path: snapshot.buffer.path, role: "crexx-source", actions: [
+    { id: "build", label: "Build source", enabled: true, reason: "ok", tool: "profile-compiler", target: "current-file" },
+    { id: "run", label: "Run", enabled: false, reason: "Build this source before running it", tool: "crexx", target: "current-file" },
+  ] };
+  publishSnapshot(); client.send(JSON.stringify({ ...tools, version: ++tools.version }));
+  await wait(() => evaluate("document.querySelector('.tool-associations [data-extensions=\".crexx\"] .association-current-actions')?.textContent==='Current file: Build source → Run'"),
+    "selected cREXX source shows the actual admitted Build then Run workflow");
+  tools.currentFile.actions[0] = { ...tools.currentFile.actions[0], label: "Package source", tool: "user.package" };
+  client.send(JSON.stringify({ ...tools, version: ++tools.version }));
+  await wait(() => evaluate("document.querySelector('.association-current-actions')?.textContent==='Current file: Package source → Run'"),
+    "current-file workflow follows profile-owned action labels rather than a frontend binding guess");
+  tools.currentFile = associationFile; snapshot.buffer = associationBuffer; snapshot.source = associationSource;
+  publishSnapshot(); publishTools();
+  await evaluate("document.querySelector('.advanced-run-setup summary').click()");
   await setInput("[aria-label='Program arguments']", "first\n\nlast");
+  const draftBeforeToggle = await evaluate("document.querySelector('[aria-label=\"Program arguments\"]').value");
+  await pane("Console"); await pane("Tools & Profiles"); await pane("Tools & Profiles");
+  assert.equal(await evaluate("!document.querySelector('.workspace').classList.contains('aux-open') && !document.querySelector('.tools-profiles-pane').getClientRects().length && !document.querySelector('.program-console-pane').getClientRects().length"), true,
+    "hiding Tools returns to the editor without revealing a latent Console sibling");
+  await pane("Tools & Profiles");
+  assert.equal(await evaluate("document.querySelector('[aria-label=\"Program arguments\"]').value"), draftBeforeToggle,
+    "Tools toggle restores the retained advanced-run draft");
   const runCount = received.filter(message => message.type === "tool" && message.action === "file-run").length;
   snapshot.buffer.dirty = snapshot.buffers[0].dirty = 1; snapshot.source.revision++;
   publishSnapshot(); publishTools();
@@ -520,6 +701,13 @@ try {
     runMessage.at(-1).sourceId, runMessage.at(-1).revision], ["classic-rexx", "", "first\n\nlast", snapshot.source.id, snapshot.source.revision],
     "Run uses the selected source token and retains arguments");
   assert.equal(await evaluate("document.querySelector('.file-action-run').disabled && document.querySelector('.current-file-status').textContent.includes('Program running')"), true, "running state is visible beside disabled Run");
+  const runSource = snapshot.source;
+  snapshot.source = { id: 99, revision: 1 }; publishSnapshot();
+  await wait(() => evaluate("document.querySelector('.console-notice')?.textContent==='Output retained from another file'"), "retained output after file switch");
+  snapshot.source = { ...runSource, revision: runSource.revision + 1 }; publishSnapshot();
+  await wait(() => evaluate("document.querySelector('.console-notice')?.textContent.startsWith('Run source changed')"), "actual changed run source is distinguished");
+  snapshot.source = runSource; publishSnapshot();
+  await wait(() => evaluate("!document.querySelector('.console-notice')"), "unchanged run source has no stale-source notice");
 
   // Use real browser key dispatch: default Tab traversal and Enter activation
   // cannot be qualified by dispatching synthetic KeyboardEvents alone.
@@ -644,8 +832,9 @@ try {
     assert(files.visible && editor.visible && programConsole.visible, "wide workbench panes visible");
     assert(files.right <= editor.left && editor.right <= programConsole.left, "wide panes do not overlap");
     assert(programConsole.right <= width && programConsole.bottom <= height + 1, "console fits viewport");
-    const surface = await geometry(".editor-scroll"), status = await geometry(".editor-status"), commands = await geometry(".command-area");
-    assert(Math.abs(surface.bottom - status.top) < 1 && status.bottom <= commands.top, "status and guide immediately follow editor");
+    const surface = await geometry(".editor-scroll"), status = await geometry(".editor-status"), commands = await geometry(".command-area"), guide = await geometry(".editor-footer");
+    assert(Math.abs(surface.bottom - commands.top) < 1 && Math.abs(commands.bottom - guide.top) < 1 && Math.abs(guide.bottom - status.top) < 1,
+      "response and command, explicit profile guide and status follow the editor in order");
   }
   const initialFiles = (await geometry(".file-explorer")).width;
   await evaluate("document.querySelector('[aria-label=\"Resize files pane\"]').dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true,cancelable:true}))");
@@ -674,6 +863,61 @@ try {
   tools.chunks.push({ fd: 2, text: "latest output\n" }); publishTools();
   await wait(() => evaluate("!!document.querySelector('.new-output')"), "unread output control");
   assert.equal(await evaluate("document.querySelector('.console-output').scrollTop"), 0, "output preserves scrollback position");
+  const readerText = "output 37";
+  const selectReaderText = () => evaluate(`(() => {
+    const output=document.querySelector('.console-output'), text=output.querySelector('span').firstChild;
+    const start=text.textContent.indexOf(${JSON.stringify(readerText)}), range=document.createRange();
+    range.setStart(text,start);range.setEnd(text,start+${readerText.length});output.focus({preventScroll:true});
+    const selection=getSelection();selection.removeAllRanges();selection.addRange(range);
+    output.scrollTop=710;output.dispatchEvent(new Event('scroll'));
+  })()`);
+  await selectReaderText();
+  await pane("Tools & Profiles"); await pane("Console");
+  assert.equal(await evaluate("getSelection().toString()"), readerText, "cross-switching retains the native reader selection");
+  const readerArguments = await evaluate("document.querySelector('[aria-label=\"Program arguments\"]').value");
+  const readerSource = JSON.stringify({ source: snapshot.source, buffer: snapshot.buffer, focus: snapshot.focus });
+  tools.job.running = tools.job.waiting = false; tools.job.state = "Completed"; publishTools();
+  await selectReaderText(); await pane("Tools & Profiles");
+  await evaluate("[...document.querySelectorAll('.tools-sections button')].find(button=>button.textContent==='File types & tools').click()");
+  await evaluate("(() => {const details=document.querySelector('.advanced-run-setup');if(!details.open)details.querySelector('summary').click();})()");
+  await wait(() => evaluate("!document.querySelector('[aria-label=\"Program arguments\"]').disabled"), "editable Tools arguments for a retained completed result");
+  await evaluate("document.querySelector('[aria-label=\"Program arguments\"]').focus();document.querySelector('[aria-label=\"Program arguments\"]').select()");
+  await cdp("Input.insertText", { text: "setup probe" });
+  assert.equal(await evaluate("getSelection().isCollapsed"), true, "editing a native Tools field collapses the shared browser reader range");
+  await evaluate("document.querySelector('[aria-label=\"Program arguments\"]').setSelectionRange(2,7)");
+  const editedArguments = await evaluate("({value:document.querySelector('[aria-label=\"Program arguments\"]').value,start:document.querySelector('[aria-label=\"Program arguments\"]').selectionStart,end:document.querySelector('[aria-label=\"Program arguments\"]').selectionEnd})");
+  await pane("Console");
+  await wait(() => evaluate(`getSelection().toString()===${JSON.stringify(readerText)}`), "reader range survives native Tools input editing while hidden");
+  assert.deepEqual(await evaluate("({value:document.querySelector('[aria-label=\"Program arguments\"]').value,start:document.querySelector('[aria-label=\"Program arguments\"]').selectionStart,end:document.querySelector('[aria-label=\"Program arguments\"]').selectionEnd})"),
+    editedArguments, "restoring the reader leaves the separate Tools field's value and native selection untouched");
+  assert.equal(await evaluate("document.querySelector('#rexx-input').value"), "unsent input", "Tools input and reader restoration preserve the Program input draft");
+  assert.equal(JSON.stringify({ source: snapshot.source, buffer: snapshot.buffer, focus: snapshot.focus }), readerSource,
+    "reader and Tools field focus do not change editor source, dirty state or logical cursor");
+  await setInput("[aria-label='Program arguments']", readerArguments);
+  tools.job.running = tools.job.waiting = true; tools.job.state = "Waiting for input"; publishTools();
+  await pane("Console");
+  await wait(() => evaluate("document.querySelector('.program-console-pane').hidden && getSelection().isCollapsed"),
+    "explicit hide returns editor focus and collapses the native browser selection");
+  tools.chunks.at(-1).text += "output appended while hidden\n"; publishTools();
+  await wait(() => evaluate("document.querySelector('.console-output').textContent.endsWith('output appended while hidden\\n')"), "hidden live output append");
+  await pane("Console");
+  await wait(() => evaluate(`getSelection().toString()===${JSON.stringify(readerText)} && document.activeElement===document.querySelector('.console-output')`),
+    "show restores the copyable native reader range and reader focus after a same-job append");
+  assert.deepEqual(await evaluate("({scroll:document.querySelector('.console-output').scrollTop,draft:document.querySelector('#rexx-input').value,selected:getSelection().getRangeAt(0).toString()})"),
+    { scroll: 710, draft: "unsent input", selected: readerText }, "reader range restoration preserves scrollback and the separate input draft");
+  await pane("Console");
+  tools.job.id++; publishTools();
+  await wait(() => evaluate("!document.querySelector('.program-console-pane').hidden"), "a new job opens its own console");
+  assert.equal(await evaluate("getSelection().toString()"), "", "a new job cannot resurrect the previous job's reader selection");
+  await selectReaderText(); await pane("Console");
+  const readerChunks = tools.chunks;
+  tools.chunks = []; publishTools();
+  await wait(() => evaluate("document.querySelector('.console-output').textContent===''"), "cleared hidden output");
+  tools.chunks = readerChunks; publishTools();
+  await wait(() => evaluate("document.querySelector('.console-output').textContent.includes('output 37')"), "replacement output with coincidentally identical text");
+  await pane("Console");
+  assert.equal(await evaluate("getSelection().toString()"), "", "clear/replacement invalidates a retained range even when the text later matches");
+  await evaluate("document.querySelector('.console-output').scrollTop=0;document.querySelector('.console-output').dispatchEvent(new Event('scroll'))");
   const originalColours = snapshot.console_colours;
   const originalPath = snapshot.buffer.path;
   const toolVersionBeforePalette = tools.version;
@@ -742,7 +986,7 @@ try {
     assert.equal(await evaluate("document.documentElement.scrollWidth<=innerWidth"), true, `no shell overflow at ${width}`);
     assert.equal(await evaluate("(() => {const n=document.querySelector('.key-hints');return n.scrollWidth<=n.clientWidth && n.scrollHeight<=n.clientHeight && n.textContent==='F1 Profile help F6 Cmd/File F10 Menu Esc Cmd Ctrl-S Save';})()"), true, `entire named profile footer wraps at ${width}`);
     const surface = await geometry(".editor-scroll"), status = await geometry(".editor-status"), commands = await geometry(".command-area");
-    assert(Math.abs(surface.bottom - status.top) < 1 && status.bottom <= commands.top, `phone footer follows editor at ${width}`);
+    assert(Math.abs(surface.bottom - commands.top) < 1 && commands.bottom <= status.top, `phone response and command precede the profile guide and status at ${width}`);
   }
   await viewport(390, 844);
   assert.equal((await geometry(".file-action-run")).visible, true, "phone has visible current-file Run");
@@ -786,7 +1030,7 @@ try {
   await evaluate("document.querySelector('#rexx-input').scrollIntoView({block:'nearest'})");
   const shortInput = await geometry("#rexx-input");
   assert(shortInput.bottom <= 451, "program input stays reachable in a short phone viewport: " + JSON.stringify({ input: shortInput, workspace: await geometry(".workspace"), rail: await geometry(".auxiliary-rail"), console: await geometry(".program-console-pane"), expand: await geometry(".auxiliary-view-controls") }));
-  await evaluate("document.querySelector('.auxiliary-view-controls button').click()");
+  await evaluate("document.querySelector('.console-heading .pane-expand').click()");
   assert.equal(await evaluate("document.querySelector('#rexx-input').value"), "unsent input", "expanded console preserves draft on return");
   for (const [width, height] of [[390, 844], [800, 700]]) {
     await viewport(width, height);
@@ -1265,11 +1509,11 @@ try {
   await setInput("[aria-label='Program arguments']", "retained tools draft");
   await evaluate("[...document.querySelectorAll('.tools-sections button')].find(n=>n.textContent==='Profiles').click()");
   assert.equal(await evaluate("document.querySelector('[aria-label=\"Program arguments\"]').value"), "retained tools draft", "internal section switch retains draft");
-  await evaluate("document.querySelector('.auxiliary-view-controls button').click()");
+  await evaluate("document.querySelector('.tools-heading .pane-expand').click()");
   assert(!(await geometry(".editor-pane")).visible && (await geometry(".tools-profiles-pane")).height >= 400, "expanded setup view is usable");
   assert(Math.abs((await geometry(".auxiliary-rail")).width - 820) <= 1, "expanded auxiliary pane uses full viewport width even while Files is open");
-  assert.equal(await evaluate("document.querySelector('.auxiliary-view-controls button').textContent"), "Return to editor");
-  await evaluate("document.querySelector('.auxiliary-view-controls button').click()");
+  assert.equal(await evaluate("document.querySelector('.tools-heading .pane-expand').textContent"), "Return to editor");
+  await evaluate("document.querySelector('.tools-heading .pane-expand').click()");
   assert((await geometry(".editor-pane")).visible, "return restores the editor");
   assert((await geometry("[aria-label='Resize lower pane']")).visible, "lower resizer is discoverable");
   await viewport(820, 500);
@@ -1278,7 +1522,7 @@ try {
   assert(!(await geometry(".tools-profiles-pane")).visible, "short normal mode keeps the auxiliary body behind explicit Expand");
   await evaluate("document.querySelector('.auxiliary-view-controls button').click()");
   assert((await geometry(".tools-profiles-pane")).visible, "short Expand reveals the auxiliary body");
-  await evaluate("document.querySelector('.auxiliary-view-controls button').click()");
+  await evaluate("document.querySelector('.tools-heading .pane-expand').click()");
   await viewport(820, 720);
   await evaluate("Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.clipboardWritten=text},readText:async()=>window.clipboardText||''}})");
   await setInput("#the-command", "native command draft");
@@ -1366,6 +1610,9 @@ try {
     console.log("Presentation-fixture screenshots: " + destination);
   }
   console.log("PASS Guided Workbench: 320/390/768/1280/1920 layouts, explicit profile footers/status, visible Run availability, shared F10 menu/navigation/focus return, contextual Tab, panel/dialog ownership, quiet idle responses, semantic history, separate program input, retained drafts/job and scrollback");
+  await coarsePointerSmoke();
+  await settingsLayoutSmoke();
+  }
 } finally {
   socket?.close(); chrome.kill();
   for (const connection of ws.clients) connection.terminate();

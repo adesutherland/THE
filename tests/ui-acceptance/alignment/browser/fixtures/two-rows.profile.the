@@ -1,0 +1,1 @@
+options levelb; address THE; 'set cmdline bottom'; 'set statusline bottom'; 'set reserved -2 off'; 'set reserved -4 #00ff00 on #000000 GUIDE ONE λ界'; 'set footer guideone -4 aftercmdline'; 'set reserved -3 #ffff00 on #000080 GUIDE TWO'; 'set footer guidetwo -3 aftercmdline'; 'set reserved +3 normal INLINE NOTE'; 'set footer inline +3'; return 0;

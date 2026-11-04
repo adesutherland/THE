@@ -107,6 +107,7 @@ RESERVED *find_reserved_line(CHARTYPE scrno,bool find_by_row,ROWTYPE row,short b
    {
       if ( find_by_row )
       {
+         if (curr->footer_after_cmdline) { curr = curr->next; continue; }
          if ( curr->base == POSITION_TOP
          &&   row == curr->off - 1 )
             break;

@@ -209,7 +209,7 @@ void ui_log(const char *fmt, ...);
 #define RAW_KEY       (128)
 
 #define MAX_SCREENS         2              /* maximum number of screens*/
-#define VIEW_WINDOWS        6            /* number of windows per view */
+#define VIEW_WINDOWS        7            /* number of windows per view */
 #define MAX_INT             32766          /* maximum size for integer */
 #define MAX_LONG            2147483001L       /* maximum size for long */
 #define WORD_DELIMS        (CHARTYPE *)" \t"
@@ -236,13 +236,14 @@ void ui_log(const char *fmt, ...);
 #define WINDOW_ARROW     3
 #define WINDOW_IDLINE    4
 #define WINDOW_GAP       5
-#define WINDOW_STATAREA  6
-#define WINDOW_ERROR     7
-#define WINDOW_DIVIDER   8
-#define WINDOW_RESERVED  9
-#define WINDOW_SLK      10
-#define WINDOW_FILETABS 11
-#define MAX_THE_WINDOWS 12 /* one more than maximum window number */
+#define WINDOW_FOOTER    6
+#define WINDOW_STATAREA  7
+#define WINDOW_ERROR     8
+#define WINDOW_DIVIDER   9
+#define WINDOW_RESERVED 10
+#define WINDOW_SLK      11
+#define WINDOW_FILETABS 12
+#define MAX_THE_WINDOWS 13 /* one more than maximum window number */
 #define WINDOW_ALL      99
 
 #define MAX_PREFIX_WIDTH     20
@@ -644,6 +645,7 @@ struct reserved
    COLOUR_ATTR *attr;                              /* colour attributes */
    bool autoscroll;  /* does the reserved line scroll with autoscroll settings */
    char footer[THE_FOOTER_NAME_MAX+1]; /* optional explicit profile footer name */
+   bool footer_after_cmdline; /* explicit opt-in to the separate footer band */
 };
 typedef struct reserved RESERVED;
 

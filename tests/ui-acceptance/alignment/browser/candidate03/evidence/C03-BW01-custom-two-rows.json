@@ -1,0 +1,85 @@
+{
+  "command": [
+    {
+      "class": "command-area",
+      "rect": {
+        "bottom": 818,
+        "height": 60,
+        "left": 0,
+        "right": 1032,
+        "top": 758,
+        "width": 1032,
+        "x": 0,
+        "y": 758
+      },
+      "text": "ResponseProfile activatedResponseProfile activatedResponseProfile activatedProfile activatedTHEExecuteHistory (3)"
+    },
+    {
+      "class": "status-line",
+      "rect": {
+        "bottom": 900,
+        "height": 29,
+        "left": 0,
+        "right": 1032,
+        "top": 871,
+        "width": 1032,
+        "x": 0,
+        "y": 871
+      },
+      "text": "CRXTHE                                                                              11:38am  [ ] U+0             C  INS "
+    }
+  ],
+  "rows": [
+    {
+      "bg": "rgb(0, 0, 0)",
+      "cls": "screen-row role-reserved profile-inline-footer-row",
+      "color": "rgb(192, 192, 192)",
+      "footer": "inline",
+      "rect": {
+        "bottom": 286.796875,
+        "height": 21,
+        "left": 0,
+        "right": 1031.4453125,
+        "top": 265.796875,
+        "width": 1031.4453125,
+        "x": 0,
+        "y": 265.796875
+      },
+      "text": "INLINE NOTE"
+    },
+    {
+      "bg": "rgb(0, 0, 0)",
+      "cls": "profile-footer-row ",
+      "color": "rgb(0, 255, 0)",
+      "footer": "guideone",
+      "rect": {
+        "bottom": 844,
+        "height": 26,
+        "left": 0,
+        "right": 1032,
+        "top": 818,
+        "width": 1032,
+        "x": 0,
+        "y": 818
+      },
+      "text": "GUIDE ONE λ界"
+    },
+    {
+      "bg": "rgb(0, 0, 128)",
+      "cls": "profile-footer-row ",
+      "color": "rgb(255, 255, 0)",
+      "footer": "guidetwo",
+      "rect": {
+        "bottom": 870,
+        "height": 26,
+        "left": 0,
+        "right": 1032,
+        "top": 844,
+        "width": 1032,
+        "x": 0,
+        "y": 844
+      },
+      "text": "GUIDE TWO"
+    }
+  ]
+}

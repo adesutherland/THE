@@ -1,0 +1,156 @@
+{
+  "format_version": 1,
+  "kind": "alignment-review-result-template-not-an-executed-result",
+  "created_utc": "2026-11-04 10:44:39 UTC",
+  "catalogue": {
+    "path": "tests/ui-acceptance/catalogue.json",
+    "sha256_at_format_preparation": "972dc82994c237a86f9cd0881f9cace5870e88a61745a5064cb6c7fbcf21ac9f",
+    "candidate_review_sha256": null
+  },
+  "review_sequence": [
+    "browser",
+    "gtk",
+    "console"
+  ],
+  "coordinator_design_dispositions": {
+    "D04": "Stock Response → THE command → profile guide rows → Status, resolved through explicit shared core metadata; preserve custom positions, text, colours, counts and OFF states. Browser-only reordering is insufficient.",
+    "D05": "Same destinations and state preservation at wide/narrow/short/touch samples; explicit Expand/Return where needed.",
+    "D06": "Latest authorized alignment scope includes a shared persistent GTK Files view, alongside native Open.",
+    "D07": "Measured comfortable spacing and control proportions; no invented universal pixel golden; native theme differences alone do not fail.",
+    "D08": "In the single auxiliary slot, repeating the visible active target control hides that target and returns to the editor. Retained sibling data never causes automatic sibling rendering. Explicitly selecting another target activates it. Preserve existing simultaneous Program/log mode."
+  },
+  "baseline_work_not_silently_closed": [
+    "D02 general Redo",
+    "D03 Save as and full source transfer",
+    "Unexercised broader R10 profile composition"
+  ],
+  "normalization_rules": [
+    "Four verdicts remain separate; functional or DOM-test success cannot establish design or aesthetics.",
+    "Changed mandatory checkpoints must have no remaining defects on applicable axes and targeted samples before that platform gate is accepted.",
+    "Full case replay not exercised => case Partial (or NotRun if wholly unobserved); a failed mandatory checkpoint remains Fail even when the rest of the case was not replayed.",
+    "Historical receipts, candidate regression receipts and fresh actual UI evidence are separately identified.",
+    "A knowledgeable reviewer route is not labelled an independent goal-first participant or human user study.",
+    "Untested samples, unavailable touch emulation and native/platform cohorts remain explicit limitations; never convert missing behavior to N/A.",
+    "No all-29-cases completion claim follows from this alignment checkpoint subset.",
+    "New candidate edits invalidate only affected evidence; preserve prior candidate fingerprints and the review sequence."
+  ],
+  "platform_gate_template": {
+    "platform": null,
+    "sequence_index": null,
+    "gate_status": "pending",
+    "candidate": {
+      "provided_utc": null,
+      "url_or_binary": null,
+      "git_head": null,
+      "source_input_digest": null,
+      "source_input_hashes": {},
+      "artifact_hashes": {},
+      "manifest_path": null,
+      "manifest_sha256": null,
+      "native_driver_sha256": null,
+      "runtime_cohort": null,
+      "dirty_source_boundary": null
+    },
+    "review": {
+      "reviewer": "design_conformance_review",
+      "started_utc": null,
+      "completed_utc": null,
+      "observer_mode": "informed-independent-review",
+      "app_isolation": null,
+      "actual_ui_evidence": [],
+      "regression_receipts": [],
+      "cleanup_verified": false
+    },
+    "scope": {
+      "baseline_finding_ids": [],
+      "required_changed_checkpoint_ids": [],
+      "targeted_samples": [],
+      "case_ids": []
+    },
+    "samples": [],
+    "checkpoint_results": [],
+    "case_results": [],
+    "axes": {
+      "functional": {
+        "verdict": "NotRun",
+        "observations": [],
+        "limitations": []
+      },
+      "design_fidelity": {
+        "verdict": "NotRun",
+        "observations": [],
+        "limitations": []
+      },
+      "aesthetics": {
+        "verdict": "NotRun",
+        "observations": [],
+        "limitations": []
+      },
+      "discoverability": {
+        "verdict": "NotRun",
+        "observations": [],
+        "limitations": []
+      }
+    },
+    "findings": [],
+    "remaining_changed_mandatory_defect_count": null,
+    "unobserved_changed_mandatory_checkpoint_ids": [],
+    "accepted_scope_statement": null,
+    "limitations": []
+  },
+  "sample_record_template": {
+    "sample_id": null,
+    "actual_platform": null,
+    "viewport_or_cells": null,
+    "backing_scale": null,
+    "font_or_zoom": null,
+    "theme": null,
+    "input_mode_requested": null,
+    "input_mode_actual": null,
+    "emulation_limit": null,
+    "status": "NotRun"
+  },
+  "checkpoint_record_template": {
+    "id": null,
+    "catalogue_case_id": null,
+    "catalogue_step_or_capture_anchor": null,
+    "requirement_ids": [],
+    "baseline_finding_ids": [],
+    "sample_id": null,
+    "mandatory": true,
+    "expected": null,
+    "observed": null,
+    "axes": {
+      "functional": "NotRun",
+      "design_fidelity": "NotRun",
+      "aesthetics": "NotRun",
+      "discoverability": "NotRun"
+    },
+    "evidence_paths": [],
+    "measurements": [],
+    "state_before": null,
+    "state_after": null,
+    "data_preservation_evidence": [],
+    "limitation": null
+  },
+  "case_record_template": {
+    "case_id": null,
+    "full_numbered_script_executed": false,
+    "coverage_verdict": "NotRun",
+    "executed_step_or_checkpoint_ids": [],
+    "not_exercised": [],
+    "affected_regression_receipts": []
+  },
+  "measurement_record_template": {
+    "surface": null,
+    "measure": null,
+    "actual_value": null,
+    "units": null,
+    "method": null,
+    "reference_value_or_relationship": null,
+    "evidence_path": null,
+    "objective_defect": null,
+    "aesthetic_judgement": null,
+    "numeric_threshold_status": "proposal-or-reference-context-not-an-universal-golden"
+  }
+}

@@ -1,0 +1,50 @@
+[
+  {
+    "checkpoint": "selected",
+    "selection": {
+      "anchorOffset": 612,
+      "anchorParent": "",
+      "focusOffset": 628,
+      "focusParent": "",
+      "isCollapsed": false,
+      "rangeCount": 1,
+      "text": "Retained row  37"
+    }
+  },
+  {
+    "checkpoint": "after-cross-switch",
+    "selection": {
+      "anchorOffset": 612,
+      "anchorParent": "",
+      "focusOffset": 628,
+      "focusParent": "",
+      "isCollapsed": false,
+      "rangeCount": 1,
+      "text": "Retained row  37"
+    }
+  },
+  {
+    "checkpoint": "after-target-hide",
+    "selection": {
+      "anchorOffset": 3,
+      "anchorParent": "",
+      "focusOffset": 3,
+      "focusParent": "",
+      "isCollapsed": true,
+      "rangeCount": 1,
+      "text": ""
+    }
+  },
+  {
+    "checkpoint": "after-target-show",
+    "selection": {
+      "anchorOffset": 3,
+      "anchorParent": "",
+      "focusOffset": 3,
+      "focusParent": "",
+      "isCollapsed": true,
+      "rangeCount": 1,
+      "text": ""
+    }
+  }
+]

@@ -1,0 +1,1 @@
+options levelb; address THE; 'set footer guideone -4'; 'set cmdline top'; 'set statusline bottom'; return 0;

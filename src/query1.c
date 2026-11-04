@@ -1902,14 +1902,16 @@ short extract_footer(short number_variables,short itemno,CHARTYPE *itemargs,CHAR
    for (curr=CURRENT_FILE->first_reserved;curr != NULL;curr=curr->next)
    {
       if (curr->footer[0] == '\0') continue;
-      length = strlen(curr->footer)+strlen((const char *)curr->spec)+2;
+      length = strlen(curr->footer)+strlen((const char *)curr->spec)+2
+               + (curr->footer_after_cmdline ? 13 : 0);
       value = (CHARTYPE *)(*the_malloc)(length);
       if (value == NULL)
       {
          display_error(30,(CHARTYPE *)"",FALSE);
          return EXTRACT_ARG_ERROR;
       }
-      snprintf((char *)value,length,"%s %s",curr->footer,(const char *)curr->spec);
+      snprintf((char *)value,length,"%s %s%s",curr->footer,(const char *)curr->spec,
+               curr->footer_after_cmdline ? " AFTERCMDLINE" : "");
       rc = set_rexx_variable(query_item[itemno].name,value,length-1,++number_variables);
       (*the_free)(value);
       if (rc == RC_SYSTEM_ERROR)

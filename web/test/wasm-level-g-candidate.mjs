@@ -95,6 +95,7 @@ export async function levelGCandidateSmoke({ pageUrl, manifest, send, snapshot, 
   await waitFor(() => evaluate("!!document.querySelector('.tools-profiles-pane')?.getClientRects().length"), "explicit RXBIN tool pane");
   await evaluate("[...document.querySelectorAll('.tools-sections button')].find(node=>node.textContent==='File types & tools').click()");
   await waitFor(() => evaluate("!!document.querySelector('.run-setup')?.getClientRects().length"), "visible File types and tools section");
+  await evaluate("(() => {const details=document.querySelector('.advanced-run-setup');if(!details.open)details.querySelector('summary').click();})()");
   await evaluate(`(() => {const select=document.querySelector('[aria-label="Run tool"]');
     select.value='rxbin';select.dispatchEvent(new Event('change',{bubbles:true}));})()`);
   await waitFor(() => evaluate("!!document.querySelector('[aria-label=\"RXBIN path\"]')"), "explicit RXBIN path input");

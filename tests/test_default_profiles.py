@@ -45,6 +45,11 @@ with tempfile.TemporaryDirectory(prefix='CRXTHE first launch ') as temporary:
     assert sample.read_text(encoding='utf-8')=='alpha\nfindme\n'
     guides=[row for row in snap['screen_rows'] if row.get('footer')=='keys']
     assert len(guides)==1 and 'F6 Cmd' in guides[0]['t'] and 'F10 Menu' in guides[0]['t'],snap
+    response = next(row for row in snap['screen_rows'] if row.get('footer') == 'response')
+    assert guides[0]['footer_placement'] == 'aftercmdline', guides
+    assert (response['physical_row'] + 1 == snap['regions']['command']['row']
+            and snap['regions']['command']['row'] + 1 == guides[0]['physical_row']
+            and guides[0]['physical_row'] + 1 == snap['regions']['status']['row']), snap
     assert any(row.get('p')=='0000001' for row in snap['screen_rows']),snap
     for key in ['f6','esc','ctrl-l']:
         records,_=run('key '+key+'\nlook full compact')
@@ -104,7 +109,7 @@ with tempfile.TemporaryDirectory(prefix='CRXTHE first launch ') as temporary:
     setup = 'command set reserved 4 yellow on blue Caller row\ncommand cursor goto 3 3\n'
     baseline,_ = run(setup+'look full compact',navigation)
     baseline = next(r for r in reversed(baseline) if 'screen_rows' in r)
-    reserved = lambda s: [(r['r'],r['t'],r.get('footer')) for r in s['screen_rows'] if r['role']=='reserved']
+    reserved = lambda s: [(r['r'],r['t'],r.get('footer'),r.get('footer_placement')) for r in s['screen_rows'] if r['role']=='reserved']
     for action in ['enter','esc']:
         navigation.write_bytes(original_bytes)
         commands = setup+'command macro '+demo+'\nkey '+action

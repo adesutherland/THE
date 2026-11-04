@@ -3,6 +3,7 @@
 
 #include "screenframe.h"
 #include "the.h"
+#include "reservedfooter.h"
 
 SCREEN_DETAILS screen[MAX_SCREENS];
 
@@ -193,6 +194,40 @@ static void test_reserved_footer_names(void)
    rows[0].line_type = LINE_LINE;
    expect_int("footer.rebuild",screenframe_build(0,&frame),1);
    expect_int("footer.file.unnamed",frame.row[0].footer == NULL,1);
+   {
+      FILE_DETAILS file;
+      RESERVED second;
+      memset(&file,0,sizeof(file));
+      memset(&second,0,sizeof(second));
+      view.file_for_view = &file;
+      view.cmd_line = 'B';
+      file.first_reserved = &second;
+      second.next = &reserved;
+      second.footer_after_cmdline = reserved.footer_after_cmdline = TRUE;
+      strcpy(second.footer,"another");
+      second.disp = (CHARTYPE *)"Second";
+      second.disp_length = 6;
+      second.base = reserved.base = POSITION_BOTTOM;
+      second.off = -1; reserved.off = -2;
+      screen[0].start_row[WINDOW_FILEAREA] = 2;
+      screen[0].start_row[WINDOW_COMMAND] = 4;
+      screen[0].rows[WINDOW_COMMAND] = 1;
+      screen[0].start_row[WINDOW_FOOTER] = 5;
+      screen[0].rows[WINDOW_FOOTER] = 2;
+      screen[0].cols[WINDOW_FOOTER] = 88;
+      expect_int("band.build",screenframe_build(0,&frame),1);
+      expect_int("band.count",frame.row_count,4);
+      expect_int("band.first.order",strcmp(frame.row[2].footer,"keys"),0);
+      expect_int("band.second.order",strcmp(frame.row[3].footer,"another"),0);
+      expect_int("band.physical",frame.row[2].physical_row,5);
+      expect_int("band.relative",frame.row[2].screen_row,3);
+      expect_int("band.explicit",frame.row[2].footer_after_cmdline,1);
+      expect_int("band.region.rows",frame.regions.footer.rows,2);
+      expect_int("band.small.clamp",reserved_footer_rows(&view,3),1);
+      expect_int("band.tiny.clamp",reserved_footer_rows(&view,2),0);
+      view.id_line = TRUE;
+      expect_int("band.idline.clamp",reserved_footer_rows(&view,3),0);
+   }
 }
 
 #ifdef USE_SDSLH

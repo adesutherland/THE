@@ -18,7 +18,7 @@ import {
 import type { DriverMessage, FileListMessage, FrontendActionDefinition, ScreenRow, Snapshot, StyleRun, WorkbenchActionDefinition, WorkbenchPage, WorkbenchPanelDefinition, WorkbenchPanelState, WorkbenchPanelStateMessage, WorkbenchLogPage, WorkbenchLogRecord, WorkbenchDocumentPage, WorkbenchFormPage, WorkbenchFileFieldPage } from "./types";
 import { WorkbenchPageCollector, displayLogText, type WorkbenchCatalog } from "./workbench";
 import "./styles.css";
-import { RexxConsole } from "./rexx-console";
+import { RexxConsole, type ProgramReaderHandle } from "./rexx-console";
 import { CurrentFileActions, ToolsProfiles, fileActionReason } from "./file-tools";
 import type { FileToolAction, ToolSession } from "./tool-session";
 import { consoleColourVariables, diagnosticColourVariables, renderColour as panelColour } from "./colours";
@@ -53,8 +53,8 @@ function basename(path: string): string {
   return normalized.slice(normalized.lastIndexOf("/") + 1) || path;
 }
 
-// Reserved rows move out of the grid only when the profile names them.
-// Their text and styles stay under profile control, including non-key footers.
+// The core identifies named reserved rows and their explicit placement.
+// Names alone never relocate a custom row out of its profile position.
 function isFooterRow(row: ScreenRow): boolean {
   return row.role === "reserved" && !!row.footer;
 }
@@ -215,7 +215,7 @@ function App() {
   const [toolsOpen, setToolsOpen] = useState(false);
   const [programFocusRequest, setProgramFocusRequest] = useState(0);
   const [toolArguments, setToolArguments] = useState("");
-  const [mobilePane, setMobilePane] = useState<"files" | "console">("files");
+  const [mobilePane, setMobilePane] = useState<"files" | "console" | "editor">("editor");
   const [filesWidth, setFilesWidth] = useState(216);
   const [auxWidth, setAuxWidth] = useState(400);
   const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
@@ -248,6 +248,7 @@ function App() {
   const menuRef = useRef<HTMLDivElement | null>(null);
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
   const consoleButtonRef = useRef<HTMLButtonElement | null>(null);
+  const programReaderRef = useRef<ProgramReaderHandle | null>(null);
   const menuTargetRef = useRef<EditTarget | null>(null);
   const clipboardRef = useRef<ClipboardRequests | null>(null);
   const settingsReturnRef = useRef<HTMLElement | null>(null);
@@ -359,6 +360,7 @@ function App() {
       setMobilePane("files");
       if (window.innerWidth >= 1100) setAuxExpanded(false);
     } else {
+      setMobilePane("editor");
       setAuxExpanded(false);
       window.setTimeout(focusEditor, 0);
     }
@@ -907,7 +909,9 @@ function App() {
 
   const footerRows = useMemo(() => snapshot?.panel ? [] :
     (snapshot?.screen_rows ?? []).filter(isFooterRow), [snapshot?.screen_rows, !!snapshot?.panel]);
-  const footerRowIds = new Set(footerRows.map((row) => row.r));
+  const footerBandRows = footerRows.filter((row) => row.footer_placement === "aftercmdline");
+  const lastInlineRow = Math.max(-1, ...(snapshot?.screen_rows ?? []).filter((row) => row.footer_placement !== "aftercmdline").map((row) => row.r));
+  const responseRow = footerRows.find((row) => row.footer === "response" && row.footer_placement !== "aftercmdline" && row.r === lastInlineRow);
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -928,10 +932,12 @@ function App() {
         // The browser draws only the file area; the model also reserves its
         // command/status/heading rows. Preserve that overhead on resize.
         const overhead = Math.max(0, current.viewport?.reserved_rows ?? 4);
-        // Named rows are shown in a wrapping footer, so their model rows
-        // take no space in this grid. Fill the recovered rows with file text.
-        const namedRows = current.screen_rows.filter(isFooterRow).length;
-        const rows = Math.max(12, Math.min(256, Math.floor((viewport.clientHeight - padding) / lineHeight) + overhead + namedRows));
+        // The bottom response placeholder uses the response slot beside THE.
+        // Every other inline reserved row keeps its place in the grid.
+        const inlineRows = current.screen_rows.filter((row) => row.footer_placement !== "aftercmdline");
+        const lastRow = Math.max(-1, ...inlineRows.map((row) => row.r));
+        const responseRows = inlineRows.some((row) => row.footer === "response" && row.r === lastRow) ? 1 : 0;
+        const rows = Math.max(12, Math.min(256, Math.floor((viewport.clientHeight - padding) / lineHeight) + overhead + responseRows));
         const cols = Math.max(40, Math.min(1000, Math.floor((viewport.clientWidth - 20) / cellWidth)));
         const size = `${rows}:${cols}`;
         if (size !== viewportSizeRef.current || current.viewport?.rows !== rows || current.viewport?.cols !== cols) {
@@ -1215,12 +1221,16 @@ function App() {
       return combined.visible ? [combined] : [];
     });
   }, [panelState, workbench]);
-  const showAux = consoleOpen || toolsOpen || visibleNamedPanels.length > 0;
-  const activeAux = selectedAux === "console" && consoleOpen ? "console"
+  const activeAux = !selectedAux ? "" : selectedAux === "console" && consoleOpen ? "console"
     : selectedAux === "tools" && toolsOpen ? "tools"
     : visibleNamedPanels.some((panel) => panel.id === selectedAux) ? selectedAux
-    : visibleNamedPanels[0]?.id ?? (consoleOpen ? "console" : "tools");
+    : visibleNamedPanels[0]?.id ?? (consoleOpen ? "console" : toolsOpen ? "tools" : "");
+  const activeMobilePane = mobilePane === "files" && explorerOpen ? "files"
+    : mobilePane === "console" && !!activeAux ? "console" : "editor";
+  const showAux = !!activeAux && (!lowerLayout || activeMobilePane === "console");
+  const showFiles = explorerOpen && (!lowerLayout || activeMobilePane === "files");
   const activeNamedPanel = visibleNamedPanels.find((panel) => panel.id === activeAux);
+  const programConsoleVisible = consoleOpen && showAux && (activeAux === "console" || showProgramWithLog && !!activeNamedPanel);
   const placementFor = (panel: WorkbenchPanelDefinition) => {
     const wide = windowSize.width >= 1100;
     const phone = windowSize.width <= 640;
@@ -1245,9 +1255,6 @@ function App() {
   const activeDocumentPage = activeNamedPanel?.documentAvailable
     && documentView?.page.documentId === activeNamedPanel.documentId
     && documentView.page.documentRevision === activeNamedPanel.documentRevision ? documentView.page : undefined;
-  const activeMobilePane = mobilePane === "files" && explorerOpen ? "files"
-    : mobilePane === "console" && showAux ? "console"
-    : explorerOpen ? "files" : "console";
   const latestResponse = [...dockEntries].reverse().find((entry) => entry.kind !== "command");
 
   useEffect(() => {
@@ -1312,9 +1319,26 @@ function App() {
     namedLogRef.current.scrollTop = namedLogRef.current.scrollHeight;
   }, [activeNamedPanel?.id, activeNamedLog?.records.length]);
   const toggleFiles = () => {
-    const visible = explorerOpen && (window.innerWidth >= 1100 ? !auxExpanded : activeMobilePane === "files");
+    const visible = showFiles && (!auxExpanded || lowerLayout);
     setFilesVisible(!visible);
     if (!visible) requestFiles();
+  };
+  const hideProgramConsole = () => {
+    programReaderRef.current?.captureSelection();
+    setConsoleOpen(false);
+    setShowProgramWithLog(false);
+    if (activeAux === "console") { setSelectedAux(""); setAuxExpanded(false); }
+    focusEditor();
+  };
+  const hideToolsProfiles = () => {
+    setToolsOpen(false);
+    setSelectedAux("");
+    setAuxExpanded(false);
+    focusEditor();
+  };
+  const expandAuxiliary = () => {
+    setAuxExpanded(!auxExpanded);
+    if (auxExpanded) focusEditor();
   };
   const showOrFocusPanel = (panel: WorkbenchPanelDefinition) => {
     const state = panelState?.panels.find((item) => item.id === panel.id
@@ -1427,15 +1451,14 @@ function App() {
       <div class="workbench">
       <div class="workbench-header">
       <div class="pane-switcher" role="group" aria-label="Workbench panes">
-        <button type="button" aria-pressed={explorerOpen} onClick={toggleFiles}>Files</button>
-        <button type="button" class="console-toggle" ref={consoleButtonRef} aria-pressed={activeAux === "console" && consoleOpen} onClick={() => {
-          if (panelStateRef.current?.panels.some((panel) => panel.focused)) selectProgramConsole();
-          else { setConsoleOpen(activeAux === "console" && consoleOpen && (window.innerWidth >= 1100 || activeMobilePane === "console") ? false : true); setSelectedAux("console"); setMobilePane("console"); }
+        <button type="button" aria-pressed={showFiles} onClick={toggleFiles}>Files</button>
+        <button type="button" class="console-toggle" ref={consoleButtonRef} aria-pressed={programConsoleVisible} onClick={() => {
+          if (programConsoleVisible) hideProgramConsole(); else selectProgramConsole();
         }}>
           Console{toolSession?.job.waiting ? " · Input requested" : toolSession?.job.running ? " · Running" : ""}
         </button>
-        <button type="button" class="tools-toggle" aria-pressed={activeAux === "tools" && toolsOpen}
-          onClick={selectToolsProfiles}>Tools & Profiles</button>
+        <button type="button" class="tools-toggle" aria-pressed={activeAux === "tools" && showAux}
+          onClick={() => { if (activeAux === "tools" && showAux) hideToolsProfiles(); else selectToolsProfiles(); }}>Tools & Profiles</button>
         {workbench?.panels.map((panel) => <button type="button" key={panel.id}
           class={`named-${panel.kind === "fields" ? "form" : panel.kind}-toggle`} data-panel-id={panel.id}
           onPointerDown={rememberPanelFocusOrigin}
@@ -1445,11 +1468,11 @@ function App() {
       <CurrentFileActions session={toolSession} snapshot={snapshot} online={connection === "online"}
         onAction={currentFileAction} onSetup={selectToolsProfiles} />
       </div>
-      <section class={`workspace ${lowerLayout ? "lower-layout" : ""} ${auxExpanded ? "aux-expanded" : ""} mobile-pane-${activeMobilePane} ${explorerOpen ? "files-open" : ""} ${showAux ? "aux-open" : ""} ${activeNamedPanel && activePanelPlacement === "below" ? "aux-below" : ""}`} style={{
+      <section class={`workspace ${lowerLayout ? "lower-layout" : ""} ${auxExpanded ? "aux-expanded" : ""} mobile-pane-${activeMobilePane} ${showFiles ? "files-open" : ""} ${showAux ? "aux-open" : ""} ${activeNamedPanel && activePanelPlacement === "below" ? "aux-below" : ""}`} style={{
         "--aux-height": `${lowerPaneHeight}px`, "--files-width": `${Math.min(filesWidth, maximumFilesWidth)}px`, "--aux-width": `${Math.min(auxWidth, maximumAuxWidth)}px`,
       }}>
         {explorerOpen ? (
-          <aside class="file-explorer" aria-label="Workspace files">
+          <aside class="file-explorer" aria-label="Workspace files" hidden={!showFiles}>
             <div class="explorer-heading">
               <span>Files</span>
               {lowerLayout ? <button type="button" class="pane-expand" onClick={() => { setAuxExpanded(!auxExpanded); if (auxExpanded) focusEditor(); }}>{auxExpanded ? "Return to editor" : "Expand pane"}</button> : null}
@@ -1508,7 +1531,7 @@ function App() {
         ) : null}
         {explorerOpen ? <PaneSplitter label="Resize files pane" orientation="vertical" value={Math.min(filesWidth, maximumFilesWidth)} minimum={180} maximum={maximumFilesWidth} onChange={setFilesWidth} /> : null}
         <div class="editor-pane">
-        <div class="editor-scroll" ref={viewportRef} onClick={focusEditor}>
+        <div class="editor-scroll" ref={viewportRef} onClick={focusEditor} style={{ order: snapshot?.regions?.filearea?.row ?? 1 }}>
           {snapshot?.panel ? (
             <div class="fullscreen-panel" role="dialog" aria-modal="true" aria-label="Macro panel" style={panelColour(snapshot.panel.colour)}>
               <div class="panel-viewport">
@@ -1549,13 +1572,16 @@ function App() {
           <div class="editor-grid" ref={gridRef} style={{ width: `calc(${snapshot?.viewport?.cols ?? 80}ch + 20px)`, "--prefix-width": `${prefixCols + prefixGap}ch` }}>
             <span class="cell-probe" ref={cellProbeRef} aria-hidden="true">0000000000</span>
             {rows.map((row) => {
+              if (row.footer_placement === "aftercmdline" || row === responseRow) return null;
+              if (isFooterRow(row)) return <pre class="screen-row role-reserved profile-inline-footer-row" data-footer={row.footer}
+                key={`${currentBuffer?.path ?? ""}-${row.r}-${row.footer}`} style={panelColour(row.footer_colour)}>{footerContent(row)}</pre>;
               const selection = selectionSegment(snapshot?.selection, row, snapshot?.selection_kind);
               const cursorVisible = cursorRow === row && snapshot?.focus.zone === "filearea" && !commandFocused;
               const prefixCursorVisible = cursorRow === row && snapshot?.focus.zone === "prefix" && !commandFocused;
               const prefixCursorCell = Math.max(0, Math.min((snapshot?.focus.cell ?? 0), prefixCols - 1));
               const cursorCell = Math.max(0, (snapshot?.focus.cell ?? 0) - row.sc);
               return (
-                <div class={`screen-row role-${row.role} ${row.cur ? "screen-row-current" : ""} ${footerRowIds.has(row.r) ? "profile-footer-source" : ""}`} key={`${currentBuffer?.path ?? ""}-${row.r}-${row.line}-${row.role}`}>
+                <div class={`screen-row role-${row.role} ${row.cur ? "screen-row-current" : ""}`} key={`${currentBuffer?.path ?? ""}-${row.r}-${row.line}-${row.role}`}>
                   <button
                     type="button"
                     class={`prefix-cell ${prefixCursorVisible ? "prefix-cell-active" : ""}`}
@@ -1581,19 +1607,7 @@ function App() {
           </div>
         </div>
 
-        <section class="editor-status" aria-label="Editor status and key guide">
-          <div class="status-line" aria-label="Editing status" hidden={snapshot?.status_line === null}
-            data-focus-zone={snapshot?.focus.zone} data-focus-line={snapshot?.focus.line} data-focus-cell={snapshot?.focus.cell} data-buffer-dirty={snapshot?.buffer?.dirty ?? 0}>
-            {typeof snapshot?.status_line === "string" ? <pre class="profile-status">{statusContent(snapshot.status_line, snapshot.status_pmsg)}</pre> : <>
-            <span>Ln {snapshot?.focus.line ?? 0}, Col {(snapshot?.focus.cell ?? 0) + 1}</span>
-            <span>{snapshot?.focus.zone === "prefix" ? "Prefix" : snapshot?.focus.zone === "command" || commandFocused ? "Command" : "File"}</span>
-            <span>{snapshot?.buffer?.dirty ? "Modified" : "Saved"}</span>
-            </>}
-          </div>
-          {footerRows.filter((row) => row.footer !== "response").map((row) => <pre class={`profile-footer-row ${row.footer === "keys" ? "key-hints" : ""}`} data-footer={row.footer} key={`${row.footer}-${row.r}`} style={panelColour(row.footer_colour)}>{footerContent(row)}</pre>)}
-        </section>
-
-        <footer class="command-area" aria-label="THE commands and responses">
+        <footer class="command-area" aria-label="THE commands and responses" style={{ order: snapshot?.regions?.command?.rows ? snapshot.regions.command.row : (snapshot?.regions?.filearea?.row ?? 1) + (snapshot?.regions?.filearea?.rows ?? 1) }}>
           <div id="command-responses" class="command-responses" hidden={!commandHistoryOpen} ref={responseLogRef}
             aria-label="Current file command and response history" tabIndex={0}
             onScroll={(event) => { const log = event.currentTarget; followingResponsesRef.current = log.scrollHeight - log.scrollTop - log.clientHeight < 24; }}>
@@ -1602,7 +1616,7 @@ function App() {
             </div>) : <p>Commands and editor messages for this file appear here.</p>}
           </div>
           <div class={`latest-response${editNotice ? " interaction-notice" : ""}`} role="status" aria-live="polite" hidden={!lastError && !editNotice && !latestResponse}>{lastError || editNotice || latestResponse?.text}</div>
-          {!snapshot?.panel ? <form class="command-form" onSubmit={(event) => {
+          {!snapshot?.panel && snapshot?.regions?.command?.rows !== 0 ? <form class="command-form" onSubmit={(event) => {
             event.preventDefault();
             runCommand(command, false);
             commandInputRef.current?.focus();
@@ -1622,24 +1636,37 @@ function App() {
               onClick={() => setAllDockEntries((entries) => entries.filter((entry) => entry.source !== currentResponseSource))}>Clear history</button> : null}
           </form> : null}
         </footer>
+        <section class="editor-footer" aria-label="Profile footer" hidden={!footerBandRows.length} style={{ order: snapshot?.regions?.footer?.row ?? 3 }}>
+          {footerBandRows.map((row) => <pre class={`profile-footer-row ${row.footer === "keys" ? "key-hints" : ""}`} data-footer={row.footer} key={`${row.footer}-${row.r}`} style={panelColour(row.footer_colour)}>{footerContent(row)}</pre>)}
+        </section>
+        <section class="editor-status" aria-label="Editor status" hidden={snapshot?.regions?.status?.rows === 0 || snapshot?.status_line === null} style={{ order: snapshot?.regions?.status?.rows ? snapshot.regions.status.row : 4 }}>
+          <div class="status-line" aria-label="Editing status" hidden={snapshot?.regions?.status?.rows === 0 || snapshot?.status_line === null}
+            data-focus-zone={snapshot?.focus.zone} data-focus-line={snapshot?.focus.line} data-focus-cell={snapshot?.focus.cell} data-buffer-dirty={snapshot?.buffer?.dirty ?? 0}>
+            {typeof snapshot?.status_line === "string" ? <pre class="profile-status">{statusContent(snapshot.status_line, snapshot.status_pmsg)}</pre> : <>
+            <span>Ln {snapshot?.focus.line ?? 0}, Col {(snapshot?.focus.cell ?? 0) + 1}</span>
+            <span>{snapshot?.focus.zone === "prefix" ? "Prefix" : snapshot?.focus.zone === "command" || commandFocused ? "Command" : "File"}</span>
+            <span>{snapshot?.buffer?.dirty ? "Modified" : "Saved"}</span>
+            </>}
+          </div>
+        </section>
         </div>
 
-        {(showAux || explorerOpen) && lowerLayout ? <PaneSplitter label="Resize lower pane" orientation="horizontal" reverse value={lowerPaneHeight} minimum={220}
+        {(showAux || showFiles) && lowerLayout ? <PaneSplitter label="Resize lower pane" orientation="horizontal" reverse value={lowerPaneHeight} minimum={220}
           maximum={Math.max(220, Math.floor(windowSize.height * .7))} onChange={setAuxHeight} /> : null}
         {showAux ? <PaneSplitter label="Resize auxiliary panes" orientation="vertical" reverse consoleDivider={activeAux === "console" && consoleOpen} value={Math.min(auxWidth, maximumAuxWidth)} minimum={300} maximum={maximumAuxWidth} onChange={setAuxWidth} /> : null}
         <div class={`auxiliary-rail ${consoleOpen && showProgramWithLog && activeNamedPanel ? "program-and-log" : ""}`} ref={auxRailRef} hidden={!showAux}>
-        <div class="auxiliary-view-controls">
+        <div class="auxiliary-view-controls short-pane-heading">
           <span>{activeAux === "console" ? "Program console" : activeAux === "tools" ? "Tools & Profiles" : activeNamedPanel?.title}</span>
-          <button type="button" onClick={() => { setAuxExpanded(!auxExpanded); if (auxExpanded) focusEditor(); }}>{auxExpanded ? "Return to editor" : "Expand pane"}</button>
+          <button type="button" class="pane-expand" onClick={expandAuxiliary}>Expand pane</button>
         </div>
         <div class="program-console-pane" hidden={!consoleOpen || activeAux !== "console" && !(showProgramWithLog && activeNamedPanel)}>
-          {toolSession ? <RexxConsole send={send} session={toolSession} snapshot={snapshot} focusRequest={programFocusRequest} onClose={() => { setConsoleOpen(false); setShowProgramWithLog(false); focusEditor(); }} focusEditor={focusEditor} />
+          {toolSession ? <RexxConsole send={send} session={toolSession} snapshot={snapshot} focusRequest={programFocusRequest} onClose={hideProgramConsole} focusEditor={focusEditor} expanded={auxExpanded} onExpand={expandAuxiliary} visible={programConsoleVisible && (windowSize.height > 600 || auxExpanded)} readerHandle={programReaderRef} />
             : <p class="empty-directory">Program console unavailable: no program tools were provided.</p>}
         </div>
         <div class="tools-profiles-pane" hidden={!toolsOpen || activeAux !== "tools"}>
           {toolSession ? <ToolsProfiles send={send} session={toolSession} snapshot={snapshot} online={connection === "online"}
             argumentsText={toolArguments} onArguments={setToolArguments} onProgramRun={runWithTool}
-            onClose={() => { setToolsOpen(false); focusEditor(); }} focusEditor={focusEditor} />
+            onClose={hideToolsProfiles} focusEditor={focusEditor} expanded={auxExpanded} onExpand={expandAuxiliary} />
             : <p class="empty-directory">Tools unavailable: waiting for the editor.</p>}
         </div>
         {activeNamedPanel ? <div class={`named-panel-pane named-${activeNamedPanel.kind}-pane`} data-panel-id={activeNamedPanel.id}
@@ -1649,6 +1676,7 @@ function App() {
           onDrop={(event) => { if (activeNamedPanel.kind === "document") { event.preventDefault(); event.stopPropagation(); } }}
           aria-label={activeNamedPanel.title} role="tabpanel">
           <div class="named-panel-heading"><strong>{activeNamedPanel.title}</strong>
+            <button type="button" class="pane-expand" onClick={expandAuxiliary}>{auxExpanded ? "Return to editor" : "Expand pane"}</button>
             <button type="button" onClick={() => sendPanelOperation(activeNamedPanel.id, activeNamedPanel.generation, "hide")}>Hide</button>
           </div>
           {activeNamedPanel.kind === "log" && activeNamedPanel.modelError && activeNamedPanel.modelError !== "ok"

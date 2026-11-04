@@ -1,0 +1,215 @@
+{
+  "format_version": 1,
+  "platform": "browser",
+  "reviewer": "design_conformance_review",
+  "observer_mode": "Informed independent actual UI review through supported CUA Chrome; no fresh participant claim",
+  "git_head": "3e87c88533ddc38a6e7e57a62378e8df9922f6ef",
+  "operator_origin_preserved": "127.0.0.1:64823",
+  "full_catalogue_execution": false,
+  "case_coverage": {
+    "S01": "Partial",
+    "S02": "Partial",
+    "S03": "NotRun",
+    "S04": "NotRun",
+    "S05": "Partial",
+    "S06": "Partial",
+    "S07": "Partial; LevelB exercised, LevelG variants not replayed",
+    "S08": "Partial",
+    "S09": "NotRun",
+    "S10": "NotRun",
+    "S11": "NotRun",
+    "S12": "Partial; actual Build/Apply/applied startup summary; reload not yet replayed",
+    "S13": "NotRun",
+    "S14": "NotRun",
+    "S15": "Partial; custom two bands/colours/Unicode/inline/TOP/undock/zero/OFF/restore; broader composition not replayed",
+    "S16": "NotRun",
+    "S17": "Partial; targeted wide, keyboard,820x720,820x500,fine390x844 plus coarse CDP emulation",
+    "S18": "Partial; new hidden-append viewport defect found in coordinator fixture",
+    "S19": "Partial; AB05 actual repair check and AB06 hidden-append repair pending",
+    "S20": "NotRun",
+    "S21": "Partial",
+    "S22": "Partial",
+    "S23": "Partial",
+    "S24": "NotRun",
+    "S25": "NotRun",
+    "S26": "NotRun",
+    "S27": "NotRun",
+    "S28": "NotRun",
+    "S29": "Partial; targeted four-axis aesthetic checkpoints, not all scenario scripts"
+  },
+  "baseline_work_not_closed": [
+    "D02 general Redo",
+    "D03 full source transfer/Save as",
+    "broader R10 owned macro/menu composition"
+  ],
+  "catalogue_sha256": "972dc82994c237a86f9cd0881f9cace5870e88a61745a5064cb6c7fbcf21ac9f",
+  "candidate_id": "browser-candidate03",
+  "gate_status": "changes_required",
+  "manifest_sha256": "e1a3cf2ef662c19cc6e196792d72ae3f4f12cf0e1f3fff39147287d418a3b5b8",
+  "source_input_sha256": "674784ff786f0e50a5707c3cce8b2517cd0534cf53a216029b0a82f1c738a941",
+  "receipt": "candidate03-inputs.json",
+  "verified_receipt": "candidate03/verified-inputs.json",
+  "closed_findings": [
+    "AB01",
+    "AB02",
+    "AB03",
+    "AB04"
+  ],
+  "pending_actual_recheck": [
+    "AB05 Tools-input range"
+  ],
+  "open_findings": [
+    "AB06"
+  ],
+  "remaining_changed_mandatory_defect_count": 1,
+  "axes": {
+    "functional": "Fail: coordinator strict fixture hidden-append viewport jump; actual repair pending",
+    "design_fidelity": "Partial: profile authority, hierarchy and compact checkpoints pass; reader pending",
+    "aesthetics": "Pass within targeted changed checkpoints: wide/narrow/short/fine390 plus coarse CDP",
+    "discoverability": "Pass within informed targeted replay; no participant study"
+  },
+  "checkpoints": [
+    {
+      "id": "C03-BW01",
+      "requirements": [
+        "R09",
+        "R11"
+      ],
+      "cases": [
+        "S12",
+        "S15"
+      ],
+      "verdict": "Pass",
+      "observed": "Actual Wasm profile Build0→Apply: green/black GUIDE ONE λ界818–844; yellow/navy GUIDE TWO844–870; command758–818; Status871–900; inline+3 at265.8–286.8",
+      "evidence": [
+        "candidate03/evidence/C03-BW01-custom-two-rows.json",
+        "candidate03/evidence/C03-BW01-custom-two-rows.jpg"
+      ]
+    },
+    {
+      "id": "C03-BW02",
+      "requirements": [
+        "R11"
+      ],
+      "cases": [
+        "S15"
+      ],
+      "verdict": "Pass",
+      "observed": "Command TOP217.8–277.8; explicit undocking moves guideone inline745.8–766.8; guidetwo remains bottom844–870",
+      "evidence": [
+        "candidate03/evidence/C03-BW02-command-top-undock.json"
+      ]
+    },
+    {
+      "id": "C03-BW03",
+      "requirements": [
+        "R11"
+      ],
+      "cases": [
+        "S15"
+      ],
+      "verdict": "Pass",
+      "observed": "Zero reserved guides; THE input absent; Status zero rect under OFF; Response-only feedback remains. Contextual profile Build/Apply safely restores",
+      "evidence": [
+        "candidate03/evidence/C03-BW03-zero-off.json",
+        "candidate03/evidence/C03-BW03-zero-off.jpg"
+      ]
+    },
+    {
+      "id": "C03-BW04",
+      "requirements": [
+        "R09",
+        "R18"
+      ],
+      "cases": [
+        "S12",
+        "S29"
+      ],
+      "verdict": "Pass",
+      "observed": "Active user.profile.the / Applied · used at startup / Edit profile and workflow; advanced details/import collapsed",
+      "evidence": [
+        "candidate03/evidence/C03-BW04-profile-applied.jpg"
+      ]
+    },
+    {
+      "id": "C03-BS01",
+      "requirements": [
+        "R13",
+        "R15",
+        "R18"
+      ],
+      "cases": [
+        "S17",
+        "S22",
+        "S29"
+      ],
+      "verdict": "Pass",
+      "observed": "820x500 dialog20–480; heading41.25–58.75; Done437–467 fully visible; body80–424 overflowauto",
+      "evidence": [
+        "candidate03/evidence/C03-BS01-settings-editor.json",
+        "candidate03/evidence/C03-BS01-settings-editor.jpg"
+      ]
+    },
+    {
+      "id": "C03-BT-FINE",
+      "requirements": [
+        "R13",
+        "R18"
+      ],
+      "cases": [
+        "S17",
+        "S29"
+      ],
+      "verdict": "Pass",
+      "observed": "Actual390x844 fine pointer shell/Settings have no document horizontal overflow; compact Controls/contextual actions readable",
+      "evidence": [
+        "candidate03/evidence/C03-BT01-fine-settings-editor.jpg",
+        "candidate03/evidence/C03-BT02-fine-shell.jpg"
+      ],
+      "limitation": "coarse=false; not touch proof"
+    },
+    {
+      "id": "C03-BT-CDP",
+      "requirements": [
+        "R13",
+        "R18"
+      ],
+      "cases": [
+        "S17",
+        "S29"
+      ],
+      "verdict": "Pass",
+      "observed": "Reviewed before/after PNGs/metrics; all captured enabled controls44px+ and13px labels. CSS byte-identical to candidate03 production",
+      "evidence": [
+        "candidate03/coarse-review.json",
+        "evidence/BT-coarse-after.json",
+        "evidence/BT-coarse-after-console.png",
+        "evidence/BT-coarse-after-profiles.png",
+        "evidence/BS-dialog-390x500-coarse.png"
+      ],
+      "limitation": "CDP coarse emulation/native semantic backend; no physical device or Wasm language claim"
+    }
+  ],
+  "findings": [
+    {
+      "id": "AB06",
+      "severity": "medium",
+      "requirements": [
+        "R14"
+      ],
+      "cases": [
+        "S18",
+        "S19"
+      ],
+      "status": "Open pending candidate04",
+      "expected": "Scrolled reader viewport retained through hidden same-job append",
+      "observed": "Coordinator fresh strict production-UI native fixture retains range/draft but scroll710→3420/latest",
+      "evidence_basis": "Coordinator fixture failure, not independent actual Wasm reproduction on candidate03"
+    }
+  ],
+  "limitations": [
+    "Broader composition/Redo/source-transfer not expanded",
+    "Initial source replacement at TOF refused; moved into record and verified actual source/compiler/rendered output",
+    "Actual CUA phone is fine pointer; coarse evidence separately qualified"
+  ]
+}

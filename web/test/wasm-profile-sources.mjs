@@ -77,6 +77,7 @@ export async function profileSourcesSmoke({ send, evaluate, command, waitFor, sn
   await evaluate("document.querySelector('.auxiliary-view-controls button').click()");
   await waitFor(() => evaluate("!!document.querySelector('.tools-profiles-pane')?.getClientRects().length"), "expanded compact Tools and profiles");
   await evaluate("[...document.querySelectorAll('.tools-sections button')].find(node=>node.textContent==='Profiles').click()");
+  await evaluate("document.querySelector('.compiled-profile-setup summary').click()");
   await evaluate("(() => {const input=document.querySelector('[aria-label=\"Compiled profile path\"]');input.value='/workspace/retained.profile.rxbin';input.dispatchEvent(new Event('input',{bubbles:true}));})()");
   await evaluate("[...document.querySelectorAll('.profile-setup button')].find(node=>node.textContent==='Edit profile').click()");
   await waitFor(async () => (await snapshot()).buffer?.path === "/workspace/.crxthe-tools/user.profile.the", "compact Edit profile opens the actual source");
@@ -90,7 +91,7 @@ export async function profileSourcesSmoke({ send, evaluate, command, waitFor, sn
   await waitFor(() => evaluate("!!document.querySelector('.file-explorer')?.getClientRects().length"), "wide Files initially visible");
   await evaluate("document.querySelector('.tools-toggle').click()");
   await waitFor(() => evaluate("!!document.querySelector('.tools-profiles-pane')?.getClientRects().length"), "wide Tools body");
-  await evaluate("document.querySelector('.auxiliary-view-controls button').click()");
+  await evaluate("document.querySelector('.tools-heading .pane-expand').click()");
   await waitFor(() => evaluate("document.querySelector('.workspace').classList.contains('aux-expanded')"), "wide expanded Tools");
   assert.equal(await evaluate("[...document.querySelectorAll('.pane-switcher button')].find(node=>node.textContent==='Files').getAttribute('aria-pressed')"), "true", "Files can remain logically open while expanded Tools hides its picker");
   await openFile(names[0], "Profile sources");

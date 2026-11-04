@@ -1,0 +1,239 @@
+{
+  "body": {
+    "clientHeight": 500,
+    "clientWidth": 820,
+    "scrollHeight": 500,
+    "scrollWidth": 820
+  },
+  "rects": [
+    {
+      "bottom": 33.5,
+      "class": "menu-trigger ",
+      "height": 16,
+      "label": "Menu",
+      "width": 71.3515625,
+      "x": 76.9609375,
+      "y": 17.5
+    },
+    {
+      "bottom": 38.75,
+      "class": "parser-status",
+      "height": 11.5,
+      "label": "Syntax: ready",
+      "width": 65.8046875,
+      "x": 308.578125,
+      "y": 27.25
+    },
+    {
+      "bottom": 40.5,
+      "class": "icon-button",
+      "height": 30,
+      "label": "Open",
+      "width": 30,
+      "x": 690,
+      "y": 10.5
+    },
+    {
+      "bottom": 40.5,
+      "class": "icon-button",
+      "height": 30,
+      "label": "Save",
+      "width": 30,
+      "x": 723,
+      "y": 10.5
+    },
+    {
+      "bottom": 40.5,
+      "class": "icon-button",
+      "height": 30,
+      "label": "Undo",
+      "width": 30,
+      "x": 756,
+      "y": 10.5
+    },
+    {
+      "bottom": 89,
+      "class": "buffer-tab ",
+      "height": 37,
+      "label": "Welcome.txt",
+      "width": 118,
+      "x": 0,
+      "y": 52
+    },
+    {
+      "bottom": 89,
+      "class": "buffer-tab buffer-tab-current",
+      "height": 37,
+      "label": "AlignmentReader.rexx",
+      "width": 148.3984375,
+      "x": 118,
+      "y": 52
+    },
+    {
+      "bottom": 141,
+      "class": "pane-switcher",
+      "height": 51,
+      "label": "Workbench panes",
+      "width": 820,
+      "x": 0,
+      "y": 90
+    },
+    {
+      "bottom": 132,
+      "class": "",
+      "height": 34,
+      "label": "Files",
+      "width": 51.796875,
+      "x": 12,
+      "y": 98
+    },
+    {
+      "bottom": 132,
+      "class": "console-toggle",
+      "height": 34,
+      "label": "Console · Input requested",
+      "width": 179.9140625,
+      "x": 69.796875,
+      "y": 98
+    },
+    {
+      "bottom": 132,
+      "class": "tools-toggle",
+      "height": 34,
+      "label": "Tools & Profiles",
+      "width": 117.90625,
+      "x": 255.7109375,
+      "y": 98
+    },
+    {
+      "bottom": 185,
+      "class": "file-action-run",
+      "height": 34,
+      "label": "Run with Classic Rexx",
+      "width": 146.890625,
+      "x": 206,
+      "y": 151
+    },
+    {
+      "bottom": 346,
+      "class": "editor-scroll",
+      "height": 128.203125,
+      "label": "0000000000|...+....1....+....2",
+      "width": 820,
+      "x": 0,
+      "y": 217.796875
+    },
+    {
+      "bottom": 244.796875,
+      "class": "prefix-cell ",
+      "height": 21,
+      "label": "Prefix line -1",
+      "width": 67.4296875,
+      "x": 0,
+      "y": 223.796875
+    },
+    {
+      "bottom": 265.796875,
+      "class": "prefix-cell ",
+      "height": 21,
+      "label": "Prefix line 0",
+      "width": 67.4296875,
+      "x": 0,
+      "y": 244.796875
+    },
+    {
+      "bottom": 286.796875,
+      "class": "prefix-cell ",
+      "height": 21,
+      "label": "Prefix line 1",
+      "width": 67.4296875,
+      "x": 0,
+      "y": 265.796875
+    },
+    {
+      "bottom": 307.796875,
+      "class": "prefix-cell ",
+      "height": 21,
+      "label": "Prefix line 2",
+      "width": 67.4296875,
+      "x": 0,
+      "y": 286.796875
+    },
+    {
+      "bottom": 328.796875,
+      "class": "prefix-cell ",
+      "height": 21,
+      "label": "Prefix line -1",
+      "width": 67.4296875,
+      "x": 0,
+      "y": 307.796875
+    },
+    {
+      "bottom": 349.796875,
+      "class": "prefix-cell ",
+      "height": 21,
+      "label": "Prefix line -1",
+      "width": 67.4296875,
+      "x": 0,
+      "y": 328.796875
+    },
+    {
+      "bottom": 387,
+      "class": "command-area",
+      "height": 41,
+      "label": "THE commands and responses",
+      "width": 820,
+      "x": 0,
+      "y": 346
+    },
+    {
+      "bottom": 378.5,
+      "class": "",
+      "height": 23,
+      "label": "Execute",
+      "width": 61.5625,
+      "x": 684.765625,
+      "y": 355.5
+    },
+    {
+      "bottom": 378.5,
+      "class": "command-history-toggle",
+      "height": 23,
+      "label": "History",
+      "width": 57.671875,
+      "x": 752.328125,
+      "y": 355.5
+    },
+    {
+      "bottom": 413,
+      "class": "profile-footer-row key-hints",
+      "height": 26,
+      "label": "F10 Menu  F6 Cmd/File  Esc Cmd",
+      "width": 820,
+      "x": 0,
+      "y": 387
+    },
+    {
+      "bottom": 443,
+      "class": "editor-status",
+      "height": 30,
+      "label": "Editor status",
+      "width": 820,
+      "x": 0,
+      "y": 413
+    },
+    {
+      "bottom": 487,
+      "class": "pane-expand",
+      "height": 23,
+      "label": "Expand pane",
+      "width": 85.5703125,
+      "x": 720.4296875,
+      "y": 464
+    }
+  ],
+  "viewport": {
+    "height": 500,
+    "width": 820
+  }
+}
