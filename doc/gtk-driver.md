@@ -38,8 +38,10 @@ normal core actions. Closing the application window closes unchanged buffers
 and retains buffers with outstanding changes, using THE's `CANCEL` command.
 The window's `*` marker includes changes in the pending edit record.
 
-The editor area is a fixed grid with the real prefix area, command line,
-file tabs, syntax colours, profile status line and reserved key guide. Click
+Named native document tabs select open buffers. `SET FILETABS OFF` hides them;
+GTK projects out the matching core text strip rather than showing a second
+set of tabs. The editor area remains a fixed grid with the real prefix area,
+command line, syntax colours, profile status line and reserved key guide. Click
 the file, prefix or command area to move focus. Type through GTK's input
 method, use profile-defined editor keys, or choose Command to enter a THE
 command. Physical Ctrl-letter keys reach the profile; macOS Command-letter
@@ -64,6 +66,13 @@ platform terminal-calibration system profile, whose cursor/repaint values
 describe terminal emulators. Font fallback and final glyph appearance depend
 on the installed Pango fonts.
 
+Files, Program console and Tools & Profiles have persistent navigation
+controls. Repeating the selected visible control hides that destination and
+returns to the editor; selecting it again restores its state. Hidden sibling
+panes do not appear automatically. Files lists open buffers and the current
+folder, supports folder navigation and opening files, and retains its location
+when hidden. The native Open chooser remains a separate route.
+
 ## File actions and profiles
 
 The action row follows the current file's shared Build/Run/Apply state. Labels,
@@ -78,15 +87,20 @@ Other `.the` files use Build macro and Run macro. Tools & Profiles contains
 Profiles, File types & tools, and Build results sections. Profiles shows the
 active selection and startup-persistence result; Edit source opens the normal
 editor. Compiled-only imports explicitly have no editable source. File types &
-tools lists associations, permitted runners and registration controls.
+tools leads with wrapped groups of declared file associations and their
+Build/Run/Syntax roles. The current-file chain uses the core's actual actions;
+the overview does not choose a binding on its behalf. Edit associations in
+profile opens the profile source. Technical ownership details and advanced
+runner/registration controls are secondary disclosures. Setup content scrolls
+inside its section while the pane heading and section controls remain visible.
 Profile validation, immutable artifacts, replacement and startup persistence
 use the same native tool host as editor commands. Configure its matching
 bundle as described in [runtime tools](runtime-tools.md).
 
 ## Program console and build results
 
-Program and Build result are separate auxiliary pages. Build/profile output
-and completion appear in Build result; compiling does not erase Program
+Program console and Build results are separate destinations. Build/profile output
+and completion appear in Tools & Profiles / Build results; compiling does not erase Program
 history, its selection or an unsent input draft. Run captures the current
 unsaved source without saving it. Program shows bounded stdout/stderr and
 completion state, with stderr coloured separately.
@@ -99,7 +113,7 @@ The editor's command line remains available for editor commands.
 
 Output follows the latest text while the reader is already at the end.
 Scrolling back or selecting text retains that position as output arrives.
-The tab and Latest control indicate unread output; Latest clears the cue and
+The reader's Latest control indicates unread output; Latest clears the cue and
 resumes following. Output updates do not select another page or take keyboard
 focus from the editor or a control.
 
@@ -146,6 +160,10 @@ The probe also changes all eight console colour areas during a running job,
 switches files and checks widget colours, rendered divider pixels, stderr
 styling, job identity, output selection and unsent input. It verifies the
 wide/right and narrow/below layouts and captures `gtk-runtime-narrow.png`.
+The native navigation checks cover target toggling, retained Files location,
+typed document switching, FILETABS OFF / STATUSLINE TOP projection and preserved
+bytes/caret. Short-window checks verify the association summary and recovery
+scroll to advanced controls with an 18-point editor font.
 The test skips explicitly when no GTK display is available; a skipped GUI
 test is not visual qualification.
 It also checks all eight default RGB console roles without reverse video,

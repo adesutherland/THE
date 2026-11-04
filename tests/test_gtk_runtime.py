@@ -48,6 +48,12 @@ def main():
         assert completed.returncode == 0, (completed.returncode, completed.stdout, completed.stderr)
         assert "Gtk-CRITICAL" not in completed.stderr, completed.stderr
         for marker in ("GTK_OPEN_EDIT_CURSOR_DIRTY_SAVE_REOPEN_PASS",
+                       "GTK_PERSISTENT_PANES_TOGGLE_NO_SIBLING_FILES_DRAFT_CARET_HISTORY_PASS",
+                       "GTK_FILETABS_NATIVE_PROJECTION_PROFILE_OFF_STATUS_TOP_CURSOR_BYTES_PASS",
+                       "GTK_NAMED_DOCUMENT_TABS_ACTIVE_TYPED_BUFFER_SWITCH_PASS",
+                       "GTK_FILES_FOLDER_NAVIGATION_OPEN_TYPED_CURRENT_MARKER_PASS",
+                       "GTK_DECLARED_ASSOCIATION_GROUPS_ROLES_SECONDARY_DETAILS_PASS",
+                       "GTK_SETUP_FONT18_820X500_SCROLL_DISCLOSURES_REGISTER_FIXED_CONTROLS_PASS",
                        "GTK_DEFAULT_PALETTE_STATUS_RESERVED_TYPE_BACKSPACE_UNDO_SAVE_PASS",
                        "GTK_APPLICATION_NATIVE_MENUS_SAFE_QUEUED_ACTIONS_PASS",
                        "GTK_SHARED_MENU_UTF8_LABEL_REVISION_ID_GENERATION_PASS",

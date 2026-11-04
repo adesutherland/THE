@@ -1,0 +1,9 @@
+{
+  "all_original_fixtures_byte_identical": true,
+  "sha256": {
+    "Note.txt": "3cbe7e56e8ab7be6e6f5600cc04b1c9095f44221a608afb6ad7196a24ab2fea1",
+    "Reader.rexx": "07eff40a5c4a15c1e350490730b09a9dcce51e947c1b53134e16792b4a3332d2",
+    "Welcome.txt": "f8ef8c244a3efb41428d7064735d33d7007be319e5743564859d26749db8c823",
+    "footer.profile.the": "3c55a29359593026c9fc5f7f27a5acaa2440915006b2f8ef948d0b8783a88db4"
+  }
+}

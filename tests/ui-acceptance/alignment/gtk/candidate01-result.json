@@ -1,0 +1,331 @@
+{
+  "format_version": 1,
+  "platform": "gtk_macos",
+  "candidate_id": "gtk-candidate01",
+  "gate_status": "changes_required",
+  "remaining_changed_mandatory_defect_count": 2,
+  "candidate": {
+    "git_head": "d84ab42",
+    "dirty_source": true,
+    "binary": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/the",
+    "binary_sha256": "bd6f87d6a9f788a014758e38e78835273480e7dc3555c3f5ee5c799e5ad688c1",
+    "driver": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/the_driver_gtk.so",
+    "driver_sha256": "d2bfb54ea6a88d920a7c6513ad8a96c4a120907704e4942024793ead45769521",
+    "gtkdriver_source_sha256": "c17b302ff4d66691e2a99a6e11ddd90eda341f4be34a16421b33461d99a13469",
+    "verification": "Reviewer independently hashed binary/driver/source before UI; lsof owned pid62274 verifies production module and matching Debug cREXX library; no test-probe driver",
+    "runtime_proof": "candidate01/runtime-and-profile-proof.json"
+  },
+  "review": {
+    "reviewer": "design_conformance_review",
+    "observer_mode": "Informed independent supported CUA native app review, not a fresh participant",
+    "isolated_session": "session.json",
+    "operator_preserved": true,
+    "clipboard": "No Copy/Cut. Native App.paste used for isolated profile source; documented tool restores operator clipboard.",
+    "reference": "Unchanged frozen GTKmac prototype rendered at1120px CSS width in viewer; frame1100px, visible viewport884px, prototype minimum700px. Native actual1120x852 window at2x; no identical-height/theme pixel diff claim.",
+    "cleanup": "Owned app quit through native menu after relaunch; no owned GTK process remains. Reference tab closed and browser viewport reset."
+  },
+  "axes": {
+    "functional": {
+      "verdict": "Partial",
+      "summary": "Actual Files/tabs, unsaved cREXX build/run36, external saved bytes, profile Build/Apply work; live reader/keyboard/native chooser and TOP/OFF remain pending. Short advanced controls unreachable."
+    },
+    "design_fidelity": {
+      "verdict": "Fail",
+      "summary": "Real shell/navigation/profile authority improve; primary associations retain crowded technical5-column hierarchy rather than agreed compact relationships."
+    },
+    "aesthetics": {
+      "verdict": "Fail",
+      "summary": "12-unit margins/8-unit rhythm improve breathing room around ordinary34-unit native controls. Wide associations clip Ownership data, and short association page clips bottom controls."
+    },
+    "discoverability": {
+      "verdict": "Fail",
+      "summary": "Visible pane/tabs and contextual roles/direct profile link work; clipped association content and short controls remain."
+    }
+  },
+  "checkpoints": [
+    {
+      "id": "K01-K03",
+      "requirements": [
+        "R01",
+        "R03",
+        "R06",
+        "R18"
+      ],
+      "cases": [
+        "S01",
+        "S02",
+        "S18",
+        "S29"
+      ],
+      "baseline_findings": [
+        "G08",
+        "G09",
+        "G10"
+      ],
+      "verdict": "Pass sampled shell checkpoints",
+      "observed": "Native title/current filename/saved state, real selected named document tabs, persistent Files/Program/Tools controls. Native View selects Tools; repeating top Tools hides it and returns editor with no sibling. Files opens Squares by ordinary double-click.",
+      "evidence": [
+        "candidate01/evidence/K01-text-editor.jpg",
+        "candidate01/evidence/K02-files.jpg",
+        "candidate01/evidence/K03-source-tabs.jpg"
+      ]
+    },
+    {
+      "id": "K04-K06",
+      "requirements": [
+        "R02",
+        "R04",
+        "R06"
+      ],
+      "cases": [
+        "S03",
+        "S07"
+      ],
+      "baseline_findings": [
+        "G12"
+      ],
+      "verdict": "Pass",
+      "observed": "Edit n5→6, sourceLine2Col4, dirty/title/tab state; build unsaved source status0,Run36,thenSave. External bytes exactly expected. Friendly cREXX source/Completed0 label replaces internal role.",
+      "evidence": [
+        "candidate01/evidence/K04-unsaved-edit.jpg",
+        "candidate01/evidence/K05-build-results.jpg",
+        "candidate01/evidence/K06-unsaved-revision-run.jpg",
+        "candidate01/saved-source-proof.json"
+      ]
+    },
+    {
+      "id": "K07",
+      "requirements": [
+        "R09",
+        "R18"
+      ],
+      "cases": [
+        "S12",
+        "S29"
+      ],
+      "baseline_findings": [
+        "G11"
+      ],
+      "verdict": "Partial",
+      "observed": "Direct Edit tool associations in profile opens user.profile.the and proper Build/Apply. Role labels truthful, but technical table remains crowded/clipped(AK01).",
+      "evidence": [
+        "candidate01/evidence/K07-associations.jpg"
+      ]
+    },
+    {
+      "id": "K08-K09",
+      "requirements": [
+        "R09",
+        "R11"
+      ],
+      "cases": [
+        "S12",
+        "S15"
+      ],
+      "baseline_findings": [
+        "G01"
+      ],
+      "verdict": "Pass sampled custom-profile checkpoints",
+      "observed": "Actual native profile Build0→Apply: green GUIDE ONE λ界, yellow/navy GUIDE TWO below command; INLINE NOTE remains+3; applied summary user.profile.the/Saved for future sessions. Relaunch retains band/profile.",
+      "evidence": [
+        "candidate01/evidence/K08-custom-footer.jpg",
+        "candidate01/evidence/K09-applied-summary.jpg",
+        "candidate01/runtime-and-profile-proof.json"
+      ]
+    },
+    {
+      "id": "K10",
+      "requirements": [
+        "R15",
+        "R16",
+        "R18"
+      ],
+      "cases": [
+        "S21"
+      ],
+      "verdict": "Partial",
+      "observed": "Native app menu Settings/About/Quit placement and Appearance scope/installed monospace controls visible. CUA AX exposes only parent and modal pointer/keyboard actions have no effect; manual Apply and Editor tab unqualified.",
+      "evidence": [
+        "candidate01/evidence/K10-settings-appearance.jpg",
+        "candidate01/evidence/K10b-settings-modal-input-limit.jpg"
+      ]
+    },
+    {
+      "id": "K11-K15",
+      "requirements": [
+        "R13",
+        "R18"
+      ],
+      "cases": [
+        "S17",
+        "S29"
+      ],
+      "verdict": "Fail AK02",
+      "observed": "Isolated saved font Menlo18 produces larger editor, profile colours and native chrome unchanged. Requested820x500 ordinary resize is limited toactual820x783 without footer clipping. Explicit Expand allows actual820x501 (nominal820x500); association page bottom disclosures clip and outer scroll does not recover.",
+      "evidence": [
+        "candidate01/font-large-setup.json",
+        "candidate01/evidence/K11-font18-wide.jpg",
+        "candidate01/evidence/K12-font18-resize-minimum.jpg",
+        "candidate01/evidence/K14-font18-short-expanded.jpg",
+        "candidate01/evidence/K15-font18-short-associations.jpg",
+        "candidate01/evidence/K15b-short-associations-after-scroll.jpg"
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "AK01",
+      "status": "Open",
+      "severity": "medium",
+      "baseline_findings": [
+        "G10",
+        "G11"
+      ],
+      "requirements": [
+        "R09",
+        "R18"
+      ],
+      "cases": [
+        "S29"
+      ],
+      "axes": [
+        "design_fidelity",
+        "aesthetics",
+        "discoverability"
+      ],
+      "expected": "Primary association relationships fit ordinary side pane with common filetype→tool/action hierarchy; technical ownership/details secondary.",
+      "observed": "At1120x852 native default window, side pane420-ish logical width shows5-column table. Ownership/details header is offscreen and ownership cell fragments appear at right. Expanded view reveals repeated Profile-defined/unknown ownership. Reference common view is two-column extension→human tool/action list.",
+      "evidence_basis": "Actual screenshot plus source confirmation of5columns; reference visual comparison",
+      "evidence": [
+        "candidate01/evidence/K07-associations.jpg",
+        "candidate01/evidence/K15-font18-short-associations.jpg",
+        "candidate01/evidence/REF-K02-mac-associations1120.jpg"
+      ]
+    },
+    {
+      "id": "AK02",
+      "status": "Open",
+      "severity": "medium",
+      "requirements": [
+        "R13",
+        "R18"
+      ],
+      "cases": [
+        "S17",
+        "S29"
+      ],
+      "axes": [
+        "functional",
+        "aesthetics",
+        "discoverability"
+      ],
+      "expected": "Expanded short Tools page keeps controls reachable with scrolling or deliberate short-height adaptation.",
+      "observed": "At actual820x501 (nominal G-S820x500,1logical px taller) with expanded Tools, File types page clips Run-with-chosen-runner and Register-compiled-tool disclosures below bottom. Scrolling2pages on pane leaves state unchanged. Profile link remains visible. Normal editor+aux minimum820x783 itself is not called clipping.",
+      "evidence_basis": "Actual supported CUA resize/capture/scroll",
+      "evidence": [
+        "candidate01/evidence/K15-font18-short-associations.jpg",
+        "candidate01/evidence/K15b-short-associations-after-scroll.jpg"
+      ]
+    }
+  ],
+  "aesthetic_measurements": {
+    "basis": "Screenshot approximations calibrated2x backing scale; source confirms12 borders/8 related gaps. GTK controls absent from macOS AX, so no widget AX rectangles.",
+    "toolbar_inset_logical": 12,
+    "related_gap_logical": 8,
+    "ordinary_button_height_logical_approx": 34,
+    "default_editor_row_height_logical_approx": 17,
+    "font18_editor_row_height_logical_approx": 24,
+    "judgement": "New margins/rhythm are comfortable; button heights proportionate to native labels and need no blanket shrink. Remaining failures are concrete association clipping and short content overflow, not native-theme differences or invented pixel limits."
+  },
+  "full_catalogue_execution": false,
+  "case_coverage": {
+    "S01": "Partial; actual Text startup/shell",
+    "S02": "Partial; Files open/tabs plus save byte proof; full lifecycle not replayed",
+    "S03": "Partial; source n5→6 atLine2Col4, modified/saved state; broader Unicode/Undo not replayed",
+    "S04": "NotRun",
+    "S05": "Partial; native menu routes; bounded keyboard route pending",
+    "S06": "NotRun",
+    "S07": "Partial; actual unsaved LevelB build/run36; no LevelG variants",
+    "S08": "NotRun",
+    "S09": "NotRun",
+    "S10": "NotRun",
+    "S11": "NotRun",
+    "S12": "Partial; source Build/Apply, concise active/startup summary and seeded-font relaunch inheritance",
+    "S13": "NotRun",
+    "S14": "NotRun",
+    "S15": "Partial; actual coloured two-bandUnicode/inline profile; TOP/OFF pending",
+    "S16": "NotRun",
+    "S17": "Partial; wide1120x852, actual18pt normal minimum820x783, explicit expanded820x500; AK02 fails",
+    "S18": "Partial; Tools repeat hide to editor; live reader/draft checks pending",
+    "S19": "NotRun; completed output36 only, no retained live reader task yet",
+    "S20": "NotRun",
+    "S21": "Partial; actual Appearance shown; modal input tool limit; seeded18pt rendering only",
+    "S22": "NotRun; modal input tool limit",
+    "S23": "NotRun",
+    "S24": "NotRun",
+    "S25": "NotRun",
+    "S26": "NotRun",
+    "S27": "NotRun",
+    "S28": "NotRun",
+    "S29": "Fail; AK01 association crowding and AK02 clipped short controls"
+  },
+  "baseline_work_not_closed": [
+    "D02 general Redo",
+    "D03 full source transfer/Save as",
+    "Broader R10 profile composition"
+  ],
+  "pending_candidate02": [
+    "AK01 association summary/secondary details",
+    "AK02 short content scrolling/access",
+    "Reader live draft/selection/position and pane toggles",
+    "Profile TOP/OFF/filetabs/caret pointer mapping",
+    "Normal-font compact/keyboard focus",
+    "Native Open and Settings modal actions only if supported; otherwise supplement with separately labelled focused native probe evidence"
+  ],
+  "samples": [
+    {
+      "id": "G-M-default-additional",
+      "actual_window_logical_px": [
+        1120,
+        852
+      ],
+      "backing_px": [
+        2240,
+        1704
+      ],
+      "scale": 2,
+      "status": "Executed additional default-size checkpoint; catalogue G-M1440x900 pending candidate02"
+    },
+    {
+      "id": "FontLarge-normal-minimum",
+      "font": "Menlo18 seeded isolated preferences",
+      "actual_window_logical_px": [
+        820,
+        783
+      ],
+      "backing_px": [
+        1640,
+        1566
+      ],
+      "scale": 2,
+      "status": "Requested short resize stopped at normal minimum; footer not clipped"
+    },
+    {
+      "id": "G-S-approx",
+      "nominal_window_logical_px": [
+        820,
+        500
+      ],
+      "actual_window_logical_px": [
+        820,
+        501
+      ],
+      "backing_px": [
+        1640,
+        1002
+      ],
+      "scale": 2,
+      "status": "Expanded pane reached1logical px taller than target; bottom controls already clip; exact500 replay pending repair"
+    }
+  ]
+}

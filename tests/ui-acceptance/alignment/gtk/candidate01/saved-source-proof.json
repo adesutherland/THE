@@ -1,0 +1,9 @@
+{
+  "path": "/var/folders/nr/7ckzqpl91kz80mcy3316h1tr0000gn/T/the-alignment-gtk-gme73cpm/workspace/Squares.crexx",
+  "expected_utf8": "options levelb\nn=6\nsay n*n\nreturn 0\n",
+  "actual_hex": "6f7074696f6e73206c6576656c620a6e3d360a736179206e2a6e0a72657475726e20300a",
+  "byte_identical": true,
+  "observed_caret_after_edit": "Line2 Col4",
+  "dirty_before_save": true,
+  "saved_title_after_save": true
+}

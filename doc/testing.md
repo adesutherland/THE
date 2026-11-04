@@ -73,7 +73,8 @@ GTK and console. Assess functionality, design fidelity, aesthetics and
 discoverability independently against the frozen reference. Existing receipts
 are evidence leads, rather than executions of every catalogue case. Keep
 `NotRun`, partial coverage, host exceptions and open design decisions explicit;
-see the [consolidated gap review](ui-acceptance/gap-review.md).
+see the [alignment review](ui-acceptance/alignment-review.md) and its retained
+baseline gap assessment.
 
 ```sh
 ctest --test-dir cmake-build-debug \

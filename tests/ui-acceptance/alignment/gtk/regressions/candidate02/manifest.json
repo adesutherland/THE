@@ -1,0 +1,414 @@
+{
+  "version": 1,
+  "candidate": "GTK candidate02 focused regression evidence",
+  "preserved_utc": "2026-11-04T12:31:26.946074+00:00",
+  "existing_run": {
+    "start_minute_utc": "2026-11-04T12:27:00Z",
+    "end_minute_utc": "2026-11-04T12:27:00Z",
+    "test": "test_gtk_runtime",
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "test_seconds": 8.14,
+    "ctest_total_seconds": 8.15,
+    "full_suite_run": false,
+    "log": {
+      "path": "focused-gtk-runtime.log",
+      "sha256": "d3bd9bce653834a3e3b7b0c95cc43502c761814a8d369a427f36c682ba1e1ec5"
+    }
+  },
+  "source_base_commit": "d84ab42be7e660bc2bb965e3e8c22d4303202a68",
+  "source_inputs": [
+    {
+      "path": "/Users/adrian/CLionProjects/THE/src/drivers/gtk/gtkdriver.c",
+      "sha256": "0b429d0bb0ffac00a124f017e8de2d2f04ed50dfe9e38128267b4c2bc521b58b",
+      "bytes": 222445
+    },
+    {
+      "path": "/Users/adrian/CLionProjects/THE/tests/gtk_runtime_probe.c",
+      "sha256": "19c78d267cf62509805f510783b33f46a1b0259a193115965431af23af06e075",
+      "bytes": 142792
+    },
+    {
+      "path": "/Users/adrian/CLionProjects/THE/tests/test_gtk_runtime.py",
+      "sha256": "0af7827c3fd217682d1e58199a771d683b3e8aafacd8971b88e8469c4af8ee58",
+      "bytes": 7824
+    }
+  ],
+  "candidate_binaries": [
+    {
+      "path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/the",
+      "sha256": "bd6f87d6a9f788a014758e38e78835273480e7dc3555c3f5ee5c799e5ad688c1",
+      "bytes": 2379920
+    },
+    {
+      "path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/the_driver_gtk.so",
+      "sha256": "4e57fc814994a75c4c13b702f089af570a81dc7eaed112e8a8af9433f46aef9f",
+      "bytes": 315056
+    },
+    {
+      "path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/test_gtk_runtime_driver.so",
+      "sha256": "ba5f46c23353b1492fc0da38ce8ac11ed2da6ce1b6e601712d54e964c236c46c",
+      "bytes": 483320
+    }
+  ],
+  "crexx_source_commit": "43807b4368cb3dcda49d67c0ac15599cf1e22594",
+  "cmake_inputs": {
+    "CMAKE_BUILD_TYPE": "Debug",
+    "CREXXSAA_INCLUDE_DIR": "/Users/adrian/CLionProjects/CREXX/interpreter",
+    "CREXXSAA_LIBRARY": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin/libcrexxsaa.dylib",
+    "CREXXSAA_RUNTIME_LIBRARY": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin/libcrexxsaa.dylib",
+    "CREXX_DRIVER_EXECUTABLE": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin/crexx",
+    "CREXX_LIBRARY_RXBIN": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin/library.rxbin",
+    "CREXX_RXAS_EXECUTABLE": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin/rxas",
+    "CREXX_RXCEXITS_RXBIN": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin/rxcexits.rxbin",
+    "CREXX_RXC_EXECUTABLE": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin/rxc",
+    "CREXX_RXVM_EXECUTABLE": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin/rxvm",
+    "DSLSH_LOCAL_DIR": "/Users/adrian/CLionProjects/THE/../DSL-Syntax-Highlighter",
+    "THE_NATIVE_TOOL_ROOT": "/Users/adrian/CLionProjects/THE/build/native-tools-gtk-aligned/tools",
+    "THE_REXX_INTERPRETER": "CREXX"
+  },
+  "sdk_inputs": [
+    {
+      "path": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin/crexx",
+      "sha256": "00bca0cb4aacc995e5df95a285d76282d273ab5323d05e841bcdb60ac85fb6ed",
+      "bytes": 2644824
+    },
+    {
+      "path": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin/rxc",
+      "sha256": "a9b871c9e0f242a1d2bfbd5b3ade33d85246f2697bef3f8953e40d4d6190870d",
+      "bytes": 5895552
+    },
+    {
+      "path": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin/rxas",
+      "sha256": "851647ed51bec8d337d0428ba6c6db3723f36a47fca25108c27792889d06760e",
+      "bytes": 1165080
+    },
+    {
+      "path": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin/rxvm",
+      "sha256": "eafde0d153dec8e49414a3771efc87b26c9a97ff13a042ac2a9e0ce9a7cced97",
+      "bytes": 1856072
+    },
+    {
+      "path": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin/libcrexxsaa.dylib",
+      "sha256": "83ee3d9beac64547d023e5475e91d63da1fb3d60a373c60f2858a4ceb51ac30d",
+      "bytes": 1948640
+    },
+    {
+      "path": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin/library.rxbin",
+      "sha256": "f4ccad5f4f3837a18a1868c033fa8ec4f7804031661813cccbb03cd64182805b",
+      "bytes": 1969963
+    },
+    {
+      "path": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin/rxcexits.rxbin",
+      "sha256": "4b49e7a7c40156e6aff15fba52bfdd56054f5d02f0eec5b7cfcf2be463581912",
+      "bytes": 860721
+    }
+  ],
+  "native_tool_cohort": {
+    "version": 1,
+    "runtime": "43807b4368cb3dcda49d67c0ac15599cf1e22594",
+    "classicImage": "9dc18d8eba321fb258865a9a6e11301df4b721d2b7835efafa1e92fdc9cd0942",
+    "classicSource": "7ac74bc6ced98a522222d5495bed51c1da38a077"
+  },
+  "native_tool_inputs": [
+    {
+      "path": "/Users/adrian/CLionProjects/THE/build/native-tools-gtk-aligned/tools/cohort.json",
+      "sha256": "6ba34dfe84cdca94d1bf671caf52919db454f9b20e30386d68a1f87dd0dc6a97",
+      "bytes": 208
+    },
+    {
+      "path": "/Users/adrian/CLionProjects/THE/build/native-tools-gtk-aligned/tools/dslsh-classic.rxbin",
+      "sha256": "e549b76afa654e4a4264f8183de0c7435fe93688337eb13635c47a0c252f7e59",
+      "bytes": 5361525
+    },
+    {
+      "path": "/Users/adrian/CLionProjects/THE/build/native-tools-gtk-aligned/tools/llcbrowser.rxbin",
+      "sha256": "9dc18d8eba321fb258865a9a6e11301df4b721d2b7835efafa1e92fdc9cd0942",
+      "bytes": 9593172
+    },
+    {
+      "path": "/Users/adrian/CLionProjects/THE/build/native-tools-gtk-aligned/tools/sdk/library.rxbin",
+      "sha256": "f4ccad5f4f3837a18a1868c033fa8ec4f7804031661813cccbb03cd64182805b",
+      "bytes": 1969963
+    },
+    {
+      "path": "/Users/adrian/CLionProjects/THE/build/native-tools-gtk-aligned/tools/sdk/rxas",
+      "sha256": "851647ed51bec8d337d0428ba6c6db3723f36a47fca25108c27792889d06760e",
+      "bytes": 1165080
+    },
+    {
+      "path": "/Users/adrian/CLionProjects/THE/build/native-tools-gtk-aligned/tools/sdk/rxc",
+      "sha256": "a9b871c9e0f242a1d2bfbd5b3ade33d85246f2697bef3f8953e40d4d6190870d",
+      "bytes": 5895552
+    },
+    {
+      "path": "/Users/adrian/CLionProjects/THE/build/native-tools-gtk-aligned/tools/sdk/rxcexits.rxbin",
+      "sha256": "4b49e7a7c40156e6aff15fba52bfdd56054f5d02f0eec5b7cfcf2be463581912",
+      "bytes": 860721
+    },
+    {
+      "path": "/Users/adrian/CLionProjects/THE/build/native-tools-gtk-aligned/tools/the_rxbin_host",
+      "sha256": "719e43317aad19c461972158abeee4e12a572dec5b97dc00db9b8b7585041acf",
+      "bytes": 1465312
+    }
+  ],
+  "commands": [
+    {
+      "cwd": "/Users/adrian/CLionProjects/THE",
+      "command": "cmake --build build/gtk-focus-review --target the_driver_gtk test_gtk_runtime_driver -j 8",
+      "purpose": "Compile production GTK repair and focused probe"
+    },
+    {
+      "cwd": "/Users/adrian/CLionProjects/THE",
+      "command": "cmake --build build/gtk-focus-review --target test_gtk_runtime_driver -j 8",
+      "purpose": "Compile final probe sequencing corrections"
+    },
+    {
+      "cwd": "/Users/adrian/CLionProjects/THE",
+      "command": "ctest --test-dir build/gtk-focus-review -R '^test_gtk_runtime$' --output-on-failure",
+      "purpose": "Existing preserved final focused PASS; not rerun during preservation"
+    }
+  ],
+  "capture_kind": "In-process GtkWidget drawing by test-only production-driver probe; not OS screenshots of manual production UI",
+  "captures": [
+    {
+      "path": "captures/gtk-runtime-associations-font18-short-disclosures.png",
+      "sha256": "c7f73de985ba60c9068fc2c0e39882840d2029805d06cb800901bdd87ac612c9",
+      "bytes": 41152,
+      "source_path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/gtk-runtime-associations-font18-short-disclosures.png",
+      "source_mtime_utc": "2026-11-04T12:27:18.129391+00:00"
+    },
+    {
+      "path": "captures/gtk-runtime-associations-font18-short-register.png",
+      "sha256": "068b344db3a3112a251faa4b94ca0ec8c8e890a5d888868c98495c4d48b995d4",
+      "bytes": 37586,
+      "source_path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/gtk-runtime-associations-font18-short-register.png",
+      "source_mtime_utc": "2026-11-04T12:27:18.177921+00:00"
+    },
+    {
+      "path": "captures/gtk-runtime-associations-summary.png",
+      "sha256": "dd5246b558d5d7e24820f9a0ff51a08823482b74754c1f9103445699924918e1",
+      "bytes": 69988,
+      "source_path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/gtk-runtime-associations-summary.png",
+      "source_mtime_utc": "2026-11-04T12:27:18.078005+00:00"
+    },
+    {
+      "path": "captures/gtk-runtime-console-input-focus.png",
+      "sha256": "704a36c0db973430c4e57ade9803d4288023daeac5f25061f28db80bc0d9ba0d",
+      "bytes": 90061,
+      "source_path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/gtk-runtime-console-input-focus.png",
+      "source_mtime_utc": "2026-11-04T12:27:21.451099+00:00"
+    },
+    {
+      "path": "captures/gtk-runtime-contextual-build-source.png",
+      "sha256": "bcc28b636dbbc22a3c271538d741de2e97065347bdb7acb60e028c40adde2eaf",
+      "bytes": 64925,
+      "source_path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/gtk-runtime-contextual-build-source.png",
+      "source_mtime_utc": "2026-11-04T12:27:22.639234+00:00"
+    },
+    {
+      "path": "captures/gtk-runtime-contextual-failed-build.png",
+      "sha256": "463a34129185d1f380bc2ce87bc9f2cc4dc7f9bcabbb017159ca3988a6d01096",
+      "bytes": 74191,
+      "source_path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/gtk-runtime-contextual-failed-build.png",
+      "source_mtime_utc": "2026-11-04T12:27:22.840976+00:00"
+    },
+    {
+      "path": "captures/gtk-runtime-contextual-profile-applied.png",
+      "sha256": "08c50e73a419c21f1215537d0b03be1df16e02af9a026062444f74d047cb0f48",
+      "bytes": 70435,
+      "source_path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/gtk-runtime-contextual-profile-applied.png",
+      "source_mtime_utc": "2026-11-04T12:27:23.243897+00:00"
+    },
+    {
+      "path": "captures/gtk-runtime-default-launch.png",
+      "sha256": "290eea39beee55fd239e5b7bba907b6633acc50fe9e05ded1ccd7bf0db584298",
+      "bytes": 51879,
+      "source_path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/gtk-runtime-default-launch.png",
+      "source_mtime_utc": "2026-11-04T12:27:16.827051+00:00"
+    },
+    {
+      "path": "captures/gtk-runtime-default-narrow.png",
+      "sha256": "5f2760ebb4d23a47c7b1486f2589b38444731744fe811918fc157ff792e24722",
+      "bytes": 49409,
+      "source_path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/gtk-runtime-default-narrow.png",
+      "source_mtime_utc": "2026-11-04T12:27:17.300337+00:00"
+    },
+    {
+      "path": "captures/gtk-runtime-default-wide.png",
+      "sha256": "b02b23f3583baf162569b8ff415c8d839bb92bac0286d5759110fe16295769b3",
+      "bytes": 55146,
+      "source_path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/gtk-runtime-default-wide.png",
+      "source_mtime_utc": "2026-11-04T12:27:16.956263+00:00"
+    },
+    {
+      "path": "captures/gtk-runtime-document-below.png",
+      "sha256": "921e0c288d7a3d05acfda920eda84d646e34724e77dcfd5d38ecd9a4c4352c19",
+      "bytes": 61782,
+      "source_path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/gtk-runtime-document-below.png",
+      "source_mtime_utc": "2026-11-04T12:27:20.126032+00:00"
+    },
+    {
+      "path": "captures/gtk-runtime-document-right.png",
+      "sha256": "4b304bca550b10203d17a98251085bd47bb8492d0fe0e3cb2b7a80a74dd92dca",
+      "bytes": 123423,
+      "source_path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/gtk-runtime-document-right.png",
+      "source_mtime_utc": "2026-11-04T12:27:19.892275+00:00"
+    },
+    {
+      "path": "captures/gtk-runtime-document-tabs.png",
+      "sha256": "47697789c905e090866956dedd899fc90aba995f8107696a992bac4283364c52",
+      "bytes": 69624,
+      "source_path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/gtk-runtime-document-tabs.png",
+      "source_mtime_utc": "2026-11-04T12:27:18.269868+00:00"
+    },
+    {
+      "path": "captures/gtk-runtime-filefields-below.png",
+      "sha256": "2d4b0f575a7c91a7eba736c0968e91b2299e24c4bf316ca475beeeb4ef8fc2b6",
+      "bytes": 112572,
+      "source_path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/gtk-runtime-filefields-below.png",
+      "source_mtime_utc": "2026-11-04T12:27:21.291492+00:00"
+    },
+    {
+      "path": "captures/gtk-runtime-filefields-right.png",
+      "sha256": "3ac5713bfa4d47588903f20277d5b13b31156fd349f01b886b9d734b619d635c",
+      "bytes": 210915,
+      "source_path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/gtk-runtime-filefields-right.png",
+      "source_mtime_utc": "2026-11-04T12:27:20.996179+00:00"
+    },
+    {
+      "path": "captures/gtk-runtime-files.png",
+      "sha256": "cd180c06cef0c5424f1669f675512ad81fb908a7ab00e97a9d01ae4aa788e928",
+      "bytes": 70337,
+      "source_path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/gtk-runtime-files.png",
+      "source_mtime_utc": "2026-11-04T12:27:17.651370+00:00"
+    },
+    {
+      "path": "captures/gtk-runtime-form-below.png",
+      "sha256": "028c6bc00289647f4dbc3f8c79e83f60e284fdfd1ebd57386d817f7f32833973",
+      "bytes": 65723,
+      "source_path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/gtk-runtime-form-below.png",
+      "source_mtime_utc": "2026-11-04T12:27:20.637444+00:00"
+    },
+    {
+      "path": "captures/gtk-runtime-form-right.png",
+      "sha256": "aeefe5eff056897c8dffae46f8b3986264bd0ad7556aedda14086bde6483ee31",
+      "bytes": 69884,
+      "source_path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/gtk-runtime-form-right.png",
+      "source_mtime_utc": "2026-11-04T12:27:20.474248+00:00"
+    },
+    {
+      "path": "captures/gtk-runtime-named-log-below.png",
+      "sha256": "0dbbb439f26d6819af87a3130a5f7d5ba3ce594369cdc68c3863205403430f63",
+      "bytes": 54349,
+      "source_path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/gtk-runtime-named-log-below.png",
+      "source_mtime_utc": "2026-11-04T12:27:19.619330+00:00"
+    },
+    {
+      "path": "captures/gtk-runtime-named-log-right.png",
+      "sha256": "d5ae27ef005d4dd45d91a1f89d75e14026bdf38d5ea9c9a6f4ded52cc19ebc31",
+      "bytes": 97995,
+      "source_path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/gtk-runtime-named-log-right.png",
+      "source_mtime_utc": "2026-11-04T12:27:19.457439+00:00"
+    },
+    {
+      "path": "captures/gtk-runtime-narrow.png",
+      "sha256": "6325626acff8a01d4cfb75e5a8a592a1e6b02fbe85d54916352103c809cd03ab",
+      "bytes": 60908,
+      "source_path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/gtk-runtime-narrow.png",
+      "source_mtime_utc": "2026-11-04T12:27:24.067845+00:00"
+    },
+    {
+      "path": "captures/gtk-runtime-profile-filetabs-off.png",
+      "sha256": "3c2f1ea1cbb5cea60b119ef78cd4aef84a940ee4ab8d8402ab84b6d9d5c5f2c5",
+      "bytes": 48299,
+      "source_path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/gtk-runtime-profile-filetabs-off.png",
+      "source_mtime_utc": "2026-11-04T12:27:17.952199+00:00"
+    },
+    {
+      "path": "captures/gtk-runtime-profile-status-top.png",
+      "sha256": "7934e9fa0311f44b10ce8aaa45bc615442d88aa322c322895845dc0db1f324f0",
+      "bytes": 49700,
+      "source_path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/gtk-runtime-profile-status-top.png",
+      "source_mtime_utc": "2026-11-04T12:27:17.887738+00:00"
+    },
+    {
+      "path": "captures/gtk-runtime-program-reader-unread.png",
+      "sha256": "fbbb14344621a4ea74d8d8a02b64fdaf4337ccd066f556705578a69c907e5d0d",
+      "bytes": 86824,
+      "source_path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/gtk-runtime-program-reader-unread.png",
+      "source_mtime_utc": "2026-11-04T12:27:18.717938+00:00"
+    },
+    {
+      "path": "captures/gtk-runtime-reserved-click-typed.png",
+      "sha256": "33b2eb4eede72efe6f6efa9efa43306549a185b8438bb5f338b6588243088544",
+      "bytes": 51762,
+      "source_path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/gtk-runtime-reserved-click-typed.png",
+      "source_mtime_utc": "2026-11-04T12:27:17.153996+00:00"
+    },
+    {
+      "path": "captures/gtk-runtime-settings.png",
+      "sha256": "1cda2ccddc3f05f59d7c09dc3860141374e9f505fc3e87987ab5a6edd326c558",
+      "bytes": 49895,
+      "source_path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/gtk-runtime-settings.png",
+      "source_mtime_utc": "2026-11-04T12:27:17.600689+00:00"
+    },
+    {
+      "path": "captures/gtk-runtime-setup-editor-return.png",
+      "sha256": "3ce53b7bb2c3e1c037b2aecde08826ae402b7214e87130597fc45795f9c5c083",
+      "bytes": 56812,
+      "source_path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/gtk-runtime-setup-editor-return.png",
+      "source_mtime_utc": "2026-11-04T12:27:17.808857+00:00"
+    },
+    {
+      "path": "captures/gtk-runtime-setup-expanded.png",
+      "sha256": "b3eae1b01f49ae0181bcc3a07103e3ada144a76d00a7306515b6ed1892f1ad7c",
+      "bytes": 37683,
+      "source_path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/gtk-runtime-setup-expanded.png",
+      "source_mtime_utc": "2026-11-04T12:27:17.764873+00:00"
+    },
+    {
+      "path": "captures/gtk-runtime-setup-short.png",
+      "sha256": "ec616243738e84ec93181f8702c4fe132f063b8b07a3ce384b3b07a24f9343b3",
+      "bytes": 56802,
+      "source_path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/gtk-runtime-setup-short.png",
+      "source_mtime_utc": "2026-11-04T12:27:17.726905+00:00"
+    },
+    {
+      "path": "captures/gtk-runtime-status-click-typed.png",
+      "sha256": "e0f0d65d6fa7489cc1fc805e97b99646954f1216c76fffe312ad92e373ceff61",
+      "bytes": 51833,
+      "source_path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/gtk-runtime-status-click-typed.png",
+      "source_mtime_utc": "2026-11-04T12:27:17.068659+00:00"
+    },
+    {
+      "path": "captures/gtk-runtime-workbench-menu-input-return.png",
+      "sha256": "487fc4b84d17a261236034f161d6ba0b768bbcdf2c2e6cb562058ce6aceb5871",
+      "bytes": 87531,
+      "source_path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/gtk-runtime-workbench-menu-input-return.png",
+      "source_mtime_utc": "2026-11-04T12:27:21.569753+00:00"
+    },
+    {
+      "path": "captures/gtk-runtime-workbench-menu.png",
+      "sha256": "b39ee2f6b94309c3fcbec0a32472cfa4be78a3204881f517c14eb82fe64147fd",
+      "bytes": 87263,
+      "source_path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/gtk-runtime-workbench-menu.png",
+      "source_mtime_utc": "2026-11-04T12:27:21.719673+00:00"
+    },
+    {
+      "path": "captures/gtk-runtime.png",
+      "sha256": "1ae94a332c83b250947264f305c17e732a8bdf59bc09af70589f2ed2917017d6",
+      "bytes": 70484,
+      "source_path": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/gtk-runtime.png",
+      "source_mtime_utc": "2026-11-04T12:27:23.740061+00:00"
+    }
+  ],
+  "limits": [
+    "One local macOS focused runtime test; no full catalogue or full suite claim",
+    "No independent aesthetics/discoverability acceptance from these probes",
+    "No hosted CI, Linux/Windows GTK, installer, signing, publication or release qualification",
+    "Font behavior invokes real apply_font/save_font_preferences/restore_font_preferences functions; Settings modal is opened and programmatically closed, not a manual Apply-button journey",
+    "Independent UIlead production-UI and CUA modal-routing evidence is separate"
+  ]
+}

@@ -13,7 +13,7 @@
 #include "editordocument.h"
 
 static unsigned phase;
-static unsigned preflight, polish_phase;
+static unsigned preflight, polish_phase, association_probe_phase;
 static char *polish_clipboard;
 static LogicalCursor polish_cursor;
 static int dirty_quit_checked;
@@ -594,13 +594,15 @@ static void assert_application_menus(void)
 
 static void assert_profile_guide(void)
 {
-   TheDriverWindow *file = driver_current_role_window(WINDOW_FILEAREA);
+   TheDriverWindow *file = driver_current_role_window(WINDOW_FOOTER);
+   int footer = file != NULL;
+   if (!file) file = driver_current_role_window(WINDOW_FILEAREA);
    TheDriverWindowSize size = operations.window_size(file);
    TheDriverWindowOrigin origin = operations.window_origin(file);
    int row, col, found = 0;
    assert(size.valid && origin.valid);
    for (row = 0; row < size.rows; row++)
-      if (CURRENT_SCREEN.sl[row].line_type == LINE_RESERVED)
+      if (footer || CURRENT_SCREEN.sl[row].line_type == LINE_RESERVED)
       {
          char *text = g_malloc(size.cols + 1);
          for (col = 0; col < size.cols; col++)
@@ -654,6 +656,7 @@ static void assert_workbench_focus_cycle(void)
    TheInputEvent tab, expected_tab;
    GdkEventKey key = {0};
    int build_visible = gtk_widget_get_visible(ui.setup);
+   int files_visible = gtk_widget_get_visible(ui.files);
    int auxiliary_page = gtk_notebook_get_current_page(GTK_NOTEBOOK(ui.auxiliary));
    gtk_entry_set_text(GTK_ENTRY(ui.input), "Workbench unsent draft");
    gtk_widget_grab_focus(ui.editor);
@@ -668,14 +671,18 @@ static void assert_workbench_focus_cycle(void)
    press_workbench_key(GDK_KEY_Escape, 0);
    assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.editor);
    assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(ui.input)), "Workbench unsent draft"));
+   ui.syncing_logs++;
    gtk_widget_hide(ui.console);
    gtk_widget_hide(ui.setup);
+   gtk_widget_hide(ui.files);
+   ui.syncing_logs--;
    press_workbench_key(GDK_KEY_ISO_Left_Tab, GDK_SHIFT_MASK);
    assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.first_control);
    press_workbench_key(GDK_KEY_Escape, 0);
    assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.editor);
    gtk_widget_show(ui.console);
    gtk_widget_set_visible(ui.setup, build_visible);
+   gtk_widget_set_visible(ui.files, files_visible);
    ui.syncing_logs++;
    gtk_notebook_set_current_page(GTK_NOTEBOOK(ui.auxiliary), auxiliary_page);
    ui.syncing_logs--;
@@ -707,14 +714,18 @@ static void click_noneditable_row(int reserved)
    row = 0;
    if (reserved)
    {
-      origin = operations.window_origin(file);
-      for (; row < CURRENT_SCREEN.rows[WINDOW_FILEAREA]; row++)
-         if (CURRENT_SCREEN.sl[row].line_type == LINE_RESERVED)
-            break;
-      assert(row < CURRENT_SCREEN.rows[WINDOW_FILEAREA]);
+      TheDriverWindow *footer = driver_current_role_window(WINDOW_FOOTER);
+      if (footer) origin = operations.window_origin(footer);
+      else
+      {
+         origin = operations.window_origin(file);
+         for (; row < CURRENT_SCREEN.rows[WINDOW_FILEAREA]; row++)
+            if (CURRENT_SCREEN.sl[row].line_type == LINE_RESERVED) break;
+         assert(row < CURRENT_SCREEN.rows[WINDOW_FILEAREA]);
+      }
    }
    hit.x = (origin.col + 3) * ui.cell_width + 1;
-   hit.y = (origin.row + row) * ui.cell_height + 1;
+   hit.y = projected_row(origin.row + row) * ui.cell_height + 1;
    clicked(ui.editor, &hit, NULL);
    assert(g_queue_is_empty(&ui.inputs));
    assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == focus);
@@ -1844,6 +1855,8 @@ static void contextual_step(void)
       case 1:
          assert_source(compiled_source);
          assert(!strcmp(gtk_button_get_label(GTK_BUTTON(ui.build)), "Build source"));
+         assert(gtk_widget_get_visible(ui.association_current));
+         assert(!strcmp(gtk_label_get_text(GTK_LABEL(ui.association_current)), "Current file: Build source → Run"));
          assert(gtk_widget_get_sensitive(ui.build) && !gtk_widget_get_sensitive(ui.run) && !gtk_widget_get_sensitive(ui.apply));
          assert(strstr(gtk_widget_get_tooltip_text(ui.run), "Build"));
          contextual_window = CURRENT_VIEW->current_window; contextual_cursor = CURRENT_VIEW->logical_cursor.current;
@@ -2070,7 +2083,23 @@ static void assert_settings_fonts_setup(void)
    assert(strstr(gtk_label_get_text(GTK_LABEL(ui.profile_summary)), "No user profile applied"));
    assert(!strstr(gtk_label_get_text(GTK_LABEL(ui.profile_summary)), "Selection kind"));
    assert(!strstr(gtk_label_get_text(GTK_LABEL(ui.profile_summary)), "Startup selection"));
-   assert(gtk_tree_model_iter_n_children(gtk_tree_view_get_model(GTK_TREE_VIEW(ui.tools_view)), NULL) == (int)the_tool_count());
+   {
+      size_t i, associated = 0;
+      for (i = 0; i < the_tool_count(); i++) if (*the_tool_at(i)->extensions) associated++;
+      GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(ui.tools_view));
+      GtkTreeIter row;
+      int language = 0, compiler = 0;
+      assert(gtk_tree_model_iter_n_children(model, NULL) == (int)associated);
+      if (gtk_tree_model_get_iter_first(model, &row)) do
+      {
+         char *label, *role;
+         gtk_tree_model_get(model, &row, 1, &label, 2, &role, -1);
+         if (!strcmp(label, "cREXX compiler")) { assert(!strcmp(role, "Build")); compiler = 1; }
+         if (!strcmp(label, "Classic Rexx highlighter")) { assert(!strcmp(role, "Syntax / highlighting")); language = 1; }
+         g_free(label); g_free(role);
+      } while (gtk_tree_model_iter_next(model, &row));
+      assert(language && compiler);
+   }
    show_setup(1); assert(gtk_notebook_get_current_page(GTK_NOTEBOOK(ui.setup_tabs)) == 1);
    assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(ui.input)), "unsent setup draft"));
    assert(gtk_editable_get_selection_bounds(GTK_EDITABLE(ui.input), &window, &width) && window == 2 && width == 9);
@@ -2091,6 +2120,161 @@ static void assert_settings_fonts_setup(void)
    assert_source("alpha\nbeta\n"); assert(!the_editor_buffer_dirty(CURRENT_FILE));
    g_free(path); g_free(directory); g_free(backup);
    puts("GTK_SETTINGS_FONT_METRICS_PERSIST_RESTORE_SESSION_FAILURE_SETUP_ABOUT_PASS");
+}
+
+static void assert_pane_navigation(void)
+{
+   LogicalCursorState cursor = CURRENT_VIEW->logical_cursor;
+   char *draft = g_strdup(gtk_entry_get_text(GTK_ENTRY(ui.input)));
+   char *output = console_text(), *after;
+   unsigned job = the_tool_program_console()->id;
+   int i;
+   gtk_entry_set_text(GTK_ENTRY(ui.input), "Retained Ω draft");
+   gtk_editable_select_region(GTK_EDITABLE(ui.input), 9, 2);
+   show_tool_page(ui.console);
+   g_signal_emit_by_name(ui.pane_controls[2], "clicked");
+   assert(ui.active_page == ui.setup && ui.auxiliary_open);
+   g_signal_emit_by_name(ui.pane_controls[2], "clicked");
+   sync_console(); sync_logs();
+   assert(!ui.auxiliary_open && !gtk_widget_get_visible(ui.auxiliary));
+   assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.editor);
+   for (i = 0; i < 3; i++) assert(!gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(ui.pane_controls[i])));
+   g_signal_emit_by_name(ui.pane_controls[0], "clicked");
+   assert(ui.active_page == ui.files && ui.auxiliary_open);
+   assert(gtk_tree_model_iter_n_children(gtk_tree_view_get_model(GTK_TREE_VIEW(ui.files_view)), NULL) > 1);
+   screenshot("files");
+   g_signal_emit_by_name(ui.pane_controls[0], "clicked"); sync_console(); sync_logs();
+   assert(!ui.auxiliary_open && !gtk_widget_get_visible(ui.auxiliary));
+   g_signal_emit_by_name(ui.pane_controls[1], "clicked");
+   assert(ui.active_page == ui.console && ui.auxiliary_open);
+   g_signal_emit_by_name(ui.pane_controls[1], "clicked"); sync_console(); sync_logs();
+   assert(!ui.auxiliary_open && !the_tool_program_console()->visible);
+   g_signal_emit_by_name(ui.pane_controls[1], "clicked");
+   assert(ui.active_page == ui.console && ui.auxiliary_open);
+   after = console_text(); assert(!strcmp(output, after)); g_free(after); g_free(output);
+   assert(the_tool_program_console()->id == job);
+   assert(!strcmp(gtk_entry_get_text(GTK_ENTRY(ui.input)), "Retained Ω draft"));
+   assert(!memcmp(&cursor, &CURRENT_VIEW->logical_cursor, sizeof(cursor)));
+   { int start, end; assert(gtk_editable_get_selection_bounds(GTK_EDITABLE(ui.input), &start, &end) && start == 2 && end == 9); assert(gtk_editable_get_position(GTK_EDITABLE(ui.input)) == 2); }
+   gtk_entry_set_text(GTK_ENTRY(ui.input), draft); g_free(draft);
+   puts("GTK_PERSISTENT_PANES_TOGGLE_NO_SIBLING_FILES_DRAFT_CARET_HISTORY_PASS");
+}
+
+static GtkWidget *document_tab(const char *path)
+{
+   GList *children = gtk_container_get_children(GTK_CONTAINER(ui.document_buttons)), *item;
+   GtkWidget *found = NULL;
+   for (item = children; item; item = item->next)
+      if (!g_strcmp0(path, g_object_get_data(G_OBJECT(item->data), "the-path"))) { found = item->data; break; }
+   g_list_free(children); return found;
+}
+
+static int widget_inside(GtkWidget *widget, GtkWidget *viewport)
+{
+   GtkAllocation area, bounds;
+   int x, y;
+   gtk_widget_get_allocation(widget, &area); gtk_widget_get_allocation(viewport, &bounds);
+   if (!gtk_widget_translate_coordinates(widget, viewport, 0, 0, &x, &y)) return 0;
+   return x >= 0 && y >= 0 && x + area.width <= bounds.width && y + area.height <= bounds.height;
+}
+
+static void association_summary_step(void)
+{
+   static PangoFontDescription *font;
+   static LogicalCursor cursor;
+   static char *draft;
+   GList *groups, *group;
+   int compiler = 0, runner = 0, language = 0;
+   GtkAdjustment *scroll;
+   GtkPolicyType horizontal, vertical;
+   GtkAllocation window;
+   TheInputEvent event;
+   switch (association_probe_phase++)
+   {
+      case 0:
+         font = pango_font_description_copy(ui.font); cursor = CURRENT_VIEW->logical_cursor.current;
+         draft = g_strdup(gtk_entry_get_text(GTK_ENTRY(ui.input)));
+         show_setup(1); gtk_window_resize(GTK_WINDOW(ui.window), 1120, 852); await_frame();
+         break;
+      case 1:
+      {
+         PangoFontDescription *large;
+         assert(!gtk_expander_get_expanded(GTK_EXPANDER(ui.tool_details)));
+         assert(gtk_widget_is_ancestor(ui.tools_view, ui.tool_details));
+         groups = gtk_container_get_children(GTK_CONTAINER(ui.associations));
+         assert(g_list_length(groups) >= 4);
+         for (group = groups; group; group = group->next)
+         {
+            GList *labels = gtk_container_get_children(GTK_CONTAINER(group->data)), *item;
+            for (item = labels; item; item = item->next)
+            {
+               const char *id = g_object_get_data(G_OBJECT(item->data), "the-tool-id");
+               const char *text = gtk_label_get_text(GTK_LABEL(item->data));
+               assert(!strstr(text, "Profile-defined / unknown"));
+               if (id && !strcmp(id, "profile-compiler")) { assert(!strcmp(text, "Build · cREXX compiler")); compiler++; }
+               if (id && !strcmp(id, "classic-rexx")) { assert(!strcmp(text, "Run · Classic Rexx")); runner++; }
+               if (id && !strcmp(id, "classic-highlight")) { assert(g_str_has_prefix(text, "Syntax / highlighting · Classic Rexx highlighter")); language++; }
+            }
+            g_list_free(labels);
+         }
+         g_list_free(groups); assert(compiler == 1 && runner == 1 && language == 1);
+         assert(!gtk_widget_get_visible(ui.association_current)); /* Text has no build/run chain. */
+         screenshot("associations-summary");
+         large = pango_font_description_copy(font);
+         pango_font_description_set_size(large, 18 * PANGO_SCALE); apply_font(large); pango_font_description_free(large);
+         expand_auxiliary(ui.expand_control, NULL); gtk_window_resize(GTK_WINDOW(ui.window), 820, 500); await_frame();
+         break;
+      }
+      case 2:
+      {
+         unsigned i;
+         GtkAllocation body;
+         gtk_widget_get_allocation(ui.window, &window);
+         assert(ui.expanded && window.width == 820 && window.height == 500);
+         gtk_scrolled_window_get_policy(GTK_SCROLLED_WINDOW(ui.setup_scroll[1]), &horizontal, &vertical);
+         assert(horizontal == GTK_POLICY_NEVER && vertical == GTK_POLICY_AUTOMATIC);
+         scroll = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(ui.setup_scroll[1]));
+         assert(gtk_adjustment_get_upper(scroll) > gtk_adjustment_get_page_size(scroll));
+         gtk_adjustment_set_value(scroll, gtk_adjustment_get_upper(scroll) - gtk_adjustment_get_page_size(scroll)); await_frame();
+         assert(widget_inside(ui.runner_expander, ui.setup_scroll[1]));
+         assert(widget_inside(ui.register_expander, ui.setup_scroll[1]));
+         assert(widget_inside(ui.expand_control, ui.window));
+         screenshot("associations-font18-short-disclosures");
+         gtk_expander_set_expanded(GTK_EXPANDER(ui.runner_expander), TRUE);
+         gtk_expander_set_expanded(GTK_EXPANDER(ui.register_expander), TRUE); await_frame();
+         gtk_adjustment_set_value(scroll, gtk_adjustment_get_upper(scroll) - gtk_adjustment_get_page_size(scroll)); await_frame();
+         assert(widget_inside(ui.register_submit, ui.setup_scroll[1]));
+         gtk_widget_get_allocation(ui.setup_scroll[1], &body);
+         for (i = 0; i < 4; i++)
+         {
+            GtkAllocation field; int x, y;
+            gtk_widget_get_allocation(ui.tool_fields[i], &field);
+            assert(gtk_widget_translate_coordinates(ui.tool_fields[i], ui.setup_scroll[1], 0, 0, &x, &y));
+            assert(x >= 0 && x + field.width <= body.width);
+         }
+         gtk_widget_grab_focus(ui.register_submit); assert(gtk_window_get_focus(GTK_WINDOW(ui.window)) == ui.register_submit);
+         screenshot("associations-font18-short-register");
+         gtk_expander_set_expanded(GTK_EXPANDER(ui.runner_expander), FALSE);
+         gtk_expander_set_expanded(GTK_EXPANDER(ui.register_expander), FALSE);
+         gtk_adjustment_set_value(scroll, 0);
+         return_editor(NULL, NULL); apply_font(font); gtk_window_resize(GTK_WINDOW(ui.window), 900, 820); await_frame();
+         program_clicked(NULL, NULL);
+         break;
+      }
+      case 3:
+         assert(!strcmp(draft, gtk_entry_get_text(GTK_ENTRY(ui.input))));
+         assert(cursor.zone == CURRENT_VIEW->logical_cursor.current.zone);
+         assert(cursor.line_number == CURRENT_VIEW->logical_cursor.current.line_number);
+         assert(cursor.text.byte_offset == CURRENT_VIEW->logical_cursor.current.text.byte_offset);
+         assert_source("alpha\nbeta\n"); assert(!the_editor_buffer_dirty(CURRENT_FILE)); assert_original_saved();
+         pango_font_description_free(font); g_free(draft);
+         puts("GTK_DECLARED_ASSOCIATION_GROUPS_ROLES_SECONDARY_DETAILS_PASS");
+         puts("GTK_SETUP_FONT18_820X500_SCROLL_DISCLOSURES_REGISTER_FIXED_CONTROLS_PASS");
+         break;
+      default: assert(0);
+   }
+   /* Yield to the owner between stages, preserving expanded mode and focus. */
+   assert(the_input_event_from_command("nop", &event)); assert(queue_event(event));
 }
 
 static void polish_step(void)
@@ -2132,7 +2316,7 @@ static void polish_step(void)
          assert_source("alpha\nbeta\n"); assert(!the_editor_buffer_dirty(CURRENT_FILE));
          queue_command("reset block"); queue_command("save"); break;
       case 8:
-         assert_original_saved(); assert_settings_fonts_setup(); queue_command("cursor cmdline"); break;
+         assert_original_saved(); assert_settings_fonts_setup(); assert_pane_navigation(); queue_command("cursor cmdline"); break;
       case 9:
          assert_source("alpha\nbeta\n"); assert(!the_editor_buffer_dirty(CURRENT_FILE)); assert_original_saved();
          if (polish_clipboard) { clipboard_write((const unsigned char *)polish_clipboard, strlen(polish_clipboard)); g_free(polish_clipboard); polish_clipboard = NULL; }
@@ -2145,7 +2329,7 @@ static void polish_step(void)
       {
          GtkAllocation editor;
          gtk_widget_get_allocation(ui.editor, &editor);
-         assert(editor.height >= ui.rows * ui.cell_height);
+         assert(editor.height >= (ui.rows - (FILETABSx ? 1 : 0)) * ui.cell_height);
          assert(editor.width >= ui.cols * ui.cell_width);
          assert_profile_guide(); screenshot("setup-short");
          g_signal_emit_by_name(ui.expand_control, "clicked"); await_frame();
@@ -2161,12 +2345,47 @@ static void polish_step(void)
          GtkAllocation editor;
          assert(!ui.expanded && gtk_widget_get_visible(ui.editor));
          gtk_widget_get_allocation(ui.editor, &editor);
-         assert(editor.height >= ui.rows * ui.cell_height);
+         assert(editor.height >= (ui.rows - (FILETABSx ? 1 : 0)) * ui.cell_height);
          assert_profile_guide(); screenshot("setup-editor-return");
-         hide_tool_page(NULL, ui.setup); resize_window(900, GTK_ORIENTATION_VERTICAL);
+         hide_tool_page(NULL, ui.setup);
+         assert(!ui.auxiliary_open);
+         program_clicked(NULL, NULL); resize_window(900, GTK_ORIENTATION_VERTICAL);
          puts("GTK_SHORT_EDITOR_GRID_FOOTER_EXPANDED_PANE_RETURN_PASS");
          queue_command("cursor cmdline"); break;
       }
+      case 14:
+         polish_cursor = CURRENT_VIEW->logical_cursor.current;
+         queue_command("set statusline top"); break;
+      case 15:
+      {
+         TheDriverWindowOrigin status = operations.window_origin(statarea);
+         if (STATUSLINEx != 'T' || projected_row(status.row) != 0) fprintf(stderr, "GTK top projection status=%c valid=%d row=%d tabs=%d rows=%d terminal=%d\n", STATUSLINEx, status.valid, status.row, projected_filetabs_row(), ui.rows, terminal_lines);
+         assert(STATUSLINEx == 'T' && projected_row(status.row) == 0);
+         assert(FILETABSx && projected_filetabs_row() >= 0 && gtk_widget_get_visible(ui.document_tabs));
+         assert_profile_guide(); screenshot("profile-status-top");
+         queue_command("set filetabs off"); break;
+      }
+      case 16:
+         assert(!FILETABSx && projected_filetabs_row() == -1 && !gtk_widget_get_visible(ui.document_tabs));
+         assert(polish_cursor.zone == CURRENT_VIEW->logical_cursor.current.zone);
+         assert(polish_cursor.line_number == CURRENT_VIEW->logical_cursor.current.line_number);
+         assert(polish_cursor.zone_row == CURRENT_VIEW->logical_cursor.current.zone_row);
+         assert(polish_cursor.text.byte_offset == CURRENT_VIEW->logical_cursor.current.text.byte_offset);
+         assert(polish_cursor.text.cell_column == CURRENT_VIEW->logical_cursor.current.text.cell_column);
+         assert(polish_cursor.desired_cell == CURRENT_VIEW->logical_cursor.current.desired_cell);
+         assert_profile_guide(); screenshot("profile-filetabs-off");
+         queue_command("set filetabs on"); break;
+      case 17:
+         assert(FILETABSx && gtk_widget_get_visible(ui.document_tabs));
+         assert(polish_cursor.zone == CURRENT_VIEW->logical_cursor.current.zone);
+         assert(polish_cursor.line_number == CURRENT_VIEW->logical_cursor.current.line_number);
+         assert(polish_cursor.zone_row == CURRENT_VIEW->logical_cursor.current.zone_row);
+         assert(polish_cursor.text.byte_offset == CURRENT_VIEW->logical_cursor.current.text.byte_offset);
+         assert(polish_cursor.text.cell_column == CURRENT_VIEW->logical_cursor.current.text.cell_column);
+         assert(polish_cursor.desired_cell == CURRENT_VIEW->logical_cursor.current.desired_cell);
+         assert_source("alpha\nbeta\n"); assert_original_saved();
+         queue_command("set statusline bottom");
+         puts("GTK_FILETABS_NATIVE_PROJECTION_PROFILE_OFF_STATUS_TOP_CURSOR_BYTES_PASS"); break;
       default: assert(0);
    }
 }
@@ -2220,7 +2439,7 @@ static int probe_read_input(TheInputEvent *event)
             memset(&hit, 0, sizeof(hit));
             hit.button = 1;
             hit.x = origin.col * ui.cell_width + 1;
-            hit.y = (origin.row + row) * ui.cell_height + 1;
+            hit.y = projected_row(origin.row + row) * ui.cell_height + 1;
             clicked(ui.editor, &hit, NULL);
             break;
          case 2:
@@ -2281,7 +2500,8 @@ static int probe_read_input(TheInputEvent *event)
       }
       return read_input(event);
    }
-   if (polish_phase < 14) { polish_step(); return read_input(event); }
+   if (polish_phase < 18) { polish_step(); return read_input(event); }
+   if (association_probe_phase < 4) { association_summary_step(); return read_input(event); }
    switch (phase++)
    {
       case 0:
@@ -2303,7 +2523,7 @@ static int probe_read_input(TheInputEvent *event)
          memset(&hit, 0, sizeof(hit));
          hit.button = 1;
          hit.x = (origin.col + 2) * ui.cell_width + 1;
-         hit.y = (origin.row + row) * ui.cell_height + 1;
+         hit.y = projected_row(origin.row + row) * ui.cell_height + 1;
          clicked(ui.editor, &hit, NULL);
          break;
       case 1:
@@ -2332,15 +2552,55 @@ static int probe_read_input(TheInputEvent *event)
          assert(key_pressed(ui.editor, &key, NULL));
          break;
       case 3:
-         assert_saved();
-         open_file(other);
-         break;
+      {
+         GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(ui.files_view));
+         GtkTreeIter row;
+         int found = 0;
+         assert_saved(); show_files();
+         files_refresh_clicked(NULL, "up");
+         assert(strcmp(ui.files_folder, (const char *)CURRENT_FILE->fpath));
+         files_refresh_clicked(NULL, "current");
+         if (gtk_tree_model_get_iter_first(model, &row)) do
+         {
+            char *path; int operation;
+            gtk_tree_model_get(model, &row, 2, &path, 3, &operation, -1);
+            if (!strcmp(path, other) && operation == 1)
+            {
+               GtkTreePath *target = gtk_tree_model_get_path(model, &row);
+               gtk_tree_view_row_activated(GTK_TREE_VIEW(ui.files_view), target, gtk_tree_view_get_column(GTK_TREE_VIEW(ui.files_view), 0));
+               gtk_tree_path_free(target); found = 1;
+            }
+            g_free(path);
+            if (found) break;
+         } while (gtk_tree_model_iter_next(model, &row));
+         assert(found); break;
+      }
       case 4:
          assert(!strcmp((char *)CURRENT_FILE->fname, "other.txt"));
-         open_file(sample);
+         assert(document_tab(sample) && document_tab(other));
+         assert(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(document_tab(other))));
+         assert(!gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(document_tab(sample))));
+         screenshot("document-tabs");
+         g_signal_emit_by_name(document_tab(sample), "clicked");
          break;
       case 5:
          assert_source(expected);
+         assert(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(document_tab(sample))));
+         puts("GTK_NAMED_DOCUMENT_TABS_ACTIVE_TYPED_BUFFER_SWITCH_PASS");
+         {
+            GtkTreeModel *model = gtk_tree_view_get_model(GTK_TREE_VIEW(ui.files_view));
+            GtkTreeIter row;
+            int current = 0;
+            if (gtk_tree_model_get_iter_first(model, &row)) do
+            {
+               char *path, *kind;
+               gtk_tree_model_get(model, &row, 1, &kind, 2, &path, -1);
+               if (!strcmp(kind, "Current file")) { assert(!strcmp(path, sample)); current++; }
+               g_free(path); g_free(kind);
+            } while (gtk_tree_model_iter_next(model, &row));
+            assert(current == 1);
+         }
+         puts("GTK_FILES_FOLDER_NAVIGATION_OPEN_TYPED_CURRENT_MARKER_PASS");
          file_action(NULL, "file.close");
          break;
       case 6:

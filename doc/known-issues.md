@@ -32,9 +32,10 @@ the particular mutation path decodes UTF text.
 
 ## Workbench interaction
 
-The [consolidated design gap review](ui-acceptance/gap-review.md) records the
-current browser, GTK and console alignment gaps, including pane toggling,
-contextual actions, profile presentation and GTK spacing. The linked
+The [alignment review](ui-acceptance/alignment-review.md) records current
+closure and qualification of the browser, GTK and console changes. The
+[original gap review](ui-acceptance/gap-review.md) preserves the baseline
+findings on pane toggling, contextual actions, profile presentation and spacing. The linked
 [acceptance catalogue](ui-acceptance/catalogue.md) keeps functional, design,
 aesthetic and discoverability outcomes separate; existing functional receipts
 do not close these design gaps.

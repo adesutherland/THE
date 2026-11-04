@@ -1,0 +1,22 @@
+{
+  "session_root": "/var/folders/nr/7ckzqpl91kz80mcy3316h1tr0000gn/T/the-alignment-gtk02-hg9o0blz",
+  "app": "/var/folders/nr/7ckzqpl91kz80mcy3316h1tr0000gn/T/the-alignment-gtk02-hg9o0blz/THE GTK Review02.app",
+  "environment": {
+    "XDG_CONFIG_HOME": "/var/folders/nr/7ckzqpl91kz80mcy3316h1tr0000gn/T/the-alignment-gtk02-hg9o0blz/xdg",
+    "THE_TOOL_CONFIG_DIR": "/var/folders/nr/7ckzqpl91kz80mcy3316h1tr0000gn/T/the-alignment-gtk02-hg9o0blz/config",
+    "THE_CREXX_CACHE_DIR": "/var/folders/nr/7ckzqpl91kz80mcy3316h1tr0000gn/T/the-alignment-gtk02-hg9o0blz/crexx-cache",
+    "THE_HOME_DIR": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/release",
+    "THE_DRIVER_PATH": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review",
+    "THE_TOOL_ROOT": "/Users/adrian/CLionProjects/THE/build/native-tools-gtk-aligned/tools",
+    "THE_REXX_INTERPRETER": "CREXX",
+    "PATH": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin:/opt/homebrew/bin:/usr/bin:/bin",
+    "DYLD_LIBRARY_PATH": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin"
+  },
+  "verified_input_hashes": {
+    "build/gtk-focus-review/the": "bd6f87d6a9f788a014758e38e78835273480e7dc3555c3f5ee5c799e5ad688c1",
+    "build/gtk-focus-review/the_driver_gtk.so": "4e57fc814994a75c4c13b702f089af570a81dc7eaed112e8a8af9433f46aef9f",
+    "src/drivers/gtk/gtkdriver.c": "0b429d0bb0ffac00a124f017e8de2d2f04ed50dfe9e38128267b4c2bc521b58b"
+  },
+  "head": "d84ab42",
+  "dirty": true
+}

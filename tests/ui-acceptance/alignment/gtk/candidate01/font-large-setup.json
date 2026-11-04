@@ -1,0 +1,6 @@
+{
+  "setup": "Seeded isolated saved appearance after supported CUA modal input limit; not a Settings Apply success claim",
+  "path": "/var/folders/nr/7ckzqpl91kz80mcy3316h1tr0000gn/T/the-alignment-gtk-gme73cpm/xdg/crxthe/gtk-preferences.ini",
+  "contents": "[GTK]\nversion=1\nfont=Menlo 18\n",
+  "font": "Menlo 18"
+}

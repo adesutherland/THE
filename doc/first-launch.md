@@ -156,6 +156,13 @@ colours. Band rows also expose `footer_placement: "aftercmdline"` and
 status geometry. `EXTRACT /FOOTER */` returns `name position [AFTERCMDLINE]` values for
 macros that save and restore reserved rows, such as the supplied panel demos.
 
+Native `SET MSGLINE` retains its screen-relative overlay coordinates. A profile
+that changes the band count must also choose a non-overlapping message position.
+With the response on the last inline reserved row and three band rows, use
+`set msgline on -5 1` for a bottom command line, or `set msgline on -4 1` for
+a top or disabled command line. An explicitly overlapping message position
+temporarily covers that row; it does not delete its footer text or colour.
+
 Left at the first text column enters the current record's last editable prefix
 column when the prefix is enabled. Left from the prefix's first column moves
 to the previous visible record's end, including empty and Unicode records.

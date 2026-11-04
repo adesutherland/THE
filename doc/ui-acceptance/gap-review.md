@@ -1,5 +1,9 @@
 # Workbench acceptance and design gaps
 
+This is the original review of baseline `822d13f`. See the
+[alignment review](alignment-review.md) for implementation and sequential
+browser, GTK and console gate results.
+
 **Conclusion: the current UI is not yet aligned with the agreed design.**
 The execution foundation works in the sampled journeys, but navigation,
 information hierarchy and visual balance still differ. Correct the browser

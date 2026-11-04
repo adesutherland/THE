@@ -1,0 +1,309 @@
+{
+  "format_version": 1,
+  "platform": "gtk_macos",
+  "candidate_id": "gtk-candidate02",
+  "gate_status": "pass_changed_mandatory_scope",
+  "remaining_changed_mandatory_defect_count": 0,
+  "candidate": {
+    "git_head": "d84ab42",
+    "dirty_source": true,
+    "binary_sha256": "bd6f87d6a9f788a014758e38e78835273480e7dc3555c3f5ee5c799e5ad688c1",
+    "driver_sha256": "4e57fc814994a75c4c13b702f089af570a81dc7eaed112e8a8af9433f46aef9f",
+    "gtkdriver_source_sha256": "0b429d0bb0ffac00a124f017e8de2d2f04ed50dfe9e38128267b4c2bc521b58b",
+    "verified_receipt": "candidate02/session-and-inputs.json",
+    "runtime": "candidate02/runtime-lsof.txt",
+    "verification": "Reviewer independently hashed production binary/module/source before UI, then lsof verified intended production module and matching Debug cREXX cohort. Assets/source frozen throughout actual review."
+  },
+  "review": {
+    "reviewer": "design_conformance_review",
+    "tool": "supported CUA native application",
+    "observer_mode": "Informed independent review; no fresh participant/user-study claim",
+    "operator_preserved": true,
+    "clipboard": "No Copy/Cut; prior isolated profile paste used documented clipboard-restoring App API",
+    "cleanup": "Owned app quit through native menu; absence of owned GTK process verified; no live job or operator settings changed"
+  },
+  "accepted_scope": {
+    "baseline_findings": [
+      "G01",
+      "G08",
+      "G09",
+      "G10",
+      "G11",
+      "G12"
+    ],
+    "four_axes": "Pass within changed mandatory checkpoints and targeted regressions; not all29 scripts"
+  },
+  "samples": [
+    {
+      "id": "G-M-available",
+      "requested_window_logical_px": [
+        1440,
+        900
+      ],
+      "actual_window_logical_px": [
+        1427,
+        900
+      ],
+      "backing_px": [
+        2854,
+        1800
+      ],
+      "scale": 2,
+      "font": "stockMonospace12",
+      "limitation": "Window manager capped width. Native zoom reached1428x923, also recorded. Exact1440 not manually qualified; available wide presentation assessed."
+    },
+    {
+      "id": "G-N",
+      "actual_window_logical_px": [
+        820,
+        720
+      ],
+      "backing_px": [
+        1640,
+        1440
+      ],
+      "scale": 2,
+      "font": "stockMonospace12",
+      "status": "Actual live reader transition executed"
+    },
+    {
+      "id": "G-S",
+      "actual_window_logical_px": [
+        820,
+        500
+      ],
+      "backing_px": [
+        1640,
+        1000
+      ],
+      "scale": 2,
+      "font": "Menlo18 seeded isolated saved appearance",
+      "status": "Actual expanded Tools scroller/disclosures/Run controls executed",
+      "limitation": "Seeded rendering, not manual Appearance Apply claim"
+    }
+  ],
+  "axes": {
+    "functional": {
+      "verdict": "Pass",
+      "summary": "Affected actual Files/tabs/Open, prior unsaved build/run/save bytes, live Classic input/reader/toggles and profile layout/keyboard checkpoints pass. A separate native probe supplements modal and deeper form coverage."
+    },
+    "design_fidelity": {
+      "verdict": "Pass",
+      "summary": "The shared shell, compact truthful association relationships, technical details disclosure, profile-owned layout, short scroller and retained pane state meet the changed contract. Legacy MSGLINE overlay remains authoritative."
+    },
+    "aesthetics": {
+      "verdict": "Pass",
+      "summary": "Native controls are readable and proportional with 12-unit insets and 8-unit gaps. Associations fit the side pane; the short body scrolls under a fixed heading and section tabs. Larger editor text preserves native control scale and profile colours."
+    },
+    "discoverability": {
+      "verdict": "Pass",
+      "summary": "Ordinary visible Files/Open/profile/action routes, keyboard F10 fallback, explicit pane controls and short disclosures work in this informed review. No fresh participant claim."
+    }
+  },
+  "closed_findings": [
+    "AK01",
+    "AK02"
+  ],
+  "open_product_findings": [],
+  "configuration_observations": [
+    {
+      "id": "AK03",
+      "classification": "Fixture/configured legacy overlay collision; not a product defect",
+      "initial_observed": "After custom profile CMDLINE TOP/STATUSLINE TOP/FILETABS OFF with3AFTERCMDLINE bands, Profile activated feedback visually covered NATIVE ONE. Clearing feedback revealed intact text/metadata.",
+      "actual_query": "msgline ON -3 1 OVERLAY",
+      "source_contract": "MSGLINE is explicit screen-relative legacy OVERLAY; stock-3 intentionally coincides with first band when3bands/CMDLINE TOP. No automatic relocation imposed.",
+      "corrected_configuration": "SET MSGLINE ON -4 1 for this3bandTOPfixture",
+      "corrected_actual_result": "Invalid-command feedback appears above intact NATIVE ONE λ界, NATIVE TWO and stock key-guide bands. The explicit message-row configuration resolves the overlap without changing product code.",
+      "evidence": [
+        "candidate02/evidence/C02-K10-top-tabs-off.jpg",
+        "candidate02/evidence/C02-K11-feedback-cleared-band.jpg",
+        "candidate02/evidence/C02-K23-query-msgline-overlay.jpg",
+        "candidate02/evidence/C02-K24-explicit-msgline-feedback.jpg"
+      ]
+    }
+  ],
+  "inherited_evidence": [
+    {
+      "candidate": "gtk-candidate01",
+      "result": "candidate01-result.json",
+      "accepted_checkpoints": [
+        "K01-K03",
+        "K04-K06",
+        "K08-K09"
+      ],
+      "boundary": "Navigation/document/actions/footer implementations unchanged except bounded association summary/scroller repair. ExactC01/C02 fingerprints retained; no repeat languagebuildjourneys."
+    }
+  ],
+  "checkpoints": [
+    {
+      "id": "C02-K02",
+      "requirements": [
+        "R09",
+        "R18"
+      ],
+      "cases": [
+        "S12",
+        "S29"
+      ],
+      "baseline_findings": [
+        "G10",
+        "G11"
+      ],
+      "verdict": "Pass",
+      "closes": "AK01",
+      "observed": "Declared extension groups and truthful Run, Build and Syntax relationships fit the ordinary side pane. The technical five-column table is collapsed behind Installed tool details. The direct profile-edit route remains visible; clipped ownership fragments are gone.",
+      "evidence": [
+        "candidate02/evidence/C02-K02-associations-summary.jpg"
+      ]
+    },
+    {
+      "id": "C02-K03-K09",
+      "requirements": [
+        "R03",
+        "R08",
+        "R13",
+        "R14"
+      ],
+      "cases": [
+        "S06",
+        "S17",
+        "S18",
+        "S19"
+      ],
+      "baseline_findings": [
+        "G08"
+      ],
+      "verdict": "Pass",
+      "observed": "The actual Classic fixture prints 80 rows and waits. The unsent draft is native retained draft. Double-click selects Retained on row 20. Tools→Program and active Program Hide→Show preserve the highlight, top row 1, viewport, draft and source caret. The 820×720 transition stacks the pane with input visible. Send completes with Received: native retained draft and status 0 while preserving the scrolled view. Latest (2 new lines) appears; clicking it shows the result and resumes following.",
+      "evidence": [
+        "candidate02/evidence/C02-K03-reader-before.jpg",
+        "candidate02/evidence/C02-K04-reader-cross-restored.jpg",
+        "candidate02/evidence/C02-K05-reader-hidden-editor.jpg",
+        "candidate02/evidence/C02-K06-reader-target-restored.jpg",
+        "candidate02/evidence/C02-K07-narrow-live.jpg",
+        "candidate02/evidence/C02-K08-completed-unread.jpg",
+        "candidate02/evidence/C02-K09-completed-latest.jpg"
+      ]
+    },
+    {
+      "id": "C02-K10-K14",
+      "requirements": [
+        "R09",
+        "R11"
+      ],
+      "cases": [
+        "S12",
+        "S15"
+      ],
+      "baseline_findings": [
+        "G01",
+        "G09"
+      ],
+      "verdict": "Pass with explicit AK03 configuration boundary",
+      "observed": "Actual profile Build status 0→Apply changes status/command to TOP and Filetabs to OFF. Direct reserved/status/command OFF removes the configured areas; Apply restores them. A source click maps to Line 1 Col 1. Clicking informational status then Right, and a guide then Left, preserves the editor target and caret. Saved fixture bytes remain unchanged. A new file opened through the chooser inherits the layout. Feedback placement is recorded separately under AK03.",
+      "evidence": [
+        "candidate02/evidence/C02-K10-top-tabs-off.jpg",
+        "candidate02/evidence/C02-K12-zero-off.jpg",
+        "candidate02/evidence/C02-K13-status-preserves-editor-target.jpg",
+        "candidate02/evidence/C02-K14-guide-preserves-editor-target.jpg",
+        "candidate02/workspace-byte-proof.json"
+      ]
+    },
+    {
+      "id": "C02-K15-K18",
+      "requirements": [
+        "R02",
+        "R05",
+        "R16"
+      ],
+      "cases": [
+        "S02",
+        "S05"
+      ],
+      "verdict": "Pass",
+      "observed": "Starting in the editor, F10→Down twice→Right→Enter reaches Program through the keyboard fallback without pointer rescue. The native Open chooser then opens Note.txt by ordinary double-click. That chooser and the persistent Files view are separately qualified. The prior Settings-specific CUA input limit is not generalized to Open.",
+      "evidence": [
+        "candidate02/evidence/C02-K15-keyboard-view-menu.jpg",
+        "candidate02/evidence/C02-K16-keyboard-program-route.jpg",
+        "candidate02/evidence/C02-K17-native-open-presented.jpg",
+        "candidate02/evidence/C02-K18-native-open-note.jpg"
+      ]
+    },
+    {
+      "id": "C02-K19-K21",
+      "requirements": [
+        "R13",
+        "R18"
+      ],
+      "cases": [
+        "S17",
+        "S29"
+      ],
+      "verdict": "Pass",
+      "closes": "AK02",
+      "observed": "At exact 820×500 with seeded Menlo 18, expanded Tools retains its fixed heading and section tabs. The vertical body scrollbar reaches Installed details, Run and Register disclosures. The expanded Run selector, button and argument field are reachable. The deeper registration form is not manually qualified; the original clipped disclosures are now reachable.",
+      "evidence": [
+        "candidate02/font18-setup.json",
+        "candidate02/evidence/C02-K19-short-associations-top.jpg",
+        "candidate02/evidence/C02-K20-short-disclosures-reachable.jpg",
+        "candidate02/evidence/C02-K21-short-run-controls.jpg"
+      ]
+    }
+  ],
+  "supplemental_evidence": {
+    "coordinator_native_probe": "Candidate02 focusednativeGtkRuntimeprobe1Pass0failed0skipped8.15s. ProbeC19c78d267cf62509805f510783b33f46a1b0259a193115965431af23af06e075; Python0af7827c3fd217682d1e58199a771d683b3e8aafacd8971b88e8469c4af8ee58. ToolkitfunctionalreceiptisnotthisproductionmanualUIobservation.",
+    "settings_limit": "C01SettingsdialogpresentationvisiblebutmanualcontrolinputnotqualifiedfromCUA. C02NativeOpenworked. Do not claimallnative modalsunusable ormanualAppearanceApply/persistence success."
+  },
+  "aesthetic_measurements": {
+    "basis": "Sourceconfirmed12-unitborders/8-unitrelatedgaps + actual2xscreencomparison; widgetcontrolsabsentfrommacAX, so noAXrectclaim.",
+    "ordinary_button_height_logical_approx": 34,
+    "toolbar_inset_logical": 12,
+    "related_gap_logical": 8,
+    "default_editor_row_height_logical_approx": 17,
+    "font18_editor_row_height_logical_approx": 24,
+    "judgement": "Comfortable native scale and deliberate grouping. Improvements close specificcrowding/overflow defects; no universalpixelgolden orblanketshrink."
+  },
+  "full_catalogue_execution": false,
+  "case_coverage": {
+    "S01": "Partial; default and available wide shell",
+    "S02": "Partial; real Files/tab routes, native Open Note, prior saved-byte proof; full lifecycle not replayed",
+    "S03": "Partial; prior source edit/dirty/cursor/save byte proof; deeper editing not replayed",
+    "S04": "NotRun",
+    "S05": "Partial; keyboard-only F10→Down2→Right→Enter reaches Program; native menus",
+    "S06": "Partial; live Classic80rows/PULL/draft/completion/unread/Latest; broader fixtures not replayed",
+    "S07": "Partial; unchanged candidate01 unsaved LevelB build/run36; LevelG variants not replayed",
+    "S08": "NotRun",
+    "S09": "NotRun",
+    "S10": "NotRun",
+    "S11": "NotRun",
+    "S12": "Partial; actual profileBuildApply/concise summary/startup inheritance; compiled import variants not replayed",
+    "S13": "NotRun",
+    "S14": "NotRun",
+    "S15": "Partial; coloured Unicode multiple/inline/TOP/OFF/tabsOff/native pointer mapping; legacyMSGLINE configuration verified; broad composition not replayed",
+    "S16": "NotRun",
+    "S17": "Partial; actual1427x900 available wide (1440 window-manager-limited),820x720 narrow,exact820x500 short atseeded18pt; otherOS NotRun",
+    "S18": "Partial; actual live reader/draft/selection/viewport and target-toggle transitions; full named-pane matrix not replayed",
+    "S19": "Partial; native visible selection/scroll and unread/Latest pass; broad namedReaders/forms not replayed",
+    "S20": "NotRun",
+    "S21": "Partial; Appearance actual presentation shown inC01, Settings-specific CUA input limit; seeded18pt and separate native functional probe",
+    "S22": "Partial; current native functional probe only for modal settings; no manualEditor-tab replay",
+    "S23": "NotRun",
+    "S24": "NotRun",
+    "S25": "NotRun",
+    "S26": "NotRun",
+    "S27": "NotRun",
+    "S28": "NotRun",
+    "S29": "Partial; changed mandatory aesthetics pass in targeted actual samples; broad script not completed"
+  },
+  "baseline_work_not_closed": [
+    "D02 general Redo",
+    "D03 full source transfer/Save as",
+    "Broader R10 profile composition"
+  ],
+  "limitations": [
+    "ExactG-M1440widthnotmanuallyavailable; actual1427x900 andnativezoom1428x923qualifiedasavailablewindow, notexact1440.",
+    "SettingsmanualApply/EditorTab/deeperregistrationformsnotclaimed; nativefocusedprobeisseparateevidence.",
+    "Source/bodypixelcomparisonusesunchangedGTKmacprototypeat1120pxwidth; native theme/titlebar andprototypeheightdiffer; no pixel-perfectthemeconformance claim.",
+    "GTKotherOSandconsolealignmentNotRunatthisgate."
+  ]
+}

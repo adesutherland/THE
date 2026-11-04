@@ -1,0 +1,10 @@
+{
+  "loaded_process_pid": 62274,
+  "loaded_editor": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/the",
+  "loaded_driver": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/the_driver_gtk.so",
+  "loaded_crexx": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin/libcrexxsaa.dylib",
+  "tool_root": "/Users/adrian/CLionProjects/THE/build/native-tools-gtk-aligned/tools",
+  "verification": "Read-only lsof observation during actual review; isolated process stopped before repair",
+  "profile_source_sha256": "95d8182e787b3d94224c764266904ed5ab72f2d525bf09e8ac4930b682deca57",
+  "profile_source": "options levelb; address THE; 'set cmdline bottom'; 'set statusline bottom'; 'set reserved -2 off'; 'set reserved -4 #00ff00 on #000000 GUIDE ONE \u03bb\u754c'; 'set footer guideone -4 aftercmdline'; 'set reserved -3 #ffff00 on #000080 GUIDE TWO'; 'set footer guidetwo -3 aftercmdline'; 'set reserved +3 normal INLINE NOTE'; 'set footer inline +3'; return 0;\n"
+}

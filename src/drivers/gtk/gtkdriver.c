@@ -118,7 +118,15 @@ static struct
    GtkWidget *run, *stop, *eof, *send, *header, *first_control, *menu_focus;
    GtkWidget *build, *apply, *edit_profile, *apply_image;
    GtkWidget *task_row, *task_state, *file_title, *setup, *setup_tabs, *profile_summary, *tools_view;
+   GtkWidget *associations, *association_current, *setup_scroll[3];
+   GtkWidget *tool_details, *runner_expander, *register_expander, *register_submit;
    GtkWidget *settings, *settings_status, *expand_control;
+   GtkWidget *pane_controls[3], *pane_strip, *document_tabs, *document_buttons;
+   GtkWidget *files, *files_view, *files_path;
+   GtkWidget *active_page;
+   char *documents_signature, *files_signature, *files_folder;
+   unsigned program_seen;
+   int auxiliary_open;
    GtkWidget *tool_fields[5], *tool_role, *runner, *runner_arguments;
    int setup_visible, expanded, font_unsaved;
    int dragging, drag_started, drag_motion, drag_row, drag_col;
@@ -195,6 +203,12 @@ static void apply_font(const PangoFontDescription *font);
 static void show_settings(void);
 static void show_about(void);
 static void focus_editor(void);
+static void sync_navigation(void);
+static void sync_documents(void);
+static void refresh_files(void);
+static void show_files(void);
+static void pane_clicked(GtkWidget *, gpointer);
+static GtkWidget *button(GtkWidget *, const char *, GCallback, gconstpointer);
 
 static void redraw(void)
 {
@@ -435,6 +449,181 @@ static void file_action(GtkWidget *widget, gpointer name)
    else if (the_input_event_from_action(action, "", &event))
       queue_event(event);
    focus_editor();
+}
+
+/* All file choices lower through typed owner events, including unsaved open
+ * buffers. Files lists local native paths; the native chooser remains Open. */
+static int queue_file_path(const char *action, const char *path)
+{
+   TheInputEvent event;
+   if (the_panel_active || in_macro) return 0;
+   if (!the_input_event_from_action(action, path, &event) || !queue_event(event)) return 0;
+   focus_editor();
+   return 1;
+}
+
+static void document_clicked(GtkWidget *widget, gpointer data)
+{
+   (void)data;
+   queue_file_path("buffer.switch", g_object_get_data(G_OBJECT(widget), "the-path"));
+}
+
+static char *file_path(FILE_DETAILS *file)
+{
+   return g_strconcat((const char *)file->fpath, (const char *)file->fname, NULL);
+}
+
+static void sync_documents(void)
+{
+   VIEW_DETAILS *view;
+   GHashTable *seen;
+   GString *signature, *files_state;
+   GList *children, *item;
+   if (!ui.document_tabs) return;
+   gtk_widget_set_visible(ui.document_tabs, FILETABSx);
+   signature = g_string_new(NULL); files_state = g_string_new(NULL);
+   seen = g_hash_table_new(g_direct_hash, g_direct_equal);
+   for (view = vd_first; view; view = view->next)
+      if (view->file_for_view && !g_hash_table_contains(seen, view->file_for_view))
+      {
+         char *path = file_path(view->file_for_view);
+         g_hash_table_add(seen, view->file_for_view);
+         g_string_append_printf(signature, "%lu:%s;", (unsigned long)strlen(path), path);
+         g_string_append_printf(files_state, "%s:%d:%d;", path, view->file_for_view == CURRENT_FILE, the_editor_buffer_dirty(view->file_for_view));
+         g_free(path);
+      }
+   if (g_strcmp0(ui.documents_signature, signature->str))
+   {
+      g_free(ui.documents_signature); ui.documents_signature = g_strdup(signature->str);
+      children = gtk_container_get_children(GTK_CONTAINER(ui.document_buttons));
+      for (item = children; item; item = item->next) gtk_widget_destroy(item->data);
+      g_list_free(children);
+      g_hash_table_remove_all(seen);
+      for (view = vd_first; view; view = view->next)
+         if (view->file_for_view && !g_hash_table_contains(seen, view->file_for_view))
+         {
+            GtkWidget *tab = gtk_toggle_button_new();
+            char *path = file_path(view->file_for_view);
+            g_hash_table_add(seen, view->file_for_view);
+            g_object_set_data_full(G_OBJECT(tab), "the-path", path, g_free);
+            gtk_widget_set_tooltip_text(tab, path);
+            gtk_box_pack_start(GTK_BOX(ui.document_buttons), tab, FALSE, FALSE, 0);
+            g_signal_connect(tab, "clicked", G_CALLBACK(document_clicked), NULL);
+            gtk_widget_show(tab);
+         }
+      refresh_files();
+   }
+   children = gtk_container_get_children(GTK_CONTAINER(ui.document_buttons));
+   g_hash_table_remove_all(seen); item = children;
+   for (view = vd_first; view && item; view = view->next)
+      if (view->file_for_view && !g_hash_table_contains(seen, view->file_for_view))
+      {
+         FILE_DETAILS *file = view->file_for_view;
+         char *label = g_strdup_printf("%s%s", file->fname, the_editor_buffer_dirty(file) ? " •" : "");
+         GtkWidget *tab = item->data;
+         g_hash_table_add(seen, file);
+         gtk_button_set_label(GTK_BUTTON(tab), label);
+         g_signal_handlers_block_by_func(tab, G_CALLBACK(document_clicked), NULL);
+         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(tab), file == CURRENT_FILE);
+         g_signal_handlers_unblock_by_func(tab, G_CALLBACK(document_clicked), NULL);
+         g_free(label); item = item->next;
+      }
+   if (g_strcmp0(ui.files_signature, files_state->str))
+   {
+      g_free(ui.files_signature); ui.files_signature = g_strdup(files_state->str);
+      if (ui.auxiliary_open && ui.active_page == ui.files) refresh_files();
+   }
+   g_list_free(children); g_hash_table_destroy(seen);
+   g_string_free(signature, TRUE); g_string_free(files_state, TRUE);
+}
+
+static void files_add(GtkListStore *store, const char *name, const char *kind, const char *path, int operation)
+{
+   GtkTreeIter row;
+   gtk_list_store_append(store, &row);
+   gtk_list_store_set(store, &row, 0, name, 1, kind, 2, path, 3, operation, -1);
+}
+
+static gint file_name_compare(gconstpointer a, gconstpointer b)
+{ return g_utf8_collate(*(const char * const *)a, *(const char * const *)b); }
+
+static void refresh_files(void)
+{
+   GtkListStore *store;
+   VIEW_DETAILS *view;
+   GHashTable *seen;
+   GDir *directory;
+   GError *error = NULL;
+   const char *name;
+   GPtrArray *names;
+   guint i;
+   int pass;
+   if (!ui.files_view) return;
+   if (!ui.files_folder && CURRENT_FILE) ui.files_folder = g_strdup((const char *)CURRENT_FILE->fpath);
+   if (!ui.files_folder) ui.files_folder = g_get_current_dir();
+   gtk_label_set_text(GTK_LABEL(ui.files_path), ui.files_folder);
+   gtk_widget_set_tooltip_text(ui.files_path, ui.files_folder);
+   store = GTK_LIST_STORE(gtk_tree_view_get_model(GTK_TREE_VIEW(ui.files_view)));
+   gtk_list_store_clear(store);
+   seen = g_hash_table_new(g_direct_hash, g_direct_equal);
+   for (view = vd_first; view; view = view->next)
+      if (view->file_for_view && !g_hash_table_contains(seen, view->file_for_view))
+      {
+         char *path = file_path(view->file_for_view);
+         char *label = g_strdup_printf("%s%s", view->file_for_view->fname,
+            the_editor_buffer_dirty(view->file_for_view) ? " •" : "");
+         g_hash_table_add(seen, view->file_for_view);
+         files_add(store, label, view->file_for_view == CURRENT_FILE ? "Current file" : "Open file", path, 0);
+         g_free(path); g_free(label);
+      }
+   g_hash_table_destroy(seen);
+   directory = g_dir_open(ui.files_folder, 0, &error);
+   if (!directory)
+   {
+      files_add(store, error ? error->message : "Folder unavailable", "", "", -1);
+      g_clear_error(&error); return;
+   }
+   names = g_ptr_array_new_with_free_func(g_free);
+   while ((name = g_dir_read_name(directory)))
+      if (g_utf8_validate(name, -1, NULL)) g_ptr_array_add(names, g_strdup(name));
+   g_dir_close(directory); g_ptr_array_sort(names, file_name_compare);
+   /* Directories first, then ordinary files, without recursive filesystem work. */
+   for (pass = 0; pass < 2; pass++)
+      for (i = 0; i < names->len; i++)
+      {
+         char *path = g_build_filename(ui.files_folder, g_ptr_array_index(names, i), NULL);
+         int folder = g_file_test(path, G_FILE_TEST_IS_DIR);
+         if (folder == (pass == 0)) files_add(store, g_ptr_array_index(names, i), folder ? "Folder" : "On this computer", path, folder ? 2 : 1);
+         g_free(path);
+      }
+   g_ptr_array_free(names, TRUE);
+}
+
+static void files_activated(GtkTreeView *tree, GtkTreePath *path, GtkTreeViewColumn *column, gpointer data)
+{
+   GtkTreeIter row;
+   GtkTreeModel *model = gtk_tree_view_get_model(tree);
+   char *target = NULL;
+   int operation;
+   (void)column; (void)data;
+   if (!gtk_tree_model_get_iter(model, &row, path)) return;
+   gtk_tree_model_get(model, &row, 2, &target, 3, &operation, -1);
+   if (operation == 2)
+   { g_free(ui.files_folder); ui.files_folder = g_strdup(target); refresh_files(); }
+   else if (operation >= 0 && !queue_file_path(operation == 0 ? "buffer.switch" : "file.open", target))
+      message("This file cannot be opened through the editor's native file action.");
+   g_free(target);
+}
+
+static void files_refresh_clicked(GtkWidget *widget, gpointer data)
+{
+   const char *operation = data;
+   (void)widget;
+   if (!strcmp(operation, "up") && ui.files_folder)
+   { char *parent = g_path_get_dirname(ui.files_folder); g_free(ui.files_folder); ui.files_folder = parent; }
+   if (!strcmp(operation, "current") && CURRENT_FILE)
+   { g_free(ui.files_folder); ui.files_folder = g_strdup((const char *)CURRENT_FILE->fpath); }
+   refresh_files();
 }
 
 /* Native fields retain GTK editing semantics. Editor transactions enter at
@@ -695,7 +884,8 @@ static gboolean workbench_key_pressed(GtkWidget *widget, GdkEventKey *key, gpoin
       if (focus == ui.editor && gtk_widget_get_visible(ui.auxiliary))
       {
          GtkWidget *page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(ui.auxiliary), gtk_notebook_get_current_page(GTK_NOTEBOOK(ui.auxiliary)));
-         if (page == ui.setup && gtk_widget_get_visible(ui.setup) && gtk_notebook_get_current_page(GTK_NOTEBOOK(ui.setup_tabs)) == 2) gtk_widget_grab_focus(ui.build_output);
+         if (page == ui.files && gtk_widget_get_visible(ui.files)) gtk_widget_grab_focus(ui.files_view);
+         else if (page == ui.setup && gtk_widget_get_visible(ui.setup) && gtk_notebook_get_current_page(GTK_NOTEBOOK(ui.setup_tabs)) == 2) gtk_widget_grab_focus(ui.build_output);
          else if (page == ui.setup && gtk_widget_get_visible(ui.setup)) gtk_widget_child_focus(ui.setup, GTK_DIR_TAB_FORWARD);
          else if (gtk_widget_get_visible(ui.console)) gtk_widget_grab_focus(gtk_widget_get_sensitive(ui.input) ? ui.input : ui.output);
          else gtk_widget_grab_focus(ui.first_control);
@@ -775,10 +965,33 @@ static gboolean editor_focus(GtkWidget *widget, GdkEventFocus *event, gpointer d
    return FALSE;
 }
 
+/* Native document controls replace the core FILETABS text surface. Keep the
+ * profile's reservation and project that one row out of painting and hit tests;
+ * the core receives one extra logical row, so no empty row remains. */
+static int projected_filetabs_row(void)
+{
+   TheDriverWindowOrigin origin;
+   if (!FILETABSx || !filetabs) return -1;
+   origin = operations.window_origin(filetabs);
+   return origin.valid ? origin.row : -1;
+}
+
+static int projected_row(int row)
+{
+   int tabs = projected_filetabs_row();
+   return tabs >= 0 && row > tabs ? row - 1 : row;
+}
+
+static int logical_row(int row)
+{
+   int tabs = projected_filetabs_row();
+   return tabs >= 0 && row >= tabs ? row + 1 : row;
+}
+
 static void allocated(GtkWidget *widget, GtkAllocation *allocation, gpointer data)
 {
    (void)widget; (void)data;
-   ui.rows = CLAMP(allocation->height / ui.cell_height, 12, 256);
+   ui.rows = CLAMP(allocation->height / ui.cell_height, 12, 256) + (FILETABSx ? 1 : 0);
    ui.cols = CLAMP(allocation->width / ui.cell_width, 40, THE_MAX_SCREEN_WIDTH);
 }
 
@@ -832,7 +1045,7 @@ static void split_allocated(GtkWidget *widget, GtkAllocation *allocation, gpoint
 static gboolean clicked(GtkWidget *widget, GdkEventButton *button, gpointer data)
 {
    int screen_no, role;
-   int row = (int)button->y / ui.cell_height;
+   int row = logical_row((int)button->y / ui.cell_height);
    int col = (int)button->x / ui.cell_width;
    (void)data;
    if (button->button != 1 || the_panel_active || in_macro)
@@ -910,7 +1123,7 @@ static gboolean pointer_moved(GtkWidget *widget, GdkEventMotion *motion, gpointe
    GdkEventButton hit = {0};
    (void)data;
    if (!ui.dragging || !(motion->state & GDK_BUTTON1_MASK)) return FALSE;
-   if ((int)motion->y / ui.cell_height == ui.drag_row && (int)motion->x / ui.cell_width == ui.drag_col) return TRUE;
+   if (logical_row((int)motion->y / ui.cell_height) == ui.drag_row && (int)motion->x / ui.cell_width == ui.drag_col) return TRUE;
    hit.button = 1; hit.x = motion->x; hit.y = motion->y; hit.state = motion->state;
    ui.drag_motion = 1; clicked(widget, &hit, NULL); ui.drag_motion = 0;
    return TRUE;
@@ -1082,8 +1295,9 @@ static void draw_surface(cairo_t *cr, PangoLayout *layout, GtkSurface *surface)
    TheDriverWindowOrigin origin = operations.window_origin(surface->window);
    TheDriverWindowSize size = operations.window_size(surface->window);
    int row, col;
-   if (!surface->visible || !origin.valid || !size.valid)
+   if (!surface->visible || !origin.valid || !size.valid || (FILETABSx && surface->window == filetabs))
       return;
+   origin.row = projected_row(origin.row);
    cairo_save(cr);
    cairo_rectangle(cr, origin.col * ui.cell_width, origin.row * ui.cell_height,
                        size.cols * ui.cell_width, size.rows * ui.cell_height);
@@ -1185,7 +1399,7 @@ static gboolean draw_editor(GtkWidget *widget, cairo_t *cr, gpointer data)
    && (cursor_blink() != CURSOR_BLINK || ui.blink_visible))
    {
       int x = (origin.col + cursor.col) * ui.cell_width;
-      int y = (origin.row + cursor.row) * ui.cell_height;
+      int y = projected_row(origin.row + cursor.row) * ui.cell_height;
       GdkRectangle area = {x, y, ui.cell_width, ui.cell_height};
       gtk_im_context_set_cursor_location(ui.im, &area);
       cairo_set_source_rgba(cr, 0.95, 0.96, 1.0, 0.85);
@@ -1460,14 +1674,69 @@ static void sync_reader(GtkConsoleReader *reader, const TheToolConsole *console)
    reader->syncing--;
 }
 
-static void show_tool_page(GtkWidget *page)
+static void sync_navigation(void)
 {
-   if (page == ui.build_result) { show_setup(2); return; }
+   GtkWidget *selected;
+   unsigned i;
+   GtkWidget *pages[] = { ui.files, ui.console, ui.setup };
+   if (!ui.auxiliary) return;
+   selected = gtk_notebook_get_nth_page(GTK_NOTEBOOK(ui.auxiliary), gtk_notebook_get_current_page(GTK_NOTEBOOK(ui.auxiliary)));
+   gtk_widget_set_visible(ui.auxiliary, ui.auxiliary_open);
+   for (i = 0; i < G_N_ELEMENTS(pages); i++)
+      if (ui.pane_controls[i])
+      {
+         g_signal_handlers_block_by_func(ui.pane_controls[i], G_CALLBACK(pane_clicked), pages[i]);
+         gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(ui.pane_controls[i]), ui.auxiliary_open && selected == pages[i]);
+         g_signal_handlers_unblock_by_func(ui.pane_controls[i], G_CALLBACK(pane_clicked), pages[i]);
+      }
+}
+
+static void select_auxiliary(GtkWidget *page)
+{
+   ui.active_page = page; ui.auxiliary_open = 1;
+   if (page != ui.console && the_tool_program_console()->focused)
+      the_tool_program_console_visibility(the_tool_program_console()->visible, 0);
    gtk_widget_show(page); gtk_widget_show(ui.auxiliary);
-   /* Explicit task navigation selects its requested page without clearing reader state. */
    ui.syncing_logs++;
    gtk_notebook_set_current_page(GTK_NOTEBOOK(ui.auxiliary), gtk_notebook_page_num(GTK_NOTEBOOK(ui.auxiliary), page));
    ui.syncing_logs--;
+   sync_navigation();
+   if (ui.focused_log[0] && !log_for_widget(page))
+   {
+      /* Explicit standard-pane navigation returns the panel's logical focus
+       * without restoring a previously visited sibling over the requested page. */
+      GtkWidget *target = page == ui.console ? (gtk_widget_get_sensitive(ui.input) ? ui.input : ui.output)
+         : page == ui.files ? ui.files_view : ui.editor;
+      remember_log_origin(target); ui.log_origin_program = page == ui.console;
+      queue_panel(find_log(ui.focused_log, ui.focused_log_generation), THE_WORKBENCH_PANEL_RETURN);
+   }
+}
+
+static void show_files(void)
+{
+   refresh_files(); select_auxiliary(ui.files);
+}
+
+static void pane_clicked(GtkWidget *widget, gpointer data)
+{
+   GtkWidget *page = data;
+   (void)widget;
+   if (ui.auxiliary_open && ui.active_page == page)
+   {
+      if (page == ui.console) the_tool_program_console_visibility(0, 0);
+      if (page == ui.setup) { ui.setup_visible = 0; ui.build_hidden = 1; }
+      ui.auxiliary_open = 0; ui.active_page = NULL;
+      focus_editor(); sync_navigation();
+   }
+   else if (page == ui.console) { the_tool_program_console_visibility(1, 0); select_auxiliary(page); }
+   else if (page == ui.setup) show_setup(gtk_notebook_get_current_page(GTK_NOTEBOOK(ui.setup_tabs)));
+   else show_files();
+}
+
+static void show_tool_page(GtkWidget *page)
+{
+   if (page == ui.build_result) { show_setup(2); return; }
+   select_auxiliary(page);
 }
 
 static void hide_tool_page(GtkWidget *widget, gpointer data)
@@ -1476,8 +1745,107 @@ static void hide_tool_page(GtkWidget *widget, gpointer data)
    (void)widget;
    if (page == ui.console) the_tool_program_console_visibility(0, 0);
    else { ui.build_hidden = 1; ui.setup_visible = 0; page = ui.setup; }
-   gtk_widget_hide(page);
-   focus_editor();
+   if (ui.active_page == page) { ui.auxiliary_open = 0; ui.active_page = NULL; }
+   ui.syncing_logs++; gtk_widget_hide(page); ui.syncing_logs--;
+   sync_navigation(); focus_editor();
+}
+
+static const char *registration_role(const char *role)
+{
+   return !strcmp(role, "language") ? "Syntax / highlighting"
+      : !strcmp(role, "runner") ? "Run"
+      : !strcmp(role, "compiler") ? "Build"
+      : !strcmp(role, "profile") ? "Apply profile"
+      : !strcmp(role, "program") ? "Run program" : "Tool";
+}
+
+static int registration_order(const char *role)
+{
+   return !strcmp(role, "compiler") ? 0 : !strcmp(role, "runner") ? 1
+      : !strcmp(role, "program") ? 2 : !strcmp(role, "profile") ? 3
+      : !strcmp(role, "language") ? 4 : 5;
+}
+
+static gint registration_compare(gconstpointer a, gconstpointer b)
+{
+   const TheToolDefinition *left = *(const TheToolDefinition * const *)a;
+   const TheToolDefinition *right = *(const TheToolDefinition * const *)b;
+   int order = registration_order(left->role) - registration_order(right->role);
+   return order ? order : g_utf8_collate(left->label, right->label);
+}
+
+static char *registration_extensions(const char *extensions)
+{
+   char **parts = g_strsplit(extensions, ",", -1), *joined;
+   GPtrArray *names = g_ptr_array_new();
+   unsigned i;
+   for (i = 0; parts[i]; i++)
+   { char *name = g_strstrip(parts[i]); if (*name) g_ptr_array_add(names, name); }
+   g_ptr_array_sort(names, file_name_compare); g_ptr_array_add(names, NULL);
+   joined = g_strjoinv(", ", (char **)names->pdata);
+   g_ptr_array_free(names, TRUE); g_strfreev(parts);
+   return joined;
+}
+
+static void rebuild_associations(void)
+{
+   GHashTable *groups;
+   GPtrArray *names;
+   GList *children, *item;
+   size_t i;
+   if (!ui.associations) return;
+   children = gtk_container_get_children(GTK_CONTAINER(ui.associations));
+   for (item = children; item; item = item->next) gtk_widget_destroy(item->data);
+   g_list_free(children);
+   groups = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, (GDestroyNotify)g_ptr_array_unref);
+   names = g_ptr_array_new();
+   for (i = 0; i < the_tool_count(); i++)
+   {
+      const TheToolDefinition *tool = the_tool_at(i);
+      char *extensions = registration_extensions(tool->extensions);
+      GPtrArray *tools;
+      if (!*extensions) { g_free(extensions); continue; }
+      tools = g_hash_table_lookup(groups, extensions);
+      if (!tools)
+      { tools = g_ptr_array_new(); g_hash_table_insert(groups, extensions, tools); g_ptr_array_add(names, extensions); }
+      else g_free(extensions);
+      g_ptr_array_add(tools, (gpointer)tool);
+   }
+   g_ptr_array_sort(names, file_name_compare);
+   for (i = 0; i < names->len; i++)
+   {
+      const char *extensions = g_ptr_array_index(names, i);
+      GPtrArray *tools = g_hash_table_lookup(groups, extensions);
+      GtkWidget *group = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4), *label;
+      char *escaped = g_markup_escape_text(extensions, -1), *title = g_strdup_printf("<b>%s</b>", escaped);
+      unsigned j;
+      g_object_set_data_full(G_OBJECT(group), "the-extensions", g_strdup(extensions), g_free);
+      gtk_box_pack_start(GTK_BOX(ui.associations), group, FALSE, FALSE, 0);
+      label = gtk_label_new(NULL); gtk_label_set_markup(GTK_LABEL(label), title);
+      gtk_label_set_xalign(GTK_LABEL(label), 0); gtk_label_set_line_wrap(GTK_LABEL(label), TRUE);
+      gtk_label_set_line_wrap_mode(GTK_LABEL(label), PANGO_WRAP_WORD_CHAR);
+      gtk_box_pack_start(GTK_BOX(group), label, FALSE, FALSE, 0);
+      g_free(escaped); g_free(title);
+      g_ptr_array_sort(tools, registration_compare);
+      for (j = 0; j < tools->len; j++)
+      {
+         const TheToolDefinition *tool = g_ptr_array_index(tools, j);
+         char *text = g_strdup_printf("%s · %s%s", registration_role(tool->role), tool->label, tool->available ? "" : " · unavailable");
+         label = gtk_label_new(text); gtk_label_set_xalign(GTK_LABEL(label), 0);
+         gtk_label_set_line_wrap(GTK_LABEL(label), TRUE); gtk_label_set_line_wrap_mode(GTK_LABEL(label), PANGO_WRAP_WORD_CHAR);
+         gtk_widget_set_margin_start(label, 8);
+         g_object_set_data_full(G_OBJECT(label), "the-tool-id", g_strdup(tool->id), g_free);
+         gtk_box_pack_start(GTK_BOX(group), label, FALSE, FALSE, 0); g_free(text);
+      }
+   }
+   if (!names->len)
+   {
+      GtkWidget *label = gtk_label_new("No file associations are declared by the current profiles.");
+      gtk_label_set_line_wrap(GTK_LABEL(label), TRUE); gtk_label_set_xalign(GTK_LABEL(label), 0);
+      gtk_box_pack_start(GTK_BOX(ui.associations), label, FALSE, FALSE, 0);
+   }
+   gtk_widget_show_all(ui.associations);
+   g_ptr_array_free(names, TRUE); g_hash_table_destroy(groups);
 }
 
 static void sync_tool_catalog(void)
@@ -1501,16 +1869,21 @@ static void sync_tool_catalog(void)
       {
          const TheToolDefinition *tool = the_tool_at(i);
          const TheWorkbenchTool *definition = the_workbench_tool_find(tool->id);
-         GtkTreeIter row;
-         char *details = g_strdup_printf("%s%s%s", definition ? definition->owner : "Profile-defined / unknown", *tool->image ? " · " : "", tool->image);
-         gtk_list_store_append(store, &row);
-         gtk_list_store_set(store, &row, 0, *tool->extensions ? tool->extensions : "—", 1, tool->label, 2, tool->role, 3, tool->available ? "Available" : "Unavailable", 4, details, -1);
-         g_free(details);
+         const char *role = registration_role(tool->role);
+         if (*tool->extensions)
+         {
+            GtkTreeIter row;
+            gtk_list_store_append(store, &row);
+            gtk_list_store_set(store, &row, 0, tool->extensions, 1, tool->label, 2, role,
+               3, tool->available ? "Available" : "Unavailable", 4, definition ? definition->owner : "Profile-defined / unknown", -1);
+         }
          if (!strcmp(tool->role, "runner") && tool->available) gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(ui.runner), tool->id, tool->label);
       }
+      gtk_tree_sortable_set_sort_column_id(GTK_TREE_SORTABLE(store), 0, GTK_SORT_ASCENDING);
       if (!selected_id || !gtk_combo_box_set_active_id(GTK_COMBO_BOX(ui.runner), selected_id)) gtk_combo_box_set_active(GTK_COMBO_BOX(ui.runner), 0);
       g_free(selected_id);
    }
+   rebuild_associations();
 }
 
 static void sync_file_tools(void)
@@ -1518,14 +1891,22 @@ static void sync_file_tools(void)
    GtkWidget *buttons[] = {ui.build, ui.run, ui.apply};
    TheToolsFileSnapshot *snapshot = &ui.file_snapshot;
    char summary[1200], *name, *active_name;
-   const char *prerequisite = NULL;
+   const char *prerequisite = NULL, *purpose, *state_text;
+   const TheToolConsole *program = the_tool_program_console(), *build = the_tool_build_console();
+   int profile, macro, compiled;
    size_t i;
    int relevant = 0;
    if (!the_tools_file_snapshot(snapshot)) return;
+   profile = !strcmp(snapshot->role, "profile-source");
+   macro = !strcmp(snapshot->role, "macro-source");
+   compiled = !strcmp(snapshot->role, "crexx-source");
+   purpose = profile ? "Profile source" : macro ? "THE macro" : compiled ? "cREXX source" : "Text";
+   if (!profile && !macro && !compiled && *snapshot->actions[1].tool)
+   { const TheToolDefinition *tool = the_tool_find(snapshot->actions[1].tool); if (tool) purpose = tool->label; }
    for (i = 0; i < THE_TOOLS_FILE_ACTION_COUNT; i++)
    {
       const TheToolsFileActionSnapshot *action = snapshot->actions + i;
-      int visible = *action->tool != 0;
+      int visible = *action->tool != 0 && (profile ? i != 1 : i != 2);
       gtk_button_set_label(GTK_BUTTON(buttons[i]), action->label);
       gtk_widget_set_visible(buttons[i], visible);
       relevant += visible;
@@ -1537,8 +1918,44 @@ static void sync_file_tools(void)
          : action->reason);
       if (visible && !action->enabled && !prerequisite) prerequisite = action->reason;
    }
-   gtk_widget_set_visible(ui.task_row, relevant != 0);
-   gtk_label_set_text(GTK_LABEL(ui.task_state), prerequisite ? prerequisite : snapshot->role);
+   state_text = "Edit with THE commands or your profile’s keys.";
+   if (build->running && build->source_id == snapshot->source_id)
+      state_text = profile ? "Building profile…" : macro ? "Building macro…" : "Building source…";
+   else if (program->running && program->source_id == snapshot->source_id)
+      state_text = macro ? "Macro running · output is in Program console." : "Program running · output is in Program console.";
+   else if (snapshot->result.serial && snapshot->result.source_id == snapshot->source_id
+         && snapshot->result.revision == snapshot->revision && strcmp(snapshot->result.code, "started"))
+      state_text = snapshot->result.message;
+   else if (profile || macro || compiled)
+   {
+      if (snapshot->actions[profile ? 2 : 1].enabled)
+         state_text = profile ? "Apply profile saves these settings for future sessions."
+            : macro ? "Run macro executes the built source once." : "Run executes the build of this source revision.";
+      else if (snapshot->actions[0].enabled)
+         state_text = snapshot->profile.build.source_id == snapshot->source_id && snapshot->profile.build.revision != snapshot->revision
+            ? "Source changed · build again before running or applying."
+            : profile ? "Build this profile before applying it." : macro ? "Build this macro before running it." : "Build this source before running it.";
+      else state_text = prerequisite ? prerequisite : "Choose a runner in Tools & Profiles.";
+   }
+   else if (relevant) state_text = snapshot->actions[1].enabled ? "Runs the current buffer, including unsaved edits." : prerequisite;
+   {
+      GString *chain = g_string_new("Current file: ");
+      int count = 0;
+      for (i = 0; i < THE_TOOLS_FILE_ACTION_COUNT; i++)
+      {
+         const TheToolsFileActionSnapshot *action = snapshot->actions + i;
+         if (!*action->tool || (profile ? i == 1 : i == 2)) continue;
+         if (count++) g_string_append(chain, " → ");
+         g_string_append(chain, action->label);
+      }
+      gtk_label_set_text(GTK_LABEL(ui.association_current), chain->str);
+      gtk_widget_set_visible(ui.association_current, count != 0);
+      g_string_free(chain, TRUE);
+   }
+   gtk_widget_show(ui.task_row);
+   g_snprintf(summary, sizeof(summary), "%s · %s", purpose, state_text ? state_text : "");
+   gtk_label_set_text(GTK_LABEL(ui.task_state), summary);
+   gtk_widget_set_tooltip_text(ui.task_state, summary);
    name = g_path_get_basename(snapshot->path);
    g_snprintf(summary, sizeof(summary), "%s%s", name, the_editor_buffer_dirty(CURRENT_FILE) ? " · Modified" : " · Saved");
    gtk_label_set_text(GTK_LABEL(ui.file_title), summary); gtk_widget_set_tooltip_text(ui.file_title, snapshot->path); g_free(name);
@@ -1550,10 +1967,10 @@ static void sync_file_tools(void)
    {
       active_name = g_path_get_basename(*snapshot->profile.active.source_path
          ? snapshot->profile.active.source_path : snapshot->profile.active.image);
-      g_snprintf(summary, sizeof(summary), "Active profile: %s\nSelection kind: %s\n%s\n%s",
-         active_name, *snapshot->profile.active.kind ? snapshot->profile.active.kind : "Unknown",
-         snapshot->profile.active.startup_saved ? "Startup selection saved for future sessions." : "Startup selection is not confirmed saved.",
-         !*snapshot->profile.active.source_path ? "No editable source is attached to this compiled profile." : "Edit defaults, then Build and Apply in the editor.");
+      g_snprintf(summary, sizeof(summary), "Active profile: %s\n%s\n%s",
+         active_name,
+         snapshot->profile.active.startup_saved ? "Saved for future sessions." : "Active for this session; startup settings are not confirmed saved.",
+         !*snapshot->profile.active.source_path ? "This compiled profile has no attached editable source." : "Edit defaults, then Build and Apply in the editor.");
       g_free(active_name);
    }
    else g_snprintf(summary, sizeof(summary), "No user profile applied.\nEdit profile defaults to create or open your user profile source, then Build and Apply in the editor.");
@@ -1595,7 +2012,12 @@ static void sync_console(void)
    if (!ui.console) return;
    sync_console_palette();
    sync_file_tools();
+   ui.syncing_logs++;
    gtk_widget_set_visible(ui.console, program->visible);
+   ui.syncing_logs--;
+   if ((program->id != ui.program_seen || program->focused) && program->visible)
+      select_auxiliary(ui.console);
+   ui.program_seen = program->id;
    gtk_label_set_text(GTK_LABEL(ui.state), program->state[0] ? program->state :
       the_tools_backend_available() ? "Ready" : "Native RXBIN tool bundle is not configured");
    gtk_widget_set_sensitive(ui.stop, program->running);
@@ -1606,7 +2028,10 @@ static void sync_console(void)
    if (build->running || (build->id && build->version != ui.build_reader.version && result_serial == ui.result_serial))
       gtk_label_set_text(GTK_LABEL(ui.build_state), build->state);
    if (build->id != ui.build_reader.job) ui.build_hidden = 0;
+   ui.syncing_logs++;
    gtk_widget_set_visible(ui.setup, ui.setup_visible || (!ui.build_hidden && (build->id || ui.result_serial)));
+   ui.syncing_logs--;
+   sync_navigation();
    sync_reader(&ui.program_reader, program);
    sync_reader(&ui.build_reader, build);
 }
@@ -1671,7 +2096,7 @@ static void restore_log_origin(void)
 {
    GtkWidget *focus = ui.log_origin;
    if (focus && (focus == ui.console || gtk_widget_is_ancestor(focus, ui.console)))
-      gtk_notebook_set_current_page(GTK_NOTEBOOK(ui.auxiliary), 0);
+      select_auxiliary(ui.console);
    else if (focus && (focus == ui.build_result || gtk_widget_is_ancestor(focus, ui.build_result)))
       show_setup(2);
    if (!focus || !gtk_widget_is_drawable(focus) || !gtk_widget_is_sensitive(focus)) focus = ui.editor;
@@ -1720,6 +2145,7 @@ static void auxiliary_switched(GtkNotebook *notebook, GtkWidget *page, guint num
    GtkLogPane *pane;
    (void)notebook; (void)number; (void)data;
    if (ui.syncing_logs || the_panel_active || in_macro) return;
+   ui.active_page = page; ui.auxiliary_open = 1; sync_navigation();
    if (page == ui.console || (page == ui.setup && ui.setup_tabs && gtk_notebook_get_current_page(GTK_NOTEBOOK(ui.setup_tabs)) == 2))
    {
       GtkConsoleReader *reader = page == ui.console ? &ui.program_reader : &ui.build_reader;
@@ -2356,7 +2782,7 @@ static GtkLogPane *create_log(const TheWorkbenchPanel *panel)
    pane->page = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
    gtk_widget_set_name(pane->page, "the-workbench-pane");
    gtk_container_set_border_width(GTK_CONTAINER(pane->page), 6);
-   controls = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+   controls = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
    pane->status = gtk_label_new(panel->kind == THE_WORKBENCH_PANEL_FIELDS ? "Form" : panel->kind == THE_WORKBENCH_PANEL_DOCUMENT ? "Read-only document" : "Read-only log");
    gtk_widget_set_name(pane->status, "the-workbench-status");
    gtk_label_set_xalign(GTK_LABEL(pane->status), 0);
@@ -2709,7 +3135,10 @@ static void sync_logs(void)
       const TheWorkbenchPanel *panel = the_workbench_panel_find(pane->id);
       if (!panel || panel->generation != pane->generation ||
           (pane->form_fields && panel->form_generation != pane->form_generation))
-      { gtk_widget_destroy(pane->page); g_ptr_array_remove_index(ui.logs, i); continue; }
+      {
+         if (ui.active_page == pane->page) { ui.active_page = NULL; ui.auxiliary_open = 0; }
+         gtk_widget_destroy(pane->page); g_ptr_array_remove_index(ui.logs, i); continue;
+      }
       i++;
    }
    for (i = 0; i < the_workbench_panel_count(); i++)
@@ -2738,8 +3167,8 @@ static void sync_logs(void)
          if (strcmp(gtk_label_get_text(GTK_LABEL(pane->status)), status)) gtk_label_set_text(GTK_LABEL(pane->status), status);
       }
    }
-   gtk_notebook_set_show_tabs(GTK_NOTEBOOK(ui.auxiliary), visible > 0 || gtk_widget_get_visible(ui.setup));
-   gtk_widget_set_visible(ui.auxiliary, visible || the_tool_program_console()->visible || gtk_widget_get_visible(ui.setup));
+   gtk_notebook_set_show_tabs(GTK_NOTEBOOK(ui.auxiliary), visible > 0);
+   sync_navigation();
    focus = the_workbench_focus_request();
    if (focus && focus->serial != ui.log_focus_serial)
    {
@@ -2751,7 +3180,7 @@ static void sync_logs(void)
          if (!ui.focused_log[0] && !ui.log_origin) remember_log_origin(gtk_window_get_focus(GTK_WINDOW(ui.window)));
          strcpy(ui.focused_log, pane->id); ui.focused_log_generation = pane->generation;
          if (the_tool_program_console()->focused) the_tool_program_console_visibility(the_tool_program_console()->visible, 0);
-         gtk_notebook_set_current_page(GTK_NOTEBOOK(ui.auxiliary), gtk_notebook_page_num(GTK_NOTEBOOK(ui.auxiliary), pane->page));
+         select_auxiliary(pane->page);
          if (pane->filefields) focus_filefields(pane);
          else if (pane->form_fields)
          {
@@ -2778,7 +3207,7 @@ static void sync_logs(void)
    for (i = 0; i < ui.logs->len; i++)
    {
       GtkLogPane *pane = g_ptr_array_index(ui.logs, i);
-      int shown = gtk_widget_get_visible(pane->page);
+      int shown = ui.auxiliary_open && gtk_widget_get_visible(pane->page);
       int selected_page = gtk_notebook_get_nth_page(GTK_NOTEBOOK(ui.auxiliary), gtk_notebook_get_current_page(GTK_NOTEBOOK(ui.auxiliary))) == pane->page;
       TheWorkbenchPlacement placement = !shown ? THE_WORKBENCH_PLACE_NONE : !selected_page ? THE_WORKBENCH_PLACE_TAB
          : gtk_orientable_get_orientation(GTK_ORIENTABLE(ui.split)) == GTK_ORIENTATION_HORIZONTAL
@@ -2979,12 +3408,10 @@ static void show_setup(unsigned section)
 {
    if (!ui.setup) return;
    ui.setup_visible = 1;
-   gtk_widget_show(ui.setup); gtk_widget_show(ui.auxiliary);
+   select_auxiliary(ui.setup);
    ui.syncing_logs++;
-   gtk_notebook_set_current_page(GTK_NOTEBOOK(ui.auxiliary), gtk_notebook_page_num(GTK_NOTEBOOK(ui.auxiliary), ui.setup));
    gtk_notebook_set_current_page(GTK_NOTEBOOK(ui.setup_tabs), section);
    ui.syncing_logs--;
-   if (ui.focused_log[0]) queue_panel(find_log(ui.focused_log, ui.focused_log_generation), THE_WORKBENCH_PANEL_RETURN);
 }
 
 static void setup_clicked(GtkWidget *widget, gpointer data)
@@ -3033,9 +3460,9 @@ static void show_settings(void)
       "_Reset font", 1, "_Close", GTK_RESPONSE_CLOSE, "_Apply", GTK_RESPONSE_APPLY, NULL);
    ui.settings = dialog;
    gtk_window_set_default_size(GTK_WINDOW(dialog), 600, 520);
-   tabs = gtk_notebook_new(); gtk_container_set_border_width(GTK_CONTAINER(tabs), 10);
+   tabs = gtk_notebook_new(); gtk_container_set_border_width(GTK_CONTAINER(tabs), 12);
    gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(GTK_DIALOG(dialog))), tabs, TRUE, TRUE, 0);
-   appearance = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8); gtk_container_set_border_width(GTK_CONTAINER(appearance), 10);
+   appearance = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8); gtk_container_set_border_width(GTK_CONTAINER(appearance), 12);
    wrapped_label(appearance, "Appearance · This device/app. The monospace font applies to editor cells, output readers and fixed-width fields. UI controls retain the desktop theme.");
    chooser = gtk_font_chooser_widget_new(); gtk_font_chooser_set_filter_func(GTK_FONT_CHOOSER(chooser), monospace_filter, NULL, NULL);
    gtk_font_chooser_set_level(GTK_FONT_CHOOSER(chooser), GTK_FONT_CHOOSER_LEVEL_FAMILY | GTK_FONT_CHOOSER_LEVEL_SIZE);
@@ -3111,7 +3538,7 @@ static void local_action(GSimpleAction *action, GVariant *parameter, gpointer da
    else if (!strcmp(name, "about") || !strcmp(name, "gui.about")) show_about();
    else if (!strcmp(name, "tools-profiles") || !strcmp(name, "gui.tools-profiles")) show_setup(0);
    else if (!strcmp(name, "program") || !strcmp(name, "gui.program")) program_clicked(NULL, NULL);
-   else if (!strcmp(name, "gui.files")) file_action(NULL, "file.open");
+   else if (!strcmp(name, "gui.files")) show_files();
    else if (!strcmp(name, "editor")) focus_editor();
    else if (!strcmp(name, "profile-defaults")) { show_setup(0); tool_action(NULL, "profile"); }
 }
@@ -3154,6 +3581,19 @@ static void setup_switched(GtkNotebook *notebook, GtkWidget *page, guint number,
    { ui.build_reader.unread = 0; reader_unread(&ui.build_reader); }
 }
 
+static GtkWidget *setup_scroll_body(GtkWidget *content, unsigned section)
+{
+   GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+   gtk_scrolled_window_set_overlay_scrolling(GTK_SCROLLED_WINDOW(scroll), FALSE);
+   gtk_scrolled_window_set_propagate_natural_height(GTK_SCROLLED_WINDOW(scroll), FALSE);
+   gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(scroll), 1);
+   gtk_widget_set_vexpand(scroll, TRUE); gtk_widget_set_hexpand(scroll, TRUE);
+   gtk_container_add(GTK_CONTAINER(scroll), content);
+   ui.setup_scroll[section] = scroll;
+   return scroll;
+}
+
 static void create_setup(void)
 {
    GtkWidget *controls, *profiles, *types, *scroller, *expander, *form, *grid, *runner_row;
@@ -3161,11 +3601,11 @@ static void create_setup(void)
    static const char *columns[] = {"File types", "Tool", "Role", "Availability", "Ownership / details"};
    GtkListStore *store = gtk_list_store_new(5, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING);
    unsigned i;
-   ui.setup = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
-   gtk_container_set_border_width(GTK_CONTAINER(ui.setup), 6);
+   ui.setup = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+   gtk_container_set_border_width(GTK_CONTAINER(ui.setup), 12);
    gtk_widget_set_name(ui.setup, "the-tools-profiles");
    gtk_notebook_append_page(GTK_NOTEBOOK(ui.auxiliary), ui.setup, gtk_label_new("Tools & Profiles"));
-   controls = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+   controls = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
    gtk_box_pack_start(GTK_BOX(ui.setup), controls, FALSE, FALSE, 0);
    { GtkWidget *label = gtk_label_new("Tools & Profiles"); gtk_label_set_xalign(GTK_LABEL(label), 0); gtk_box_pack_start(GTK_BOX(controls), label, TRUE, TRUE, 0); }
    ui.expand_control = button(controls, "Expand pane", G_CALLBACK(expand_auxiliary), NULL);
@@ -3174,24 +3614,33 @@ static void create_setup(void)
    ui.setup_tabs = gtk_notebook_new(); gtk_notebook_set_scrollable(GTK_NOTEBOOK(ui.setup_tabs), TRUE);
    gtk_box_pack_start(GTK_BOX(ui.setup), ui.setup_tabs, TRUE, TRUE, 0);
    g_signal_connect(ui.setup_tabs, "switch-page", G_CALLBACK(setup_switched), NULL);
-   profiles = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10); gtk_container_set_border_width(GTK_CONTAINER(profiles), 10);
-   scroller = gtk_scrolled_window_new(NULL, NULL);
-   gtk_container_add(GTK_CONTAINER(scroller), profiles);
+   profiles = gtk_box_new(GTK_ORIENTATION_VERTICAL, 10); gtk_container_set_border_width(GTK_CONTAINER(profiles), 12);
+   scroller = setup_scroll_body(profiles, 0);
    gtk_notebook_append_page(GTK_NOTEBOOK(ui.setup_tabs), scroller, gtk_label_new("Profiles"));
    ui.profile_summary = wrapped_label(profiles, "Profile information is available after startup.");
    gtk_label_set_selectable(GTK_LABEL(ui.profile_summary), TRUE);
-   controls = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6); gtk_box_pack_start(GTK_BOX(profiles), controls, FALSE, FALSE, 0);
+   controls = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8); gtk_box_pack_start(GTK_BOX(profiles), controls, FALSE, FALSE, 0);
    ui.edit_profile = button(controls, "Edit profile defaults", G_CALLBACK(tool_action), "profile");
-   ui.apply_image = button(controls, "Import compiled profile…", G_CALLBACK(apply_image_clicked), NULL);
-   wrapped_label(profiles, "Edit source in the normal editor, then use its Build profile and Apply profile actions. A compiled-only import has no editable source. The editor response reports the immediate result; Build results holds compiler output.");
-   types = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8); gtk_container_set_border_width(GTK_CONTAINER(types), 8);
-   scroller = gtk_scrolled_window_new(NULL, NULL);
-   gtk_container_add(GTK_CONTAINER(scroller), types);
+   wrapped_label(profiles, "Profiles define editor settings, file associations and workbench actions. Other .the files build and run as macros.");
+   expander = gtk_expander_new("Use a compiled profile…");
+   gtk_box_pack_start(GTK_BOX(profiles), expander, FALSE, FALSE, 0);
+   form = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8); gtk_container_add(GTK_CONTAINER(expander), form);
+   wrapped_label(form, "Choose a .profile.rxbin file on this computer. Apply runs it now and saves it for future sessions. A compiled-only profile has no attached editable source.");
+   ui.apply_image = button(form, "Choose compiled profile…", G_CALLBACK(apply_image_clicked), NULL);
+   types = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8); gtk_container_set_border_width(GTK_CONTAINER(types), 12);
+   scroller = setup_scroll_body(types, 1);
    gtk_notebook_append_page(GTK_NOTEBOOK(ui.setup_tabs), scroller, gtk_label_new("File types & tools"));
-   wrapped_label(types, "Installed associations and permitted runners. Profiles and registered tools remain the source of workbench behavior.");
-   scroller = gtk_scrolled_window_new(NULL, NULL); gtk_widget_set_size_request(scroller, -1, 100);
+   wrapped_label(types, "File associations · registered by your profiles");
+   ui.associations = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
+   gtk_box_pack_start(GTK_BOX(types), ui.associations, FALSE, FALSE, 0);
+   ui.association_current = wrapped_label(types, "");
+   gtk_label_set_line_wrap_mode(GTK_LABEL(ui.association_current), PANGO_WRAP_WORD_CHAR);
+   button(types, "Edit tool associations in profile", G_CALLBACK(tool_action), "profile");
+   ui.tool_details = gtk_expander_new("Installed tool details");
+   gtk_box_pack_start(GTK_BOX(types), ui.tool_details, FALSE, FALSE, 0);
+   scroller = gtk_scrolled_window_new(NULL, NULL); gtk_widget_set_size_request(scroller, -1, 150);
    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroller), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
-   gtk_box_pack_start(GTK_BOX(types), scroller, TRUE, TRUE, 0);
+   gtk_container_add(GTK_CONTAINER(ui.tool_details), scroller);
    ui.tools_view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store)); g_object_unref(store);
    for (i = 0; i < G_N_ELEMENTS(columns); i++)
    {
@@ -3200,14 +3649,15 @@ static void create_setup(void)
       gtk_tree_view_column_set_resizable(column, TRUE); gtk_tree_view_append_column(GTK_TREE_VIEW(ui.tools_view), column);
    }
    gtk_container_add(GTK_CONTAINER(scroller), ui.tools_view);
-   expander = gtk_expander_new("Run with a chosen runner / arguments"); gtk_box_pack_start(GTK_BOX(types), expander, FALSE, FALSE, 0);
+   expander = gtk_expander_new("Run with a chosen runner / arguments");
+   ui.runner_expander = expander; gtk_box_pack_start(GTK_BOX(types), expander, FALSE, FALSE, 0);
    form = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6); gtk_container_add(GTK_CONTAINER(expander), form);
    runner_row = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6); gtk_box_pack_start(GTK_BOX(form), runner_row, FALSE, FALSE, 0);
    ui.runner = gtk_combo_box_text_new(); gtk_box_pack_start(GTK_BOX(runner_row), ui.runner, TRUE, TRUE, 0);
    button(runner_row, "Run current file", G_CALLBACK(runner_clicked), NULL);
    ui.runner_arguments = gtk_entry_new(); gtk_entry_set_placeholder_text(GTK_ENTRY(ui.runner_arguments), "One argument (use RX RUN for multiple arguments)");
    gtk_box_pack_start(GTK_BOX(form), ui.runner_arguments, FALSE, FALSE, 0);
-   expander = gtk_expander_new("Register a compiled tool"); gtk_box_pack_start(GTK_BOX(types), expander, FALSE, FALSE, 0);
+   expander = gtk_expander_new("Register a compiled tool"); ui.register_expander = expander; gtk_box_pack_start(GTK_BOX(types), expander, FALSE, FALSE, 0);
    form = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6); gtk_container_add(GTK_CONTAINER(expander), form);
    grid = gtk_grid_new(); gtk_grid_set_column_spacing(GTK_GRID(grid), 6); gtk_grid_set_row_spacing(GTK_GRID(grid), 4);
    gtk_box_pack_start(GTK_BOX(form), grid, FALSE, FALSE, 0);
@@ -3215,7 +3665,8 @@ static void create_setup(void)
    {
       GtkWidget *label = gtk_label_new(captions[i]); gtk_label_set_xalign(GTK_LABEL(label), 0);
       gtk_grid_attach(GTK_GRID(grid), label, 0, i, 1, 1);
-      ui.tool_fields[i] = gtk_entry_new(); gtk_widget_set_hexpand(ui.tool_fields[i], TRUE);
+      ui.tool_fields[i] = gtk_entry_new(); gtk_entry_set_width_chars(GTK_ENTRY(ui.tool_fields[i]), 12);
+      gtk_widget_set_hexpand(ui.tool_fields[i], TRUE);
       gtk_grid_attach(GTK_GRID(grid), ui.tool_fields[i], 1, i, 1, 1);
    }
    ui.tool_role = gtk_combo_box_text_new();
@@ -3225,7 +3676,7 @@ static void create_setup(void)
    gtk_combo_box_text_append(GTK_COMBO_BOX_TEXT(ui.tool_role), "language", "Language / highlighter");
    gtk_combo_box_set_active(GTK_COMBO_BOX(ui.tool_role), 0);
    gtk_box_pack_start(GTK_BOX(form), ui.tool_role, FALSE, FALSE, 0);
-   button(form, "Register tool", G_CALLBACK(register_tool_clicked), NULL);
+   ui.register_submit = button(form, "Register tool", G_CALLBACK(register_tool_clicked), NULL);
    wrapped_label(form, "Registration uses the native tool API and retains its validation and persistence rules. Edit profile defaults to make profile-owned definitions.");
 }
 
@@ -3425,7 +3876,7 @@ static void sync_menus(void)
          }
          if (!strcmp(group, "view"))
          {
-            g_menu_append(section, "Files…", "app.gui.files");
+            g_menu_append(section, "Files", "app.gui.files");
             g_menu_append(section, "Program console", "app.gui.program");
             g_menu_append(section, "Tools & Profiles", "app.gui.tools-profiles");
          }
@@ -3523,6 +3974,44 @@ static int activate(void)
    return 1;
 }
 
+static void create_files(void)
+{
+   GtkWidget *controls, *scroller, *label;
+   GtkListStore *store = gtk_list_store_new(4, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_STRING, G_TYPE_INT);
+   unsigned i;
+   ui.files = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+   gtk_container_set_border_width(GTK_CONTAINER(ui.files), 12);
+   gtk_widget_set_name(ui.files, "the-files");
+   gtk_notebook_append_page(GTK_NOTEBOOK(ui.auxiliary), ui.files, gtk_label_new("Files"));
+   controls = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+   gtk_box_pack_start(GTK_BOX(ui.files), controls, FALSE, FALSE, 0);
+   label = gtk_label_new("Files"); gtk_label_set_xalign(GTK_LABEL(label), 0);
+   gtk_box_pack_start(GTK_BOX(controls), label, TRUE, TRUE, 0);
+   button(controls, "Open…", G_CALLBACK(file_action), "file.open");
+   button(controls, "Hide", G_CALLBACK(pane_clicked), ui.files);
+   wrapped_label(ui.files, "Open files and folders on this computer");
+   ui.files_path = wrapped_label(ui.files, "");
+   gtk_label_set_ellipsize(GTK_LABEL(ui.files_path), PANGO_ELLIPSIZE_MIDDLE);
+   gtk_label_set_line_wrap(GTK_LABEL(ui.files_path), FALSE);
+   controls = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+   gtk_box_pack_start(GTK_BOX(ui.files), controls, FALSE, FALSE, 0);
+   button(controls, "Up", G_CALLBACK(files_refresh_clicked), "up");
+   button(controls, "Current folder", G_CALLBACK(files_refresh_clicked), "current");
+   button(controls, "Refresh", G_CALLBACK(files_refresh_clicked), "refresh");
+   scroller = gtk_scrolled_window_new(NULL, NULL);
+   gtk_box_pack_start(GTK_BOX(ui.files), scroller, TRUE, TRUE, 0);
+   ui.files_view = gtk_tree_view_new_with_model(GTK_TREE_MODEL(store)); g_object_unref(store);
+   for (i = 0; i < 2; i++)
+   {
+      GtkCellRenderer *renderer = gtk_cell_renderer_text_new();
+      GtkTreeViewColumn *column = gtk_tree_view_column_new_with_attributes(i ? "Location" : "Name", renderer, "text", i, NULL);
+      gtk_tree_view_column_set_resizable(column, TRUE);
+      gtk_tree_view_append_column(GTK_TREE_VIEW(ui.files_view), column);
+   }
+   gtk_container_add(GTK_CONTAINER(scroller), ui.files_view);
+   g_signal_connect(ui.files_view, "row-activated", G_CALLBACK(files_activated), NULL);
+}
+
 static int startup(const TheDriverStartupOptions *options, char *error, size_t capacity)
 {
    GtkWidget *root, *toolbar, *scroller, *heading, *controls, *entry, *actions;
@@ -3585,8 +4074,8 @@ static int startup(const TheDriverStartupOptions *options, char *error, size_t c
    ui.menu_actions = g_ptr_array_new();
    sync_menus();
    gtk_application_set_menubar(ui.application, G_MENU_MODEL(ui.menu_model));
-   toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
-   gtk_container_set_border_width(GTK_CONTAINER(toolbar), 6);
+   toolbar = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+   gtk_container_set_border_width(GTK_CONTAINER(toolbar), 12);
    gtk_box_pack_start(GTK_BOX(root), toolbar, FALSE, FALSE, 0);
    ui.first_control = button(toolbar, "Menu", G_CALLBACK(menu_clicked), NULL);
    g_signal_connect(ui.first_control, "button-press-event", G_CALLBACK(menu_button_pressed), NULL);
@@ -3598,9 +4087,21 @@ static int startup(const TheDriverStartupOptions *options, char *error, size_t c
    gtk_label_set_ellipsize(GTK_LABEL(ui.file_title), PANGO_ELLIPSIZE_MIDDLE);
    gtk_label_set_xalign(GTK_LABEL(ui.file_title), 0);
    gtk_box_pack_start(GTK_BOX(toolbar), ui.file_title, TRUE, TRUE, 6);
-   actions = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+   ui.document_tabs = gtk_scrolled_window_new(NULL, NULL);
+   gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(ui.document_tabs), GTK_POLICY_AUTOMATIC, GTK_POLICY_NEVER);
+   gtk_scrolled_window_set_propagate_natural_height(GTK_SCROLLED_WINDOW(ui.document_tabs), TRUE);
+   gtk_widget_set_margin_start(ui.document_tabs, 12); gtk_widget_set_margin_end(ui.document_tabs, 12);
+   ui.document_buttons = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 4);
+   gtk_container_add(GTK_CONTAINER(ui.document_tabs), ui.document_buttons);
+   gtk_box_pack_start(GTK_BOX(root), ui.document_tabs, FALSE, FALSE, 0);
+   ui.pane_strip = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+   gtk_widget_set_margin_start(ui.pane_strip, 12); gtk_widget_set_margin_end(ui.pane_strip, 12);
+   gtk_widget_set_margin_top(ui.pane_strip, 8); gtk_widget_set_margin_bottom(ui.pane_strip, 8);
+   gtk_box_pack_start(GTK_BOX(root), ui.pane_strip, FALSE, FALSE, 0);
+   actions = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
    ui.task_row = actions;
-   gtk_container_set_border_width(GTK_CONTAINER(actions), 6);
+   gtk_widget_set_margin_start(actions, 12); gtk_widget_set_margin_end(actions, 12);
+   gtk_widget_set_margin_top(actions, 4); gtk_widget_set_margin_bottom(actions, 12);
    gtk_box_pack_start(GTK_BOX(root), actions, FALSE, FALSE, 0);
    ui.build = button(actions, "Build source", G_CALLBACK(current_file_action), GUINT_TO_POINTER(0));
    ui.run = button(actions, "Run", G_CALLBACK(current_file_action), GUINT_TO_POINTER(1));
@@ -3647,17 +4148,17 @@ static int startup(const TheDriverStartupOptions *options, char *error, size_t c
    gtk_notebook_set_scrollable(GTK_NOTEBOOK(ui.auxiliary), TRUE);
    g_signal_connect(ui.auxiliary, "switch-page", G_CALLBACK(auxiliary_switched), NULL);
    gtk_paned_pack2(GTK_PANED(ui.split), ui.auxiliary, FALSE, FALSE);
-   ui.console = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
+   ui.console = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
    gtk_widget_set_name(ui.console, "the-program-console");
-   gtk_container_set_border_width(GTK_CONTAINER(ui.console), 6);
+   gtk_container_set_border_width(GTK_CONTAINER(ui.console), 12);
    ui.program_reader.page = ui.console;
    ui.program_reader.tab = gtk_label_new("Program");
    gtk_notebook_append_page(GTK_NOTEBOOK(ui.auxiliary), ui.console, ui.program_reader.tab);
-   heading = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+   heading = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
    ui.header = heading;
    gtk_style_context_add_class(gtk_widget_get_style_context(heading), "the-console-header");
    gtk_box_pack_start(GTK_BOX(ui.console), heading, FALSE, FALSE, 0);
-   controls = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+   controls = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
    gtk_box_pack_start(GTK_BOX(heading), controls, FALSE, FALSE, 0);
    {
       GtkWidget *label = gtk_label_new("Program console");
@@ -3702,19 +4203,19 @@ static int startup(const TheDriverStartupOptions *options, char *error, size_t c
    g_signal_connect(ui.input, "insert-text", G_CALLBACK(program_input_insert), NULL);
    g_signal_connect(ui.input, "paste-clipboard", G_CALLBACK(program_input_paste), NULL);
    ui.send = button(entry, "Send", G_CALLBACK(send_input), NULL);
-   ui.build_result = gtk_box_new(GTK_ORIENTATION_VERTICAL, 5);
+   ui.build_result = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
    gtk_widget_set_name(ui.build_result, "the-build-result");
-   gtk_container_set_border_width(GTK_CONTAINER(ui.build_result), 6);
+   gtk_container_set_border_width(GTK_CONTAINER(ui.build_result), 12);
    ui.build_reader.page = ui.build_result;
-   ui.build_reader.tab = gtk_label_new("Build result");
+   ui.build_reader.tab = gtk_label_new("Build results");
    create_setup();
-   gtk_notebook_append_page(GTK_NOTEBOOK(ui.setup_tabs), ui.build_result, ui.build_reader.tab);
-   heading = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+   gtk_notebook_append_page(GTK_NOTEBOOK(ui.setup_tabs), setup_scroll_body(ui.build_result, 2), ui.build_reader.tab);
+   heading = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
    gtk_style_context_add_class(gtk_widget_get_style_context(heading), "the-console-header");
    gtk_box_pack_start(GTK_BOX(ui.build_result), heading, FALSE, FALSE, 0);
-   controls = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+   controls = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
    gtk_box_pack_start(GTK_BOX(heading), controls, FALSE, FALSE, 0);
-   gtk_box_pack_start(GTK_BOX(controls), gtk_label_new("Build result"), TRUE, TRUE, 0);
+
    ui.build_stop = button(controls, "Stop", G_CALLBACK(tool_action), "stop");
    ui.build_reader.latest = button(controls, "Latest", G_CALLBACK(reader_latest), &ui.build_reader);
    gtk_widget_set_tooltip_text(ui.build_reader.latest, "Show the latest build output and resume following it.");
@@ -3746,7 +4247,22 @@ static int startup(const TheDriverStartupOptions *options, char *error, size_t c
    ui.console_css = gtk_css_provider_new();
    gtk_style_context_add_provider_for_screen(gtk_widget_get_screen(ui.window),
       GTK_STYLE_PROVIDER(ui.console_css), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION + 1);
+   create_files();
+   {
+      GtkWidget *pages[] = { ui.files, ui.console, ui.setup };
+      const char *names[] = { "Files", "Program console", "Tools & Profiles" };
+      unsigned i;
+      for (i = 0; i < G_N_ELEMENTS(pages); i++)
+      {
+         ui.pane_controls[i] = gtk_toggle_button_new_with_label(names[i]);
+         gtk_box_pack_start(GTK_BOX(ui.pane_strip), ui.pane_controls[i], FALSE, FALSE, 0);
+         g_signal_connect(ui.pane_controls[i], "clicked", G_CALLBACK(pane_clicked), pages[i]);
+      }
+   }
    gtk_widget_show_all(ui.window);
+   ui.active_page = ui.console; ui.auxiliary_open = 1;
+   gtk_widget_hide(ui.files);
+   gtk_notebook_set_show_tabs(GTK_NOTEBOOK(ui.auxiliary), FALSE);
    focus_editor();
    the_tool_program_console_visibility(1, 0);
    sync_console();
@@ -3844,6 +4360,7 @@ static void update(void)
       gtk_window_set_title(GTK_WINDOW(ui.window), title);
       g_free(title);
    }
+   sync_documents();
    sync_console();
    sync_logs();
    sync_menus();
@@ -3860,6 +4377,7 @@ static int read_input(TheInputEvent *event)
    {
       if (ui.menu_focus && !ui.menu_popup && !ui.native_menu && !in_macro && g_queue_is_empty(&ui.inputs))
          finish_menu_focus();
+      { GtkAllocation allocation; gtk_widget_get_allocation(ui.editor, &allocation); allocated(ui.editor, &allocation, NULL); }
       if (!ui.input_window && !the_panel_active && !in_macro && ui.rows && ui.cols
       && (ui.rows != terminal_lines || ui.cols != terminal_cols))
          return the_input_event_from_resize(ui.rows, ui.cols, event);
@@ -3869,6 +4387,7 @@ static int read_input(TheInputEvent *event)
          return 1;
       }
       the_tools_native_poll();
+      sync_documents();
       sync_console();
       sync_logs();
       sync_menus();
@@ -3909,6 +4428,9 @@ static void shutdown_driver(int prompt)
    GList *item;
    (void)prompt;
    ui.active = 0;
+   g_clear_pointer(&ui.documents_signature, g_free);
+   g_clear_pointer(&ui.files_signature, g_free);
+   g_clear_pointer(&ui.files_folder, g_free);
    curses_started = FALSE;
    if (ui.tick) g_source_remove(ui.tick);
    ui.tick = 0;
