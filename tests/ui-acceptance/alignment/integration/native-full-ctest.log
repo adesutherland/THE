@@ -1,0 +1,300 @@
+Test project /Users/adrian/CLionProjects/THE/build/gtk-focus-review
+        Start 116: test_normal_area_queries
+        Start  34: test_panels
+        Start 107: test_batch_md_rexx_execute
+        Start  16: test_delete_persistence_CREXX
+  1/122 Test #116: test_normal_area_queries ...................   Passed    0.17 sec
+        Start 117: test_curses_text_entry
+  2/122 Test #117: test_curses_text_entry .....................   Passed    1.16 sec
+        Start 118: test_sos_navigation_queries
+  3/122 Test #118: test_sos_navigation_queries ................   Passed    0.30 sec
+        Start 119: test_sos_logical_edit_queries
+  4/122 Test #119: test_sos_logical_edit_queries ..............   Passed    0.22 sec
+        Start 114: test_field_queries
+  5/122 Test #114: test_field_queries .........................   Passed    4.25 sec
+        Start  28: test_workbench_curses
+  6/122 Test #107: test_batch_md_rexx_execute .................   Passed   15.72 sec
+        Start 109: test_batch_md_rexx_output_render
+  7/122 Test  #16: test_delete_persistence_CREXX ..............   Passed   24.92 sec
+        Start   1: test_pending_runtime
+  8/122 Test #109: test_batch_md_rexx_output_render ...........   Passed   11.01 sec
+        Start 111: test_batch_md_rexx_tex
+  9/122 Test  #34: test_panels ................................   Passed   28.58 sec
+        Start 121: test_crexx_profile
+ 10/122 Test   #1: test_pending_runtime .......................   Passed    9.76 sec
+        Start  88: test_the_llm_profile_crexx
+ 11/122 Test #111: test_batch_md_rexx_tex .....................   Passed   10.26 sec
+        Start 113: test_batch_md_rexx_highlight_source
+ 12/122 Test #121: test_crexx_profile .........................   Passed    9.07 sec
+        Start   9: test_workbench_runtime_CREXX
+ 13/122 Test  #88: test_the_llm_profile_crexx .................   Passed    3.91 sec
+        Start   4: test_sign_macos_release
+ 14/122 Test   #4: test_sign_macos_release ....................   Passed    2.58 sec
+        Start  39: test_curses_boundary_inventory
+ 15/122 Test  #39: test_curses_boundary_inventory .............   Passed    2.96 sec
+        Start  83: test_synonym
+ 16/122 Test #113: test_batch_md_rexx_highlight_source ........   Passed    8.37 sec
+        Start 104: test_batch_md_rexx_format
+ 17/122 Test  #83: test_synonym ...............................   Passed    4.68 sec
+        Start  87: test_the_llm_parser_diagnostics
+ 18/122 Test  #87: test_the_llm_parser_diagnostics ............   Passed    2.56 sec
+        Start  11: test_workbench_filefields_runtime_CREXX
+ 19/122 Test #104: test_batch_md_rexx_format ..................   Passed    7.06 sec
+        Start 110: test_batch_md_rexx_runner
+ 20/122 Test   #9: test_workbench_runtime_CREXX ...............   Passed   19.69 sec
+        Start  53: test_workbench_fileio_runtime
+ 21/122 Test  #11: test_workbench_filefields_runtime_CREXX ....   Passed    6.40 sec
+        Start  98: test_system_profile
+ 22/122 Test  #98: test_system_profile ........................   Passed    0.20 sec
+        Start 122: test_batch_profile_status
+ 23/122 Test #122: test_batch_profile_status ..................   Passed    0.22 sec
+        Start 101: test_stylespans_extract
+ 24/122 Test #110: test_batch_md_rexx_runner ..................   Passed    6.45 sec
+        Start 108: test_batch_md_rexx_validate
+ 25/122 Test #101: test_stylespans_extract ....................   Passed    1.03 sec
+        Start  14: test_editorclipboard_runtime_CREXX
+ 26/122 Test  #53: test_workbench_fileio_runtime ..............   Passed    1.92 sec
+        Start   8: test_default_profile_CREXX
+ 27/122 Test  #14: test_editorclipboard_runtime_CREXX .........   Passed    3.07 sec
+        Start 100: test_sdslh_multifile_lifecycle
+ 28/122 Test #100: test_sdslh_multifile_lifecycle .............   Passed    0.15 sec
+        Start  25: test_delete_persistence_REGINA
+ 29/122 Test  #25: test_delete_persistence_REGINA .............   Passed    2.47 sec
+        Start  82: test_explicit_commands_default
+ 30/122 Test #108: test_batch_md_rexx_validate ................   Passed    7.05 sec
+        Start 106: test_batch_md_rexx_render_html
+ 31/122 Test  #82: test_explicit_commands_default .............   Passed    1.29 sec
+        Start  13: test_editgroup_runtime_CREXX
+ 32/122 Test #106: test_batch_md_rexx_render_html .............   Passed    4.18 sec
+        Start 112: test_batch_md_rexx_highlight
+ 33/122 Test  #13: test_editgroup_runtime_CREXX ...............   Passed    5.30 sec
+        Start  12: test_workbench_form_runtime_CREXX
+ 34/122 Test #112: test_batch_md_rexx_highlight ...............   Passed    2.23 sec
+        Start  59: test_workbench_native_tools_runtime
+ 35/122 Test  #12: test_workbench_form_runtime_CREXX ..........   Passed    3.69 sec
+        Start 105: test_batch_md_rexx_scan
+ 36/122 Test #105: test_batch_md_rexx_scan ....................   Passed    1.13 sec
+        Start  99: test_sdslh_integration
+ 37/122 Test  #99: test_sdslh_integration .....................   Passed    0.14 sec
+        Start 103: test_message_history
+ 38/122 Test #103: test_message_history .......................   Passed    0.08 sec
+        Start  52: test_native_tools
+ 39/122 Test  #59: test_workbench_native_tools_runtime ........   Passed    4.79 sec
+        Start  10: test_workbench_document_runtime_CREXX
+ 40/122 Test  #10: test_workbench_document_runtime_CREXX ......   Passed    2.70 sec
+        Start  23: test_editorclipboard_runtime_REGINA
+ 41/122 Test  #23: test_editorclipboard_runtime_REGINA ........   Passed    1.33 sec
+        Start 102: test_file_ecolor_inheritance
+ 42/122 Test #102: test_file_ecolor_inheritance ...............   Passed    0.07 sec
+        Start  44: test_gtk_runtime
+ 43/122 Test   #8: test_default_profile_CREXX .................   Passed   24.03 sec
+        Start   2: test_pending_regina
+ 44/122 Test   #2: test_pending_regina ........................   Passed    0.32 sec
+        Start  80: test_the_llm_full_runtime
+ 45/122 Test  #80: test_the_llm_full_runtime ..................   Passed    1.16 sec
+        Start  15: test_workbench_boundaries_CREXX
+ 46/122 Test  #52: test_native_tools ..........................   Passed    8.65 sec
+        Start  73: test_headlessdriver_curses_default
+ 47/122 Test  #73: test_headlessdriver_curses_default .........   Passed    0.27 sec
+        Start  69: test_mousehit
+ 48/122 Test  #69: test_mousehit ..............................   Passed    0.22 sec
+        Start  79: test_virtual_screen
+ 49/122 Test  #79: test_virtual_screen ........................   Passed    0.24 sec
+        Start  75: test_llmdriver
+ 50/122 Test  #75: test_llmdriver .............................***Failed    0.24 sec
+message.compact.no.status: got 0 want 1
+footer.delta.remove.name: got 0 want 1
+LLM driver tests failed: 2
+
+        Start  91: test_utf_fixture
+ 51/122 Test  #91: test_utf_fixture ...........................   Passed    0.15 sec
+        Start  18: test_workbench_runtime_REGINA
+ 52/122 Test  #15: test_workbench_boundaries_CREXX ............   Passed    2.77 sec
+        Start  95: test_utfterm
+ 53/122 Test  #95: test_utfterm ...............................   Passed    0.02 sec
+        Start  96: test_utflayout
+ 54/122 Test  #96: test_utflayout .............................   Passed    0.01 sec
+        Start  68: test_transientui
+ 55/122 Test  #68: test_transientui ...........................   Passed    0.01 sec
+        Start  94: test_utfinput
+ 56/122 Test  #94: test_utfinput ..............................   Passed    0.01 sec
+        Start  93: test_textedit
+ 57/122 Test  #93: test_textedit ..............................   Passed    0.01 sec
+        Start  97: test_utfrepair
+ 58/122 Test  #97: test_utfrepair .............................   Passed    0.01 sec
+        Start  92: test_utfcluster
+ 59/122 Test  #92: test_utfcluster ............................   Passed    0.01 sec
+        Start  70: test_uidriver
+ 60/122 Test  #70: test_uidriver ..............................   Passed    0.25 sec
+        Start   5: test_release_source
+ 61/122 Test   #5: test_release_source ........................   Passed    0.25 sec
+        Start  66: test_render_attrs
+ 62/122 Test  #66: test_render_attrs ..........................   Passed    0.01 sec
+        Start  67: test_curses_keymap
+ 63/122 Test  #67: test_curses_keymap .........................   Passed    0.01 sec
+        Start  64: test_native_process
+ 64/122 Test  #64: test_native_process ........................   Passed    0.46 sec
+        Start  65: test_keycodes
+ 65/122 Test  #65: test_keycodes ..............................   Passed    0.00 sec
+        Start  61: test_native_tool_queue
+ 66/122 Test  #18: test_workbench_runtime_REGINA ..............   Passed    2.32 sec
+        Start  36: test_xedit_controls
+ 67/122 Test  #36: test_xedit_controls ........................   Passed    0.17 sec
+        Start  41: test_logcursor
+ 68/122 Test  #41: test_logcursor .............................   Passed    0.01 sec
+        Start   6: test_gui_settings_runtime
+ 69/122 Test   #6: test_gui_settings_runtime ..................   Passed    0.04 sec
+        Start  35: test_trunc
+ 70/122 Test  #61: test_native_tool_queue .....................   Passed    0.29 sec
+        Start  63: test_workbenchfileio
+ 71/122 Test  #63: test_workbenchfileio .......................   Passed    0.01 sec
+        Start  40: test_textpos
+ 72/122 Test  #40: test_textpos ...............................   Passed    0.01 sec
+        Start  37: test_macro_runtime
+ 73/122 Test  #35: test_trunc .................................   Passed    0.15 sec
+        Start  49: test_workbenchform
+ 74/122 Test  #37: test_macro_runtime .........................   Passed    0.12 sec
+        Start  17: test_default_profile_REGINA
+ 75/122 Test  #49: test_workbenchform .........................   Passed    0.26 sec
+        Start  38: test_curses_boundary
+ 76/122 Test  #38: test_curses_boundary .......................   Passed    0.09 sec
+        Start   3: test_sign_windows_release
+ 77/122 Test   #3: test_sign_windows_release ..................   Passed    0.10 sec
+        Start  84: test_synonym_regina
+ 78/122 Test  #84: test_synonym_regina ........................   Passed    0.10 sec
+        Start  20: test_workbench_filefields_runtime_REGINA
+ 79/122 Test  #20: test_workbench_filefields_runtime_REGINA ...   Passed    0.15 sec
+        Start  85: test_frontend_prefix_runtime
+ 80/122 Test  #85: test_frontend_prefix_runtime ...............   Passed    0.08 sec
+        Start  50: test_workbenchfilefields
+ 81/122 Test  #50: test_workbenchfilefields ...................   Passed    0.27 sec
+        Start  42: test_inputevent
+ 82/122 Test  #42: test_inputevent ............................   Passed    0.23 sec
+        Start  48: test_workbenchdocument
+ 83/122 Test  #17: test_default_profile_REGINA ................   Passed    1.32 sec
+        Start  77: test_llm_status_line
+ 84/122 Test  #77: test_llm_status_line .......................   Passed    0.06 sec
+        Start  86: test_rgb_colour_logical
+ 85/122 Test  #86: test_rgb_colour_logical ....................   Passed    0.06 sec
+        Start  46: test_workbenchlog
+ 86/122 Test  #46: test_workbenchlog ..........................   Passed    0.01 sec
+        Start  81: test_llm_forms_protocol
+ 87/122 Test  #48: test_workbenchdocument .....................   Passed    0.25 sec
+        Start  24: test_workbench_boundaries_REGINA
+ 88/122 Test  #81: test_llm_forms_protocol ....................   Passed    0.08 sec
+        Start  22: test_editgroup_runtime_REGINA
+ 89/122 Test  #44: test_gtk_runtime ...........................   Passed    9.40 sec
+        Start   7: test_llm_stack_budget
+ 90/122 Test   #7: test_llm_stack_budget ......................   Passed    0.06 sec
+        Start  74: test_screenframe
+ 91/122 Test  #24: test_workbench_boundaries_REGINA ...........   Passed    0.20 sec
+        Start  72: test_headlessdriver_no_curses
+ 92/122 Test  #72: test_headlessdriver_no_curses ..............   Passed    0.08 sec
+        Start  76: test_llm_message_snapshot
+ 93/122 Test  #22: test_editgroup_runtime_REGINA ..............   Passed    0.27 sec
+        Start  90: test_llmruntime
+ 94/122 Test  #90: test_llmruntime ............................   Passed    0.01 sec
+        Start  71: test_headlessdriver
+ 95/122 Test  #76: test_llm_message_snapshot ..................   Passed    0.04 sec
+        Start  45: test_editgroup
+ 96/122 Test  #74: test_screenframe ...........................   Passed    0.27 sec
+        Start  58: test_toolhost
+ 97/122 Test  #58: test_toolhost ..............................   Passed    0.00 sec
+        Start  21: test_workbench_form_runtime_REGINA
+ 98/122 Test  #21: test_workbench_form_runtime_REGINA .........   Passed    0.07 sec
+        Start  19: test_workbench_document_runtime_REGINA
+ 99/122 Test  #19: test_workbench_document_runtime_REGINA .....   Passed    0.05 sec
+        Start  78: test_named_footer
+100/122 Test  #71: test_headlessdriver ........................   Passed    0.35 sec
+        Start  47: test_workbench
+101/122 Test  #78: test_named_footer ..........................   Passed    0.11 sec
+        Start  43: test_gtk_input
+102/122 Test  #43: test_gtk_input .............................   Passed    0.01 sec
+        Start  60: test_file_snapshot
+103/122 Test  #45: test_editgroup .............................   Passed    0.56 sec
+        Start  51: test_frontendaction
+104/122 Test  #47: test_workbench .............................   Passed    0.50 sec
+105/122 Test  #60: test_file_snapshot .........................   Passed    0.76 sec
+106/122 Test  #51: test_frontendaction ........................   Passed    0.80 sec
+107/122 Test  #28: test_workbench_curses ......................   Passed   89.56 sec
+        Start  57: test_curses_reader_colors
+108/122 Test  #57: test_curses_reader_colors ..................   Passed   86.55 sec
+        Start  56: test_curses_alignment
+109/122 Test  #56: test_curses_alignment ......................   Passed   79.91 sec
+        Start  31: test_curses_presentation_CREXX
+110/122 Test  #31: test_curses_presentation_CREXX .............   Passed   28.96 sec
+        Start  62: test_workbench_native_tools_curses
+111/122 Test  #62: test_workbench_native_tools_curses .........   Passed   14.21 sec
+        Start  33: test_panel_curses
+112/122 Test  #33: test_panel_curses ..........................   Passed    4.15 sec
+        Start  32: test_curses_presentation_REGINA
+113/122 Test  #32: test_curses_presentation_REGINA ............   Passed    2.83 sec
+        Start  89: test_driver_modules
+114/122 Test  #89: test_driver_modules ........................   Passed    2.29 sec
+        Start 115: test_field_queries_utf
+115/122 Test #115: test_field_queries_utf .....................   Passed    1.01 sec
+        Start 120: test_selective_change_prompt
+116/122 Test #120: test_selective_change_prompt ...............   Passed    0.41 sec
+        Start  27: test_default_profile_curses
+117/122 Test  #27: test_default_profile_curses ................   Passed    2.63 sec
+        Start  26: test_editgroup_curses
+118/122 Test  #26: test_editgroup_curses ......................   Passed    3.79 sec
+        Start  29: test_workbench_filefields_curses
+119/122 Test  #29: test_workbench_filefields_curses ...........   Passed   24.55 sec
+        Start  30: test_curses_repaint
+120/122 Test  #30: test_curses_repaint ........................   Passed    6.98 sec
+        Start  54: test_tool_console_curses
+121/122 Test  #54: test_tool_console_curses ...................   Passed   47.81 sec
+        Start  55: test_curses_workbench_sizes
+122/122 Test  #55: test_curses_workbench_sizes ................***Failed   80.52 sec
+Traceback (most recent call last):
+  File "/Users/adrian/CLionProjects/THE/tests/test_curses_workbench_sizes.py", line 407, in <module>
+    wait(lambda: console_focused() and 'DRAFT' in screen.display[-1],
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+         'Escape leaves unsent input available')
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/adrian/CLionProjects/THE/tests/test_curses_workbench_sizes.py", line 110, in wait
+    raise AssertionError(f'{cols}x{rows}: {label}; cursor '
+    ...<2 lines>...
+                                   in enumerate(screen.display)))
+AssertionError: 117x30: Escape leaves unsent input available; cursor 8,27
+00  MENU (F10) |  Console |  Tools & Profiles |                                                                         
+01 /private/var/folders/nr/7ckzqpl91k<>kbench sizes uv4vlnpq/program.rexx Line=0      Col=1    Size=86    Alt=0,0       
+02         |...+....1....+....2....+....3....+....4....+....5....+....6....+....7.]..+....8....+....9....+...10....+....
+03 0000000 *** Top of File ***                                                                                          
+04 0000001 do i = 1 to 40                                                                                               
+05 0000002   say 'LINE' i                                                                                               
+06 0000003 end                                                                                                          
+07 0000004 pull answer                                                                                                  
+08 0000005 say 'ECHO' answer                                                                                            
+09 0000006 /* DOC-LINE 001 Ω */                                                                                         
+10 0000007 /* DOC-LINE 002 Ω */                                                                                         
+11 0000008 /* DOC-LINE 003 Ω */                                                                                         
+12 0000009 /* DOC-LINE 004 Ω */                                                                                         
+13 0000010 /* DOC-LINE 005 Ω */                                                                                         
+14 0000011 /* DOC-LINE 006 Ω */                                                                                         
+15 0000012 /* DOC-LINE 007 Ω */                                                                                         
+16 0000013 /* DOC-LINE 008 Ω */                                                                                         
+17 0000014 /* DOC-LINE 009 Ω */                                                                                         
+18 0000015 /* DOC-LINE 010 Ω */                                                                                         
+19 0000016 /* DOC-LINE 011 Ω */                                                                                         
+20 0000017 /* DOC-LINE 012 Ω */                                                                                         
+21 0000018 /* DOC-LINE 013 Ω */                                                                                         
+22 0000019 /* DOC-LINE 014 Ω */                                                                                         
+23 0000020 /* DOC-LINE 015 Ω */                                                                                         
+24 0000021 /* DOC-LINE 016 Ω */                                                                                         
+25 0000022 /* DOC-LINE 017 Ω */                                                                                         
+26                                                                                                                      
+27 ======>                                                                                                              
+28         F10 Menu  F6 Cmd/File  Esc Cmd  F1 Help  Ctrl-S Save  Shift-Tab Controls                                     
+29 CRXTHE                                                                            2:15pm  [ ] U+0             CR INS 
+
+
+98% tests passed, 2 tests failed out of 122
+
+Total Test time (real) = 482.27 sec
+
+The following tests FAILED:
+	 55 - test_curses_workbench_sizes (Failed)
+	 75 - test_llmdriver (Failed)
+Errors while running CTest

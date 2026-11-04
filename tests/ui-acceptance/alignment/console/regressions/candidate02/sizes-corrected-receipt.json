@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "test": "test_curses_workbench_sizes",
+  "result": "Pass",
+  "seconds": 93.77,
+  "ctest_exit": 0,
+  "samples": [
+    "117x30",
+    "80x24"
+  ],
+  "diagnosis": "Fixture-only obsolete focus-only Console clicks at the former lines406 and419. The accepted visible active-target launcher correctly hid Program instead of refocusing it.",
+  "correction": "Each step now asserts hide to the existing editor command/file focus, then activates the launcher again and checks retained DRAFT, exact Program input caret and Running state. Existing later LOG/DOCUMENT/FORM, source-byte and stdin assertions are retained and passed.",
+  "command": "PYTHONPATH=/Users/adrian/CLionProjects/THE/build/recovery-test-python/lib/python3.14/site-packages ctest --test-dir build/gtk-focus-review -R \"^test_curses_workbench_sizes$\" --output-on-failure",
+  "fixture_sha256": "d22ec4e66d5b57bcdf2c73115815f96cec497832831a895613c0b70761de6368",
+  "unchanged_production_sha256": {
+    "build/gtk-focus-review/the": "b2e9ce309428dc2b5666f40ea298bbd49e9c2dce7acba3cd2f70917c75fdf76d",
+    "build/gtk-focus-review/the_driver_curses.so": "fa2adfb71b724e1b93b23d0824f66797a7b8213a7c45f3d14d2838a86dfe1a58",
+    "src/drivers/curses/cursesdriver.c": "4a04d100ed1699b0142eefcb7a612a4ca936099f69119e20175512678ed86e9c"
+  },
+  "log_sha256": "3cdfafec16a9b447cc4b071e3dfad4bf81671026b3ea7dc8207b6c20041ef6cb",
+  "boundary": "Only the failed sizes test was rerun. No product edits, builds/configuration changes or full-cohort rerun. Combined native qualification and the separately handled LLM test remain coordinator-owned."
+}

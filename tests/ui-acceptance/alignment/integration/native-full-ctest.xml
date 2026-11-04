@@ -1,0 +1,669 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="(empty)"
+	tests="122"
+	failures="2"
+	disabled="0"
+	skipped="0"
+	hostname=""
+	time="482"
+	timestamp="2026-11-04T14:08:00"
+	>
+	<testcase name="test_pending_runtime" classname="test_pending_runtime" time="9.76318" status="run">
+		<properties/>
+		<system-out>Pending runtime checks passed (CREXX)
+</system-out>
+	</testcase>
+	<testcase name="test_pending_regina" classname="test_pending_regina" time="0.318648" status="run">
+		<properties/>
+		<system-out>Pending runtime checks passed (REGINA)
+</system-out>
+	</testcase>
+	<testcase name="test_sign_windows_release" classname="test_sign_windows_release" time="0.0995405" status="run">
+		<properties/>
+		<system-out>...............
+----------------------------------------------------------------------
+Ran 15 tests in 0.011s
+
+OK
+</system-out>
+	</testcase>
+	<testcase name="test_sign_macos_release" classname="test_sign_macos_release" time="2.58482" status="run">
+		<properties/>
+		<system-out>..........
+----------------------------------------------------------------------
+Ran 10 tests in 2.477s
+
+OK
+</system-out>
+	</testcase>
+	<testcase name="test_release_source" classname="test_release_source" time="0.250087" status="run">
+		<properties/>
+		<system-out>Release source gate accepts main and rejects unmerged tag commits
+</system-out>
+	</testcase>
+	<testcase name="test_gui_settings_runtime" classname="test_gui_settings_runtime" time="0.0428663" status="run">
+		<properties/>
+		<system-out>GUI settings reflect core values; custom shortcuts retain authority; cursor, dirty state and bytes preserved
+</system-out>
+	</testcase>
+	<testcase name="test_llm_stack_budget" classname="test_llm_stack_budget" time="0.0635092" status="run">
+		<properties/>
+		<system-out>Snapshots, delta, cursor, editing and save pass with a 4 MiB native stack
+</system-out>
+	</testcase>
+	<testcase name="test_default_profile_CREXX" classname="test_default_profile_CREXX" time="24.0349" status="run">
+		<properties/>
+		<system-out>Matched cREXX/Regina defaults verified
+CREXX: first-launch ruler, colors/profile, quiet optional parsers, insert/Enter, save, find/open/line prompts, prefix and empty-file editing passed
+</system-out>
+	</testcase>
+	<testcase name="test_workbench_runtime_CREXX" classname="test_workbench_runtime_CREXX" time="19.6932" status="run">
+		<properties/>
+		<system-out>Workbench real-editor declarations, transactions, invocation, rollback and CREXX EXTRACT passed
+</system-out>
+	</testcase>
+	<testcase name="test_workbench_document_runtime_CREXX" classname="test_workbench_document_runtime_CREXX" time="2.69594" status="run">
+		<properties/>
+		<system-out>workbench DOCUMENT real-editor checks passed: CREXX
+</system-out>
+	</testcase>
+	<testcase name="test_workbench_filefields_runtime_CREXX" classname="test_workbench_filefields_runtime_CREXX" time="6.39934" status="run">
+		<properties/>
+		<system-out>workbench file-field runtime tests passed
+</system-out>
+	</testcase>
+	<testcase name="test_workbench_form_runtime_CREXX" classname="test_workbench_form_runtime_CREXX" time="3.68586" status="run">
+		<properties/>
+		<system-out>workbench FORM real-editor checks passed: CREXX
+</system-out>
+	</testcase>
+	<testcase name="test_editgroup_runtime_CREXX" classname="test_editgroup_runtime_CREXX" time="5.29981" status="run">
+		<properties/>
+		<system-out>atomic edit group real-editor checks passed: CREXX
+</system-out>
+	</testcase>
+	<testcase name="test_editorclipboard_runtime_CREXX" classname="test_editorclipboard_runtime_CREXX" time="3.07261" status="run">
+		<properties/>
+		<system-out>clipboard owner runtime passed (CREXX)
+</system-out>
+	</testcase>
+	<testcase name="test_workbench_boundaries_CREXX" classname="test_workbench_boundaries_CREXX" time="2.77368" status="run">
+		<properties/>
+		<system-out>Workbench shared typed-action LINEND, macro bounds and invocation admission passed with CREXX
+</system-out>
+	</testcase>
+	<testcase name="test_delete_persistence_CREXX" classname="test_delete_persistence_CREXX" time="24.9217" status="run">
+		<properties/>
+		<system-out>CREXX: deletion, dirty state, cursor, save and reopened bytes passed
+</system-out>
+	</testcase>
+	<testcase name="test_default_profile_REGINA" classname="test_default_profile_REGINA" time="1.32472" status="run">
+		<properties/>
+		<system-out>Matched cREXX/Regina defaults verified
+REGINA: first-launch ruler, colors/profile, quiet optional parsers, insert/Enter, save, find/open/line prompts, prefix and empty-file editing passed
+</system-out>
+	</testcase>
+	<testcase name="test_workbench_runtime_REGINA" classname="test_workbench_runtime_REGINA" time="2.32398" status="run">
+		<properties/>
+		<system-out>Workbench real-editor declarations, transactions, invocation, rollback and REGINA EXTRACT passed
+</system-out>
+	</testcase>
+	<testcase name="test_workbench_document_runtime_REGINA" classname="test_workbench_document_runtime_REGINA" time="0.0486323" status="run">
+		<properties/>
+		<system-out>workbench DOCUMENT real-editor checks passed: REGINA
+</system-out>
+	</testcase>
+	<testcase name="test_workbench_filefields_runtime_REGINA" classname="test_workbench_filefields_runtime_REGINA" time="0.148723" status="run">
+		<properties/>
+		<system-out>workbench file-field runtime tests passed
+</system-out>
+	</testcase>
+	<testcase name="test_workbench_form_runtime_REGINA" classname="test_workbench_form_runtime_REGINA" time="0.0656318" status="run">
+		<properties/>
+		<system-out>workbench FORM real-editor checks passed: REGINA
+</system-out>
+	</testcase>
+	<testcase name="test_editgroup_runtime_REGINA" classname="test_editgroup_runtime_REGINA" time="0.274817" status="run">
+		<properties/>
+		<system-out>atomic edit group real-editor checks passed: REGINA
+</system-out>
+	</testcase>
+	<testcase name="test_editorclipboard_runtime_REGINA" classname="test_editorclipboard_runtime_REGINA" time="1.33471" status="run">
+		<properties/>
+		<system-out>clipboard owner runtime passed (REGINA)
+</system-out>
+	</testcase>
+	<testcase name="test_workbench_boundaries_REGINA" classname="test_workbench_boundaries_REGINA" time="0.199544" status="run">
+		<properties/>
+		<system-out>Workbench shared typed-action LINEND, macro bounds and invocation admission passed with REGINA
+</system-out>
+	</testcase>
+	<testcase name="test_delete_persistence_REGINA" classname="test_delete_persistence_REGINA" time="2.46571" status="run">
+		<properties/>
+		<system-out>REGINA: deletion, dirty state, cursor, save and reopened bytes passed
+</system-out>
+	</testcase>
+	<testcase name="test_editgroup_curses" classname="test_editgroup_curses" time="3.79143" status="run">
+		<properties/>
+		<system-out>physical edit group token/typing/Enter CUA/Backspace/bound SAVE passed
+</system-out>
+	</testcase>
+	<testcase name="test_default_profile_curses" classname="test_default_profile_curses" time="2.62625" status="run">
+		<properties/>
+		<system-out>CREXX and Regina default profiles: real terminal Delete/Backspace, insert, Ctrl-S save, End/Enter, command focus and save/exit passed
+</system-out>
+	</testcase>
+	<testcase name="test_workbench_curses" classname="test_workbench_curses" time="89.5619" status="run">
+		<properties/>
+		<system-out>Both engines: Shift-Tab launchers, truthful key guide, draft/caret preservation, Menu, response rows and compact resize passed
+</system-out>
+	</testcase>
+	<testcase name="test_workbench_filefields_curses" classname="test_workbench_filefields_curses" time="24.5455" status="run">
+		<properties/>
+		<system-out>CREXX and Regina: fixed-cell Unicode, retained focus/caret, Apply/Cancel/Reload, narrow controls and saved bytes passed
+</system-out>
+	</testcase>
+	<testcase name="test_curses_repaint" classname="test_curses_repaint" time="6.9761" status="run">
+		<properties/>
+		<system-out>Native tab markers, slow cursor repaint, UTF status codes and full status backgrounds passed
+</system-out>
+	</testcase>
+	<testcase name="test_curses_presentation_CREXX" classname="test_curses_presentation_CREXX" time="28.9598" status="run">
+		<properties/>
+		<system-out>CREXX: native form isolation, declared colours, Tab/Shift-Tab, restoration and five syntax colours passed
+</system-out>
+	</testcase>
+	<testcase name="test_curses_presentation_REGINA" classname="test_curses_presentation_REGINA" time="2.83489" status="run">
+		<properties/>
+		<system-out>REGINA: native form isolation, declared colours, Tab/Shift-Tab, restoration and five syntax colours passed
+</system-out>
+	</testcase>
+	<testcase name="test_panel_curses" classname="test_panel_curses" time="4.14973" status="run">
+		<properties/>
+		<system-out>Regina and Level G curses panels: field typing, Tab, submit and restored file editing passed
+</system-out>
+	</testcase>
+	<testcase name="test_panels" classname="test_panels" time="28.5802" status="run">
+		<properties/>
+		<system-out>REGINA: panel fields, key stack, ALL/NOCHANGE, cancel, Unicode, protection and full forms passed
+CREXX: panel fields, key stack, ALL/NOCHANGE, cancel, Unicode, protection and full forms passed
+</system-out>
+	</testcase>
+	<testcase name="test_trunc" classname="test_trunc" time="0.154551" status="run">
+		<properties/>
+		<system-out>TRUNC query, preserve/restore, editing and UTF-8 limits passed
+</system-out>
+	</testcase>
+	<testcase name="test_xedit_controls" classname="test_xedit_controls" time="0.172781" status="run">
+		<properties/>
+		<system-out>Shared MASK/FLSCREEN/cursor controls passed
+</system-out>
+	</testcase>
+	<testcase name="test_macro_runtime" classname="test_macro_runtime" time="0.117684" status="run">
+		<properties/>
+		<system-out>Dual-engine runtime loader checks passed
+</system-out>
+	</testcase>
+	<testcase name="test_curses_boundary" classname="test_curses_boundary" time="0.0922426" status="run">
+		<properties/>
+		<system-out>curses boundary check passed for logical modules, raw input vtable, raw window/cell residue, execute.c wrappers, and SOS cursor surface
+</system-out>
+	</testcase>
+	<testcase name="test_curses_boundary_inventory" classname="test_curses_boundary_inventory" time="2.96191" status="run">
+		<properties/>
+		<system-out>direct curses inventory ratchet passed
+</system-out>
+	</testcase>
+	<testcase name="test_textpos" classname="test_textpos" time="0.00717779" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="test_logcursor" classname="test_logcursor" time="0.00769058" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="test_inputevent" classname="test_inputevent" time="0.232257" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="test_gtk_input" classname="test_gtk_input" time="0.014971" status="run">
+		<properties/>
+		<system-out>GTK physical keys and UTF-8/CRLF input passed
+</system-out>
+	</testcase>
+	<testcase name="test_gtk_runtime" classname="test_gtk_runtime" time="9.39763" status="run">
+		<properties/>
+		<system-out>RXBIN_IMPORT_READ_ERROR: Invalid.profile.rxbin (code -1): RXBIN 007 file has a truncated header
+RXBIN_IMPORT_READ_ERROR: Invalid.profile.rxbin (code -1): RXBIN 007 file has a truncated header
+RXBIN_IMPORT_READ_ERROR: Invalid.profile.rxbin (code -1): RXBIN 007 file has a truncated header
+
+GTK_APPLICATION_NATIVE_MENUS_SAFE_QUEUED_ACTIONS_PASS
+GTK_SHARED_MENU_UTF8_LABEL_REVISION_ID_GENERATION_PASS
+GTK_WORKBENCH_SHIFT_TAB_ESC_CARET_DRAFT_TAB_PASS
+GTK_PROFILE_GUIDE_VISIBLE_WIDE_AND_NARROW_PASS
+GTK_DEFAULT_PALETTE_STATUS_RESERVED_TYPE_BACKSPACE_UNDO_SAVE_PASS
+GTK_NATIVE_FIELD_READER_UNDO_NEVER_REDIRECTS_TO_EDITOR_PASS
+GTK_SETTINGS_FONT_METRICS_PERSIST_RESTORE_SESSION_FAILURE_SETUP_ABOUT_PASS
+GTK_PERSISTENT_PANES_TOGGLE_NO_SIBLING_FILES_DRAFT_CARET_HISTORY_PASS
+GTK_CLIPBOARD_UNICODE_MULTILINE_COPY_CUT_COMPLETE_UNDO_BYTES_CURSOR_DIRTY_SAVE_PASS
+GTK_SHORT_EDITOR_GRID_FOOTER_EXPANDED_PANE_RETURN_PASS
+GTK_FILETABS_NATIVE_PROJECTION_PROFILE_OFF_STATUS_TOP_CURSOR_BYTES_PASS
+GTK_DECLARED_ASSOCIATION_GROUPS_ROLES_SECONDARY_...
+[This part of the test output was removed since it exceeds the threshold of 1024 bytes.]
+</system-out>
+	</testcase>
+	<testcase name="test_editgroup" classname="test_editgroup" time="0.559541" status="run">
+		<properties/>
+		<system-out>edit groups: atomic allocation/commit/undo, pending rec, metadata, checkpoint and bounds passed
+</system-out>
+	</testcase>
+	<testcase name="test_workbenchlog" classname="test_workbenchlog" time="0.0107105" status="run">
+		<properties/>
+		<system-out>Named workbench logs: UTF-8, stream/job/sequence, paging, generations and retention passed
+</system-out>
+	</testcase>
+	<testcase name="test_workbench" classname="test_workbench" time="0.503937" status="run">
+		<properties/>
+		<system-out>workbench registry tests passed
+</system-out>
+	</testcase>
+	<testcase name="test_workbenchdocument" classname="test_workbenchdocument" time="0.248574" status="run">
+		<properties/>
+		<system-out>workbench document tests passed
+</system-out>
+	</testcase>
+	<testcase name="test_workbenchform" classname="test_workbenchform" time="0.260526" status="run">
+		<properties/>
+		<system-out>workbench form tests passed
+</system-out>
+	</testcase>
+	<testcase name="test_workbenchfilefields" classname="test_workbenchfilefields" time="0.270801" status="run">
+		<properties/>
+		<system-out>workbench file-field core tests passed
+</system-out>
+	</testcase>
+	<testcase name="test_frontendaction" classname="test_frontendaction" time="0.799241" status="run">
+		<properties/>
+		<system-out>frontend action tests passed
+</system-out>
+	</testcase>
+	<testcase name="test_native_tools" classname="test_native_tools" time="8.64766" status="run">
+		<properties/>
+		<system-out>Native tool jobs, source-file snapshots/argv/stdin, input, status, Stop, conditions and profile activation/restore passed
+</system-out>
+	</testcase>
+	<testcase name="test_workbench_fileio_runtime" classname="test_workbench_fileio_runtime" time="1.91986" status="run">
+		<properties/>
+		<system-out>Native FILE input, exact binary CREATE, finite EOF and editor protection passed
+</system-out>
+	</testcase>
+	<testcase name="test_tool_console_curses" classname="test_tool_console_curses" time="47.8064" status="run">
+		<properties/>
+		<system-out>Themed terminal console, cell wrapping/tailing, divider, controls, Unicode stdin and resize passed
+</system-out>
+	</testcase>
+	<testcase name="test_curses_workbench_sizes" classname="test_curses_workbench_sizes" time="80.5193" status="fail">
+		<failure message="Failed"/>
+		<properties/>
+		<system-out>Traceback (most recent call last):
+  File "/Users/adrian/CLionProjects/THE/tests/test_curses_workbench_sizes.py", line 407, in &lt;module&gt;
+    wait(lambda: console_focused() and 'DRAFT' in screen.display[-1],
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+         'Escape leaves unsent input available')
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/adrian/CLionProjects/THE/tests/test_curses_workbench_sizes.py", line 110, in wait
+    raise AssertionError(f'{cols}x{rows}: {label}; cursor '
+    ...&lt;2 lines&gt;...
+                                   in enumerate(screen.display)))
+AssertionError: 117x30: Escape leaves unsent input available; cursor 8,27
+00  MENU (F10) |  Console |  Tools &amp; Profiles |                                                                         
+01 /private/var/folders/nr/7ckzqpl91k&lt;&gt;kbench sizes uv4vlnpq/program.rexx Line=0      Col=1    Size=86    Alt=0,0       
+02         |...+....1....+....2....+....3....+....4....+....5....+....6....+....7.]..+....8....+....9....+...10....+....
+03 0000000 *** Top of File ***                                                                                          
+04 0000001 do i = 1 to 40                                                                                               
+05 0000002   say 'LINE' i                                                                                               
+06 0000003 end                                                                                                          
+07 0000004 pull answer                                                                                                  
+08 0000005 say 'ECHO' answer                                                                                            
+09 0000006 /* DOC-LINE 001 Ω */                                                                                         
+10 0000007 /* DOC-LINE 002 Ω */                                                                                         
+11 0000008 /* DOC-LINE 003 Ω */                                                                                         
+12 0000009 /* DOC-LINE 004 Ω */                                                                                         
+13 0000010 /* DOC-LINE 005 Ω */                                                                                         
+14 0000011 /* DOC-LINE 006 Ω */                                                                                         
+15 0000012 /* DOC-LINE 007 Ω */                                                                                         
+16 0000013 /* DOC-LINE 008 Ω */                                                                                         
+17 0000014 /* DOC-LINE 009 Ω */                                                                                         
+18 0000015 /* DOC-LINE 010 Ω */                                                                                         
+19 0000016 /* DOC-LINE 011 Ω */                                                                                         
+20 0000017 /* DOC-LINE 012 Ω */                                                                                         
+21 0000018 /* DOC-LINE 013 Ω */                                                                                         
+22 0000019 /* DOC-LINE 014 Ω */                                                                                         
+23 0000020 /* DOC-LINE 015 Ω */                                                                                         
+24 0000021 /* DOC-LINE 016 Ω */                                                                                         
+25 0000022 /* DOC-LINE 017 Ω */                                                                                         
+26                                                                                                                      
+27 ======&gt;                                                                                                              
+28         F10 Menu  F6 Cmd/File  Esc Cmd  F1 Help  Ctrl-S Save  Shift-Tab Controls                                     
+29 CRXTHE                                                                            2:15pm  [ ] U+0             CR INS 
+</system-out>
+	</testcase>
+	<testcase name="test_curses_alignment" classname="test_curses_alignment" time="79.9063" status="run">
+		<properties/>
+		<system-out>140x40: Text, compiled Build/Run, profile Build/Apply/Edit, separate lanes, keyboard/mouse target toggles, Unicode PULL draft/caret and unchanged fixture bytes passed
+80x24: Text, compiled Build/Run, profile Build/Apply/Edit, separate lanes, keyboard/mouse target toggles, Unicode PULL draft/caret and unchanged fixture bytes passed
+</system-out>
+	</testcase>
+	<testcase name="test_curses_reader_colors" classname="test_curses_reader_colors" time="86.5509" status="run">
+		<properties/>
+		<system-out>CREXX: eight named fg/bg colours, two Unicode bands, Console roles and basic palette write/RGB isolation passed
+REGINA: eight named fg/bg colours, two Unicode bands, Console roles and basic palette write/RGB isolation passed
+32x20: six-row reader preserves completion/status0 and closed input beside unread/End cue
+140x40: live PULL completion unread cue/retained viewport, End recovery, independent Build reader, new-job/Clear resets and fixture bytes passed
+80x24: live PULL completion unread cue/retained viewport, End recovery, independent Build reader, new-job/Clear resets and fixture bytes passed
+</system-out>
+	</testcase>
+	<testcase name="test_toolhost" classname="test_toolhost" time="0.00462025" status="run">
+		<properties/>
+		<system-out>tool host contracts pass
+</system-out>
+	</testcase>
+	<testcase name="test_workbench_native_tools_runtime" classname="test_workbench_native_tools_runtime" time="4.78758" status="run">
+		<properties/>
+		<system-out>Actual ooRexx executable not configured; dependency qualification omitted
+Native workbench tools: ownership, candidates, argv, routes, source and failures passed
+</system-out>
+	</testcase>
+	<testcase name="test_file_snapshot" classname="test_file_snapshot" time="0.763297" status="run">
+		<properties/>
+		<system-out>Typed actions/source/generation match JSON; owner completion advances once; cursor, dirty state and bytes retained
+</system-out>
+	</testcase>
+	<testcase name="test_native_tool_queue" classname="test_native_tool_queue" time="0.293238" status="run">
+		<properties/>
+		<system-out>NATIVE_TOOL_QUEUED_SWITCH_AND_CLOSED_SOURCE_REFUSED_BEFORE_CAPTURE_PASS
+</system-out>
+	</testcase>
+	<testcase name="test_workbench_native_tools_curses" classname="test_workbench_native_tools_curses" time="14.2139" status="run">
+		<properties/>
+		<system-out>Native PTY menu invoked TOOL action through safe source capture without saving
+</system-out>
+	</testcase>
+	<testcase name="test_workbenchfileio" classname="test_workbenchfileio" time="0.0126507" status="run">
+		<properties/>
+		<system-out>Exact-byte FILE stdin, atomic CREATE and failure preservation pass
+</system-out>
+	</testcase>
+	<testcase name="test_native_process" classname="test_native_process" time="0.459303" status="run">
+		<properties/>
+		<system-out>Actual ooRexx not configured; dependency qualification omitted
+Native process component: argv, bytes/EOF, status, signal, Stop, cleanup and refusals passed
+</system-out>
+	</testcase>
+	<testcase name="test_keycodes" classname="test_keycodes" time="0.0037115" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="test_render_attrs" classname="test_render_attrs" time="0.00838558" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="test_curses_keymap" classname="test_curses_keymap" time="0.00624925" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="test_transientui" classname="test_transientui" time="0.00670321" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="test_mousehit" classname="test_mousehit" time="0.217335" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="test_uidriver" classname="test_uidriver" time="0.247674" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="test_headlessdriver" classname="test_headlessdriver" time="0.345959" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="test_headlessdriver_no_curses" classname="test_headlessdriver_no_curses" time="0.075796" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="test_headlessdriver_curses_default" classname="test_headlessdriver_curses_default" time="0.266892" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="test_screenframe" classname="test_screenframe" time="0.266002" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="test_llmdriver" classname="test_llmdriver" time="0.240677" status="fail">
+		<failure message="Failed"/>
+		<properties/>
+		<system-out>message.compact.no.status: got 0 want 1
+footer.delta.remove.name: got 0 want 1
+LLM driver tests failed: 2
+</system-out>
+	</testcase>
+	<testcase name="test_llm_message_snapshot" classname="test_llm_message_snapshot" time="0.0382411" status="run">
+		<properties/>
+		<system-out>LLM snapshot message serial and text follow editor messages
+</system-out>
+	</testcase>
+	<testcase name="test_llm_status_line" classname="test_llm_status_line" time="0.0561426" status="run">
+		<properties/>
+		<system-out>LLM status line follows profile visibility, formatting and Unicode previews
+</system-out>
+	</testcase>
+	<testcase name="test_named_footer" classname="test_named_footer" time="0.113207" status="run">
+		<properties/>
+		<system-out>Named reserved footers: legacy and explicit band geometry, colour, OFF, replacement, inheritance, panel round trips and saved bytes passed
+</system-out>
+	</testcase>
+	<testcase name="test_virtual_screen" classname="test_virtual_screen" time="0.240199" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="test_the_llm_full_runtime" classname="test_the_llm_full_runtime" time="1.16096" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="test_llm_forms_protocol" classname="test_llm_forms_protocol" time="0.082703" status="run">
+		<properties/>
+		<system-out>typed LLM forms: SET/Submit/Cancel, Unicode, protection, bounds, stale tokens and editor preservation passed
+</system-out>
+	</testcase>
+	<testcase name="test_explicit_commands_default" classname="test_explicit_commands_default" time="1.28984" status="run">
+		<properties/>
+		<system-out>Explicit OS/!, MACRO and registered synonym defaults and legacy opt-ins passed
+</system-out>
+	</testcase>
+	<testcase name="test_synonym" classname="test_synonym" time="4.67895" status="run">
+		<properties/>
+		<system-out>CREXX: synonym resolution, removal, chains, query, RC and saved/reopened edits passed
+</system-out>
+	</testcase>
+	<testcase name="test_synonym_regina" classname="test_synonym_regina" time="0.103204" status="run">
+		<properties/>
+		<system-out>REGINA: synonym resolution, removal, chains, query, RC and saved/reopened edits passed
+</system-out>
+	</testcase>
+	<testcase name="test_frontend_prefix_runtime" classname="test_frontend_prefix_runtime" time="0.0750192" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="test_rgb_colour_logical" classname="test_rgb_colour_logical" time="0.0583247" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="test_the_llm_parser_diagnostics" classname="test_the_llm_parser_diagnostics" time="2.55533" status="run">
+		<properties/>
+		<system-out>Parser presentation passed: real errors, Unicode, cursor leave, file switch, repair and unchanged saved bytes
+</system-out>
+	</testcase>
+	<testcase name="test_the_llm_profile_crexx" classname="test_the_llm_profile_crexx" time="3.91392" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="test_driver_modules" classname="test_driver_modules" time="2.29345" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="test_llmruntime" classname="test_llmruntime" time="0.00569508" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="test_utf_fixture" classname="test_utf_fixture" time="0.154506" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="test_utfcluster" classname="test_utfcluster" time="0.00815387" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="test_textedit" classname="test_textedit" time="0.00910104" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="test_utfinput" classname="test_utfinput" time="0.0105547" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="test_utfterm" classname="test_utfterm" time="0.0172825" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="test_utflayout" classname="test_utflayout" time="0.0113532" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="test_utfrepair" classname="test_utfrepair" time="0.00930537" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="test_system_profile" classname="test_system_profile" time="0.204578" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="test_sdslh_integration" classname="test_sdslh_integration" time="0.140623" status="run">
+		<properties/>
+		<system-out>Integration Test Passed: Handshake, diagnostics extract, initial load, and delayed delta parse successful.
+</system-out>
+	</testcase>
+	<testcase name="test_sdslh_multifile_lifecycle" classname="test_sdslh_multifile_lifecycle" time="0.150957" status="run">
+		<properties/>
+		<system-out>SDSLH multifile lifecycle test passed.
+</system-out>
+	</testcase>
+	<testcase name="test_stylespans_extract" classname="test_stylespans_extract" time="1.02777" status="run">
+		<properties/>
+		<system-out>STYLESPANS extract test passed.
+</system-out>
+	</testcase>
+	<testcase name="test_file_ecolor_inheritance" classname="test_file_ecolor_inheritance" time="0.0718478" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="test_message_history" classname="test_message_history" time="0.0781004" status="run">
+		<properties/>
+		<system-out>Message history extract test passed.
+</system-out>
+	</testcase>
+	<testcase name="test_batch_md_rexx_format" classname="test_batch_md_rexx_format" time="7.06433" status="run">
+		<properties/>
+		<system-out>Batch Markdown REXX format test passed.
+</system-out>
+	</testcase>
+	<testcase name="test_batch_md_rexx_scan" classname="test_batch_md_rexx_scan" time="1.13133" status="run">
+		<properties/>
+		<system-out>Batch Markdown REXX scanner test passed.
+</system-out>
+	</testcase>
+	<testcase name="test_batch_md_rexx_render_html" classname="test_batch_md_rexx_render_html" time="4.18476" status="run">
+		<properties/>
+		<system-out>Batch Markdown REXX HTML render test passed.
+</system-out>
+	</testcase>
+	<testcase name="test_batch_md_rexx_execute" classname="test_batch_md_rexx_execute" time="15.7203" status="run">
+		<properties/>
+		<system-out>Batch Markdown REXX execute test passed.
+</system-out>
+	</testcase>
+	<testcase name="test_batch_md_rexx_validate" classname="test_batch_md_rexx_validate" time="7.04894" status="run">
+		<properties/>
+		<system-out>Batch Markdown REXX validate test passed.
+</system-out>
+	</testcase>
+	<testcase name="test_batch_md_rexx_output_render" classname="test_batch_md_rexx_output_render" time="11.013" status="run">
+		<properties/>
+		<system-out>Batch Markdown REXX output render test passed.
+</system-out>
+	</testcase>
+	<testcase name="test_batch_md_rexx_runner" classname="test_batch_md_rexx_runner" time="6.44905" status="run">
+		<properties/>
+		<system-out>Batch Markdown REXX runner test passed.
+</system-out>
+	</testcase>
+	<testcase name="test_batch_md_rexx_tex" classname="test_batch_md_rexx_tex" time="10.2631" status="run">
+		<properties/>
+		<system-out>Batch Markdown REXX TeX/PDF test passed.
+</system-out>
+	</testcase>
+	<testcase name="test_batch_md_rexx_highlight" classname="test_batch_md_rexx_highlight" time="2.22907" status="run">
+		<properties/>
+		<system-out>Batch Markdown REXX highlight prototype test passed.
+</system-out>
+	</testcase>
+	<testcase name="test_batch_md_rexx_highlight_source" classname="test_batch_md_rexx_highlight_source" time="8.37473" status="run">
+		<properties/>
+		<system-out>Batch Markdown source fragment highlight test passed.
+</system-out>
+	</testcase>
+	<testcase name="test_field_queries" classname="test_field_queries" time="4.24875" status="run">
+		<properties/>
+		<system-out>Field query test passed (ascii).
+</system-out>
+	</testcase>
+	<testcase name="test_field_queries_utf" classname="test_field_queries_utf" time="1.01019" status="run">
+		<properties/>
+		<system-out>Field query test passed (--utf).
+</system-out>
+	</testcase>
+	<testcase name="test_normal_area_queries" classname="test_normal_area_queries" time="0.169882" status="run">
+		<properties/>
+		<system-out>Normal area query test passed.
+</system-out>
+	</testcase>
+	<testcase name="test_curses_text_entry" classname="test_curses_text_entry" time="1.16491" status="run">
+		<properties/>
+		<system-out>Curses text entry test passed.
+</system-out>
+	</testcase>
+	<testcase name="test_sos_navigation_queries" classname="test_sos_navigation_queries" time="0.298011" status="run">
+		<properties/>
+		<system-out>SOS navigation query test passed.
+</system-out>
+	</testcase>
+	<testcase name="test_sos_logical_edit_queries" classname="test_sos_logical_edit_queries" time="0.223184" status="run">
+		<properties/>
+		<system-out>SOS logical edit query test passed.
+</system-out>
+	</testcase>
+	<testcase name="test_selective_change_prompt" classname="test_selective_change_prompt" time="0.406498" status="run">
+		<properties/>
+		<system-out>Selective change prompt test passed.
+</system-out>
+	</testcase>
+	<testcase name="test_crexx_profile" classname="test_crexx_profile" time="9.06851" status="run">
+		<properties/>
+		<system-out></system-out>
+	</testcase>
+	<testcase name="test_batch_profile_status" classname="test_batch_profile_status" time="0.21744" status="run">
+		<properties/>
+		<system-out>Batch profile status test passed.
+</system-out>
+	</testcase>
+</testsuite>

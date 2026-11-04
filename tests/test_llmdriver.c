@@ -157,7 +157,8 @@ static void test_message_snapshot_fields(void)
                    "\"last_message_serial\":5");
    expect_contains("message.compact.text", out,
                    "\"last_message\":\"new \\\"message\\\"\"");
-   expect_int("message.compact.no.status", strstr(out, "\"status\"") == NULL, 1);
+   expect_int("message.compact.no.status", strstr(out, "\"status\":\"") == NULL, 1);
+   expect_int("message.compact.no.status.line", strstr(out, "\"status_line\"") == NULL, 1);
 
    options.compact = 0;
    llm_driver_format_semantic_view_with_options(&current, &options,
@@ -286,7 +287,8 @@ static void test_named_footer_metadata(void)
    expect_contains("footer.delta.colour",out,"\"footer_colour\":{\"style\":1,\"foreground\":\"#800000\",\"background\":\"#C0C0C0\"}");
    llm_driver_format_delta_view(&current,&previous,&options,out,sizeof(out));
    expect_contains("footer.delta.remove.row",out,"\"t\":\"Custom guide\"");
-   expect_int("footer.delta.remove.name",strstr(out,"\"footer\"") == NULL,1);
+   expect_int("footer.delta.remove.name",strstr(out,"\"footer\":\"") == NULL,1);
+   expect_int("footer.delta.remove.text",strstr(out,"\"footer_text\"") == NULL,1);
 }
 
 static void test_reserved_view_options(void)

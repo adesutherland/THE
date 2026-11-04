@@ -1,0 +1,88 @@
+{
+  "status": "passed",
+  "qualification": "local-extracted-zip-browser",
+  "completed_utc": "2026-11-04T14:15:49.386610+00:00",
+  "source_revision": "e53508120ae43057daa92b54395d1a0c157668c3",
+  "source_dirty": false,
+  "candidate": "CRXTHE-browser-candidate.zip",
+  "candidate_sha256": "27515a9a07ff6f9ee8b784c01fda2fe81e54f14f46f5e199afde9d27f506933a",
+  "capabilities": {
+    "crexx_vm": true,
+    "source_compiler": true,
+    "external_parsers": false,
+    "classic_rexx_highlighter": true,
+    "classic_rexx_interpreter": true,
+    "common_tool_session": true,
+    "profile_source_compiler": true,
+    "minibasic_candidate": true,
+    "browser_storage": "IDBFS/IndexedDB",
+    "workspace_lock": "Web Locks",
+    "editor_address": true
+  },
+  "package": {
+    "command": [
+      "/opt/homebrew/opt/python@3.14/bin/python3.14",
+      "/Users/adrian/CLionProjects/THE/scripts/zip-wasm-site.py",
+      "/Users/adrian/CLionProjects/THE/build/wasm-review-candidate/site",
+      "/var/folders/nr/7ckzqpl91kz80mcy3316h1tr0000gn/T/crxthe-browser-candidate-45m7ccyr/CRXTHE-browser-candidate.zip"
+    ],
+    "working_directory": "/Users/adrian/CLionProjects/THE",
+    "status": "passed",
+    "returncode": 0
+  },
+  "tests": [
+    {
+      "command": [
+        "/opt/homebrew/bin/node",
+        "/Users/adrian/CLionProjects/THE/web/test/wasm-browser-smoke.mjs"
+      ],
+      "working_directory": "/Users/adrian/CLionProjects/THE",
+      "status": "passed",
+      "returncode": 0
+    },
+    {
+      "command": [
+        "/opt/homebrew/bin/node",
+        "/Users/adrian/CLionProjects/THE/web/test/wasm-paint-smoke.mjs"
+      ],
+      "working_directory": "/Users/adrian/CLionProjects/THE",
+      "status": "passed",
+      "returncode": 0
+    }
+  ],
+  "tests_scope": "Actual Wasm runtime and paint checks against the extracted candidate ZIP",
+  "production_ui_fixture": {
+    "qualification": "local-production-ui-semantic-protocol-fixture",
+    "scope": "Production UI presentation and interaction with semantic protocol fixture messages; excludes actual Wasm execution, full UI acceptance, aesthetics, and independent discoverability",
+    "backend": "native",
+    "assets": "disposable build outside candidate ZIP",
+    "build": {
+      "command": [
+        "/opt/homebrew/bin/npm",
+        "run",
+        "build",
+        "--",
+        "--outDir",
+        "/var/folders/nr/7ckzqpl91kz80mcy3316h1tr0000gn/T/crxthe-browser-candidate-45m7ccyr/production-ui",
+        "--emptyOutDir"
+      ],
+      "working_directory": "/Users/adrian/CLionProjects/THE/web",
+      "status": "passed",
+      "returncode": 0
+    },
+    "test": {
+      "command": [
+        "/opt/homebrew/bin/node",
+        "/Users/adrian/CLionProjects/THE/web/test/workbench-smoke.mjs"
+      ],
+      "working_directory": "/Users/adrian/CLionProjects/THE",
+      "status": "passed",
+      "returncode": 0
+    }
+  },
+  "test_environment": {
+    "THE_WEB_URL": "http://127.0.0.1:59630/",
+    "CHROMIUM_BIN": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "THE_WASM_FIXTURE_BUILD": "/Users/adrian/CLionProjects/THE/build/wasm-review-candidate"
+  }
+}

@@ -1,0 +1,87 @@
+$ (cd /Users/adrian/CLionProjects/THE && /opt/homebrew/opt/python@3.14/bin/python3.14 /Users/adrian/CLionProjects/THE/scripts/zip-wasm-site.py /Users/adrian/CLionProjects/THE/build/wasm-review-candidate/site /var/folders/nr/7ckzqpl91kz80mcy3316h1tr0000gn/T/crxthe-browser-candidate-45m7ccyr/CRXTHE-browser-candidate.zip)
+/private/var/folders/nr/7ckzqpl91kz80mcy3316h1tr0000gn/T/crxthe-browser-candidate-45m7ccyr/CRXTHE-browser-candidate.zip (64 files; SHA-256 27515a9a07ff6f9ee8b784c01fda2fe81e54f14f46f5e199afde9d27f506933a)
+$ (cd /Users/adrian/CLionProjects/THE && /opt/homebrew/bin/node /Users/adrian/CLionProjects/THE/web/test/wasm-browser-smoke.mjs)
+PASS rebuilt Wasm native TOOL/action/RUN unsupported-host refusals preserve editor
+PASS rebuilt Wasm native TOOL/action/RUN unsupported-host refusals preserve editor
+PASS browser editing: New/first input/Undo, 1300-line Unicode selection replacement in one Undo, pending copy, denied Cut, Save/reopen bytes at 820x720
+PASS rebuilt Wasm native TOOL/action/RUN unsupported-host refusals preserve editor
+PASS browser defaults: Welcome program steps, first-open Rexx/cREXX/BASIC visible syntax and exact clean source bytes
+PASS rebuilt Wasm native TOOL/action/RUN unsupported-host refusals preserve editor
+PASS public example ClassicDemo.rexx: selected-file actions, execution, output and source preservation
+PASS public example RexxRunner.rexx: selected-file actions, execution, output and source preservation
+PASS public example RexxWords.rexx: selected-file actions, execution, output and source preservation
+PASS public example RexxLedger.rexx: selected-file actions, execution, output and source preservation
+PASS public example LevelBSquares.crexx: selected-file actions, execution, output and source preservation
+PASS public example LevelGAccumulator.crexx: selected-file actions, execution, output and source preservation
+PASS public example LevelGFibonacci.crexx: selected-file actions, execution, output and source preservation
+PASS public example MiniBASIC.bas: selected-file actions, execution, output and source preservation
+PASS public example MiniBASICPrimes.bas: selected-file actions, execution, output and source preservation
+PASS public example MiniBASICStrings.bas: selected-file actions, execution, output and source preservation
+PASS Classic: visible runtime failure, Stop infinite program, and successful fresh execution after both
+PASS LevelB: visible runtime failure, Stop infinite program, and successful fresh execution after both
+PASS LevelG: visible runtime failure, Stop infinite program, and successful fresh execution after both
+PASS BASIC: visible runtime failure, Stop infinite program, and successful fresh execution after both
+PASS curated package and every bundled language example through browser Files/Build/Run
+PASS rebuilt Wasm native TOOL/action/RUN unsupported-host refusals preserve editor
+PASS browser input focus: successive THE commands, Execute, Escape/F6, two Classic PULLs, Send, explicit leave and source preservation
+PASS browser editor commands: viewport scroll, safe edits, typed SAVE durability/refusal and usable QQUIT last-file close
+PASS source navigation: compact Files Expand/select/close/toggle and Tools Edit profile, wide expanded Tools to visible Files/editor, retained setup draft/program state
+PASS browser profile sources: visible Files/editor access, editable stock copies, separate user override, exact durable Save and reload without overwrite
+PASS browser Wasm shared workbench: add, invoke, replace, stale generation, escaped label and remove
+PASS browser Level L: actual VM/DSLSH styles, Unicode, diagnostics/repair, coalesced edits, switching, restart and reopen
+PASS browser interpreter: split console, actual Classic execution/INTERPRET, Unicode stdin/output, EOF, unsaved record, Stop/restart and independent editor/highlighter
+PASS browser RXBIN: console import/run, direct and registered execution with output/status
+PASS browser source-file RXBIN: extension/explicit dispatch, pending snapshot, stable identity, stdin, argv and saved bytes
+PASS browser language registration: imported RXBIN, association and admitted current revision
+CHECK browser profile: edit/build
+CHECK browser profile: activate
+PASS browser profile activation: quota refusal reports applied but unsaved selection; retry persists it
+CHECK browser profile: rejected replacement
+CHECK browser profile: save/reload
+PASS browser profiles: fresh Wasm compiler/assembler, ADDRESS THE, console output, activation, failed-build retention and persisted restore
+PASS rebuilt Wasm native TOOL/action/RUN unsupported-host refusals preserve editor
+PASS browser Level B: selected Build/Run, unsaved revision and stale refusal, immutable rebuild, exact Save/reload, invalid build refusal and restored original source
+PASS rebuilt Wasm native TOOL/action/RUN unsupported-host refusals preserve editor
+PASS browser Level G: selected source Build/Run, isolated typed classes/routines, unsaved revision/rebuild/refusal, immutable artifacts, exact Save/reload and explicit RXBIN Run
+PASS rebuilt Wasm native TOOL/action/RUN unsupported-host refusals preserve editor
+PASS MiniBASIC file journey: stock Run/INPUT, ordinary THE macro Build/Run, named profile immutable Build/Apply/reload, legacy profile names, user runner/syntax overrides and custom Build, unsaved INPUT run, replacement restores stock Run/syntax
+PASS browser Wasm: persistence/refusal/retry, DOM editing/selection/undo, file ring, resize and tab lock
+$ (cd /Users/adrian/CLionProjects/THE && /opt/homebrew/bin/node /Users/adrian/CLionProjects/THE/web/test/wasm-paint-smoke.mjs)
+PASS Wasm paint continuity: three real key inputs, pending and async-ready pixel equality for untouched highlighted text, retained DOM selection/focus, exact caret and saved/reopened bytes; pending frames [{"parser":"pending","authoritativeStyles":0,"paintedStyles":3,"editedStyles":0,"retained":true},{"parser":"pending","authoritativeStyles":0,"paintedStyles":3,"editedStyles":0,"retained":true},{"parser":"pending","authoritativeStyles":0,"paintedStyles":3,"editedStyles":0,"retained":true}]
+$ (cd /Users/adrian/CLionProjects/THE/web && /opt/homebrew/bin/npm run build -- --outDir /var/folders/nr/7ckzqpl91kz80mcy3316h1tr0000gn/T/crxthe-browser-candidate-45m7ccyr/production-ui --emptyOutDir)
+
+> the-web-ui@0.1.0 build
+> vite build --outDir /var/folders/nr/7ckzqpl91kz80mcy3316h1tr0000gn/T/crxthe-browser-candidate-45m7ccyr/production-ui --emptyOutDir
+
+vite v6.4.3 building for production...
+transforming...
+
+new URL("../vm/runner/vm-worker.mjs", import.meta.url) doesn't exist at build time, it will remain unchanged to be resolved at runtime. If this is intended, you can use the /* @vite-ignore */ comment to suppress this warning.
+
+new URL("../wasm/crxthe_wasm.mjs", import.meta.url) doesn't exist at build time, it will remain unchanged to be resolved at runtime. If this is intended, you can use the /* @vite-ignore */ comment to suppress this warning.
+
+new URL("../manifest.json", import.meta.url) doesn't exist at build time, it will remain unchanged to be resolved at runtime. If this is intended, you can use the /* @vite-ignore */ comment to suppress this warning.
+
+new URL("../examples/ClassicDemo.rexx", import.meta.url) doesn't exist at build time, it will remain unchanged to be resolved at runtime. If this is intended, you can use the /* @vite-ignore */ comment to suppress this warning.
+
+new URL("../examples/RexxRunner.rexx", import.meta.url) doesn't exist at build time, it will remain unchanged to be resolved at runtime. If this is intended, you can use the /* @vite-ignore */ comment to suppress this warning.
+✓ 1570 modules transformed.
+rendering chunks...
+computing gzip size...
+../../../../../var/folders/nr/7ckzqpl91kz80mcy3316h1tr0000gn/T/crxthe-browser-candidate-45m7ccyr/production-ui/index.html                             0.45 kB │ gzip:  0.29 kB
+../../../../../var/folders/nr/7ckzqpl91kz80mcy3316h1tr0000gn/T/crxthe-browser-candidate-45m7ccyr/production-ui/assets/profile-compiler-BMjq-bcz.js    1.36 kB
+../../../../../var/folders/nr/7ckzqpl91kz80mcy3316h1tr0000gn/T/crxthe-browser-candidate-45m7ccyr/production-ui/assets/wasm-worker-DumPKZHS.js        11.69 kB
+../../../../../var/folders/nr/7ckzqpl91kz80mcy3316h1tr0000gn/T/crxthe-browser-candidate-45m7ccyr/production-ui/assets/index-DBNJq38p.css             39.80 kB │ gzip:  8.32 kB
+../../../../../var/folders/nr/7ckzqpl91kz80mcy3316h1tr0000gn/T/crxthe-browser-candidate-45m7ccyr/production-ui/assets/index-XYZU6adn.js             127.66 kB │ gzip: 39.39 kB │ map: 396.38 kB
+✓ built in 446ms
+$ (cd /Users/adrian/CLionProjects/THE && /opt/homebrew/bin/node /Users/adrian/CLionProjects/THE/web/test/workbench-smoke.mjs)
+PASS form coordinator: hidden/removed/replaced sibling panes and refused focus retain drafts without retry loops
+PASS clipboard coordinator: permission refusals, clipboard-before-cut, stale cut, large Unicode and atomic paste token
+PASS file-field coordinator: exact tokens, serialized Apply, IME, protected spans, stale draft retention, explicit Reload and lifetime isolation
+PASS source selection presentation: exclusive CUA, reverse endpoints, horizontal clipping, full-line metadata, clear and protected rows
+Closed-pane responsive geometry: [{"width":390,"height":844,"workspace":597.40625,"editor":597.40625,"surface":478.40625,"controls":45},{"width":800,"height":700,"workspace":482.203125,"editor":482.203125,"surface":385.203125,"controls":51}]
+PASS browser file-field pane: typed bounded rows, protected fixed cells, exact tokens, serialized Apply, IME, Cancel/Reload, stale retention and wide/narrow/phone scrolling
+PASS Guided Workbench: 320/390/768/1280/1920 layouts, explicit profile footers/status, visible Run availability, shared F10 menu/navigation/focus return, contextual Tab, panel/dialog ownership, quiet idle responses, semantic history, separate program input, retained drafts/job and scrollback
+Coarse-pointer controls: [{"name":"console","undersized":[]},{"name":"profiles","undersized":[]},{"name":"associations","undersized":[]},{"name":"files","undersized":[]},{"name":"menu","undersized":[]}]
+PASS Settings layout: fixed heading/Done footer and independent long-content scrolling at 820x500, coarse 390x844 and coarse 390x500
+PASS extracted browser candidate and production UI fixture 27515a9a07ff6f9ee8b784c01fda2fe81e54f14f46f5e199afde9d27f506933a

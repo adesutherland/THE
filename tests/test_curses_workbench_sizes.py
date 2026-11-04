@@ -404,8 +404,13 @@ with tempfile.TemporaryDirectory(prefix='THE workbench sizes ') as temporary:
             wait(lambda: screen.display[screen.cursor.y].startswith('======>'),
                  'toolbar Escape follows command shortcut')
             click_at(0, 15)
+            wait(lambda: not has('Program console |') and
+                 screen.display[screen.cursor.y].startswith('======>'),
+                 'active Console launcher hides its target and keeps editor command focus')
+            click_at(0, 15)
             wait(lambda: console_focused() and 'DRAFT' in screen.display[-1],
                  'Escape leaves unsent input available')
+            assert (screen.cursor.x, screen.cursor.y) == input_caret and has('Running'), screen.display
             send(b'\t')
             wait(lambda: screen.cursor.y == (1 if cols == 117 else rows - 7),
                  'Tab focuses Program toolbar')
@@ -416,9 +421,15 @@ with tempfile.TemporaryDirectory(prefix='THE workbench sizes ') as temporary:
             assert 'DRAFT' in screen.display[-1], screen.display
             send(b'\t')
             wait(lambda: has('EDITOR_TAB'), 'editor Tab retains profile binding')
+            file_return_caret = (screen.cursor.x, screen.cursor.y)
+            click_at(0, 15)
+            wait(lambda: not has('Program console |') and
+                 (screen.cursor.x, screen.cursor.y) == file_return_caret,
+                 'active Console launcher hides while preserving the editor file caret')
             click_at(0, 15)
             wait(lambda: console_focused() and 'DRAFT' in screen.display[-1] and
                  not screen.cursor.hidden, 'return to visible Program input caret')
+            assert (screen.cursor.x, screen.cursor.y) == input_caret and has('Running'), screen.display
             send(b'\t\x1b[F\r')
             wait(lambda: has('Log: native.logone'), 'Program toolbar selects a named pane')
             send(b'\t')

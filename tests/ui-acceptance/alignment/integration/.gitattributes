@@ -1,0 +1,3 @@
+# Preserve actual terminal cells embedded in the original failing test output.
+native-full-ctest.log -whitespace
+native-full-ctest.xml -whitespace
