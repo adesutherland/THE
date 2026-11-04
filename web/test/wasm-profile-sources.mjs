@@ -89,7 +89,9 @@ export async function profileSourcesSmoke({ send, evaluate, command, waitFor, sn
   await evaluate("new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))");
   await evaluate("[...document.querySelectorAll('.pane-switcher button')].find(node=>node.textContent==='Files').click()");
   await waitFor(() => evaluate("!!document.querySelector('.file-explorer')?.getClientRects().length"), "wide Files initially visible");
-  await evaluate("document.querySelector('.tools-toggle').click()");
+  // A wide layout can already render retained Tools beside Files. Its button
+  // now toggles the visible target, so only activate it when Tools is hidden.
+  await evaluate("(() => {const button=document.querySelector('.tools-toggle');if(button.getAttribute('aria-pressed')!=='true')button.click();})()");
   await waitFor(() => evaluate("!!document.querySelector('.tools-profiles-pane')?.getClientRects().length"), "wide Tools body");
   await evaluate("document.querySelector('.tools-heading .pane-expand').click()");
   await waitFor(() => evaluate("document.querySelector('.workspace').classList.contains('aux-expanded')"), "wide expanded Tools");
