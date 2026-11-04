@@ -8,6 +8,9 @@
 
 SCREEN_DETAILS screen[MAX_SCREENS];
 CHARTYPE current_screen = 0;
+ROWTYPE STATUSLINEx = 'B';
+short terminal_lines = 24;
+short terminal_cols = 80;
 VIEW_DETAILS *vd_current = NULL;
 VIEW_DETAILS *vd_first = NULL;
 VIEW_DETAILS *vd_last = NULL;
@@ -143,6 +146,9 @@ static void setup_screen(void)
    cmd_rec_len = strlen((char *)command);
    cmd_verify_col = 1;
    current_screen = 0;
+   STATUSLINEx = 'B';
+   terminal_lines = 24;
+   terminal_cols = 80;
    pre_rec = NULL;
    pre_rec_len = 0;
    rec = NULL;
@@ -190,6 +196,10 @@ static void test_runtime_view(void)
    expect_int("runtime.status.line.visible", view.status_line_visible, 1);
    expect_contains("runtime.status.line.text", view.status_line,
                    "profile status text");
+   expect_int("runtime.status.region.bottom.row", view.regions.status.row, 23);
+   expect_int("runtime.status.region.bottom.rows", view.regions.status.rows, 1);
+   expect_int("runtime.status.region.bottom.col", view.regions.status.col, 0);
+   expect_int("runtime.status.region.bottom.cols", view.regions.status.cols, 80);
    expect_int("runtime.message.serial", (int)view.last_message_serial, 7);
    expect_contains("runtime.message.text", view.last_message, "runtime message");
    expect_int("runtime.buffer.valid", view.buffer_valid, 1);
@@ -197,6 +207,16 @@ static void test_runtime_view(void)
                    "/tmp/sample.the");
    expect_int("runtime.buffer.dirty", view.buffer_dirty, 1);
    expect_int("runtime.buffers", (int)view.buffer_count, 1);
+
+   STATUSLINEx = 'T';
+   expect_int("runtime.status.region.top.view", llm_runtime_screen_view(0, &view), 1);
+   expect_int("runtime.status.region.top.row", view.regions.status.row, 0);
+   expect_int("runtime.status.region.top.rows", view.regions.status.rows, 1);
+   expect_int("runtime.status.region.top.cols", view.regions.status.cols, 80);
+
+   STATUSLINEx = 'O';
+   expect_int("runtime.status.region.off.view", llm_runtime_screen_view(0, &view), 1);
+   expect_int("runtime.status.region.off.rows", view.regions.status.rows, 0);
 
    status_line_fixture = NULL;
    expect_int("runtime.status.line.off.view", llm_runtime_screen_view(0, &view), 1);
