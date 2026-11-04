@@ -241,6 +241,7 @@ add_custom_target(the_wasm_browser_candidate
         --site "${THE_WASM_SITE}"
         --fixture-build "${CMAKE_BINARY_DIR}"
         --output-dir "${CMAKE_BINARY_DIR}/candidate"
+        --npm "${THE_WASM_NPM}"
     WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
     USES_TERMINAL VERBATIM)
 add_dependencies(the_wasm_browser_candidate the_wasm_bundle)

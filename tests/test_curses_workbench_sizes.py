@@ -146,52 +146,69 @@ with tempfile.TemporaryDirectory(prefix='THE workbench sizes ') as temporary:
                  'focused LOG generation replacement committed')
 
         try:
-            wait(lambda: 'F10 Menu' in screen.display[rows - 4] and
-                 'PROFILE_READY' in screen.display[rows - 3] and
-                 'Run file' in screen.display[0][:37], 'profile and chrome')
+            wait(lambda: 'F10 Menu' in screen.display[rows - 2] and
+                 'PROFILE_READY' in screen.display[rows - 4] and
+                 'Tools & Profiles' in screen.display[0][:45], 'profile and chrome')
             send(b'\x1b[15~')
             wait(lambda: has('LOG_GRAPH_READY'), 'session LOG graph published before runner launch')
             assert 'MENU (F10)' in screen.display[0][:14], screen.display
             assert 'Console' in screen.display[0][14:25], screen.display
             send(b'\x1b[21~')
-            wait(lambda: has('Workbench: Run file'), 'F10 menu exposes Run file')
+            wait(lambda: has('View: Tools & Profiles'), 'F10 menu exposes Run file')
             send(b'\x1b')
-            wait(lambda: not has('Workbench: Run file'), 'menu closes')
+            wait(lambda: not has('View: Tools & Profiles'), 'menu closes')
             send(b'\x1b[Z')
             wait(lambda: (screen.cursor.x, screen.cursor.y) == (15, 0),
                  'Shift-Tab focuses Console')
             send(b'\x1b[21~')
-            wait(lambda: has('Workbench: Run file'), 'top chrome F10 opens menu')
+            wait(lambda: has('View: Tools & Profiles'), 'top chrome F10 opens menu')
             send(b'\x1b')
             wait(lambda: (screen.cursor.x, screen.cursor.y) == (15, 0) and
-                 not has('Workbench: Run file'), 'menu cancel restores top chrome focus')
+                 not has('View: Tools & Profiles'), 'menu cancel restores top chrome focus')
             send(b'\x1b[Z')
             wait(lambda: (screen.cursor.x, screen.cursor.y) == (1, 0),
                  'Shift-Tab focuses Menu')
             send(b'\r' if cols == 117 else b' ')
-            wait(lambda: has('Workbench: Run file'), 'Menu control opens popup')
+            wait(lambda: has('View: Tools & Profiles'), 'Menu control opens popup')
             send(b'\x1b')
             wait(lambda: (screen.cursor.x, screen.cursor.y) == (1, 0) and
-                 not has('Workbench: Run file'),
+                 not has('View: Tools & Profiles'),
                  'menu cancel restores keyboard selected Menu')
             send(b'\t')
             wait(lambda: (screen.cursor.x, screen.cursor.y) == (15, 0),
                  'Tab returns to Console control')
             send(b'\t')
             wait(lambda: (screen.cursor.x, screen.cursor.y) == (26, 0),
-                 'Tab focuses direct Run file')
+                 'Tab focuses Tools & Profiles')
             if cols == 117:
                 click_at(0, 29)
             else:
                 send(b'\r')
+            wait(lambda: has('Tools & Profiles | Profiles'), 'Tools launcher opens Profiles')
+            send(b'\x1b[21~\x1b[H')
+            wait(lambda: 'File: New' in screen.display[screen.cursor.y], 'current-file Run menu')
+            for _ in range(160):
+                line = screen.display[screen.cursor.y]
+                if 'Tools: Run' in line:
+                    send(b'\r')
+                    break
+                before = (screen.cursor.y, line)
+                send(b'\x1b[B')
+                wait(lambda: (screen.cursor.y, screen.display[screen.cursor.y]) != before, 'role action navigation')
+            else:
+                raise AssertionError('current-file Run missing')
             wait(lambda: 'Program input>' in screen.display[-1] and output_line(40),
-                 'Run file starts program and opens console', timeout=40)
+                 'role-specific Run starts program and opens console', timeout=40)
             if cols == 117:
                 assert 'Program console |' in screen.display[0][73:], screen.display
             else:
                 assert 'Program console |' in screen.display[rows - 8], screen.display
-            send(b'\x1b[18~\x1b[19~')  # Show both LOG panes while editor retains focus.
+            send(b'\x1b')
+            wait(lambda: not console_focused() and screen.display[screen.cursor.y].startswith('======>'), 'leave Program input before editor profile shortcuts')
+            send(b'\x1b[18~\x1b[19~')  # Show both retained LOG panes from the editor.
             wait(lambda: has('Logs') and not has('Log: native.'), 'SHOW retains selected Program pane')
+            click_at(0, 15)
+            wait(lambda: not has('Program console |') and not has('Log: native.'), 'Console hides without revealing retained LOG')
             before_focus = len(output)
             click_at(0, 15)
             wait(lambda: console_focused() and 'Program input>' in screen.display[-1],
@@ -264,11 +281,11 @@ with tempfile.TemporaryDirectory(prefix='THE workbench sizes ') as temporary:
             wait(lambda: console_focused() and (screen.cursor.x, screen.cursor.y) == input_caret,
                  'replacement LOG Escape restores Program input')
             send(b'\x1b[21~')
-            wait(lambda: has('Workbench: Run file'), 'Program input F10 opens menu')
+            wait(lambda: has('View: Tools & Profiles'), 'Program input F10 opens menu')
             send(b'\x1b')
             wait(lambda: console_focused() and
                  (screen.cursor.x, screen.cursor.y) == input_caret and
-                 not has('Workbench: Run file'),
+                 not has('View: Tools & Profiles'),
                  'menu cancel restores Program input caret and draft')
             assert 'DRAFT' in screen.display[-1], screen.display
             send(b'\t\x1b[C\x1b[C')
@@ -276,11 +293,11 @@ with tempfile.TemporaryDirectory(prefix='THE workbench sizes ') as temporary:
                  'Program toolbar control selected')
             toolbar_caret = (screen.cursor.x, screen.cursor.y)
             send(b'\x1b[21~')
-            wait(lambda: has('Workbench: Run file'), 'Program toolbar F10 opens menu')
+            wait(lambda: has('View: Tools & Profiles'), 'Program toolbar F10 opens menu')
             send(b'\x1b')
             wait(lambda: console_focused() and
                  (screen.cursor.x, screen.cursor.y) == toolbar_caret and
-                 not has('Workbench: Run file'),
+                 not has('View: Tools & Profiles'),
                  'menu cancel restores selected Program toolbar control')
             assert 'DRAFT' in screen.display[-1], screen.display
             send(b'\t')
@@ -297,8 +314,11 @@ with tempfile.TemporaryDirectory(prefix='THE workbench sizes ') as temporary:
             wait(lambda: output_line(40), 'End returns to output tail')
             assert 'DRAFT' in screen.display[-1], screen.display
             send(b'\x1b[17~')  # F6
-            wait(lambda: screen.display[screen.cursor.y].startswith('======>')
-                 and not console_focused(), 'F6 follows editor Cmd/File toggle')
+            wait(lambda: screen.cursor.y < rows - 4 and not console_focused(),
+                 'F6 toggles the saved editor command origin back to the file')
+            send(b'\x1b')
+            wait(lambda: screen.display[screen.cursor.y].startswith('======>'),
+                 'Esc reaches the editor command for retained-draft checks')
             assert screen.cursor.hidden, f'{cols}x{rows}: editor software cursor should hide hardware'
             assert screen.buffer[screen.cursor.y][screen.cursor.x].underscore, \
                 f'{cols}x{rows}: editor command caret not visually underlined'

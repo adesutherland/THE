@@ -401,9 +401,9 @@ void ui_log(const char *fmt, ...);
 #define THE_NATIVE_MENU_WIDTH ((int)(sizeof(THE_NATIVE_MENU_LABEL) - 1))
 #define THE_NATIVE_CONSOLE_LABEL " Console | "
 #define THE_NATIVE_CONSOLE_WIDTH ((int)(sizeof(THE_NATIVE_CONSOLE_LABEL) - 1))
-#define THE_NATIVE_RUN_LABEL " Run file | "
-#define THE_NATIVE_RUN_WIDTH ((int)(sizeof(THE_NATIVE_RUN_LABEL) - 1))
-#define THE_NATIVE_CONTROLS_WIDTH (THE_NATIVE_MENU_WIDTH + THE_NATIVE_CONSOLE_WIDTH + THE_NATIVE_RUN_WIDTH)
+#define THE_NATIVE_TOOLS_LABEL " Tools & Profiles | "
+#define THE_NATIVE_TOOLS_WIDTH ((int)(sizeof(THE_NATIVE_TOOLS_LABEL) - 1))
+#define THE_NATIVE_CONTROLS_WIDTH (THE_NATIVE_MENU_WIDTH + THE_NATIVE_CONSOLE_WIDTH + THE_NATIVE_TOOLS_WIDTH)
 /*--------------------- -- ecolour defines -----------------------------*/
 #define ECOLOUR_COMMENTS               0
 #define ECOLOUR_STRINGS                1

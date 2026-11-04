@@ -2652,9 +2652,9 @@ void display_filetabs( VIEW_DETAILS *start)
          ADD_LINE_OUTPUT((CHARTYPE *)THE_NATIVE_CONSOLE_LABEL,
                          THE_NATIVE_CONSOLE_WIDTH,
                          control == THE_WORKBENCH_CONSOLE ? selected : chrome);
-         ADD_LINE_OUTPUT((CHARTYPE *)THE_NATIVE_RUN_LABEL,
-                         THE_NATIVE_RUN_WIDTH,
-                         control == THE_WORKBENCH_RUN ? selected : chrome);
+         ADD_LINE_OUTPUT((CHARTYPE *)THE_NATIVE_TOOLS_LABEL,
+                         THE_NATIVE_TOOLS_WIDTH,
+                         control == THE_WORKBENCH_TOOLS ? selected : chrome);
          fill_len = max(0, fill_len - THE_NATIVE_CONTROLS_WIDTH);
       }
 

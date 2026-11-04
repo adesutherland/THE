@@ -1,0 +1,24 @@
+ MENU (F10) |  Console |  Tools & Profiles | Welcome.txt|Squares.crexx          
+/private/tmp/th<>pace/Reader.rexx Line=0      Col=1    Size=7     Alt=0,0       
+        |...+....1....+....2....+....3....+....4....+....5....+....6....+....7.]
+0000000 *** Top of File ***                                                     
+0000001 do i=1 to 65                                                            
+0000002  say 'Retained row' i 'stable passage'                                  
+0000003 end                                                                     
+0000004 say 'Name?'                                                             
+0000005 parse pull name                                                         
+0000006 say 'Hello,' name                                                       
+0000007 return 0                                                                
+                                                                                
+======>                                                                         
+        F10 Menu  F6 Cmd/File  Esc Cmd  F1 Help  Ctrl-S Save  Shift-Tab Controls
+CRXTHE                                       1:27pm  [ ] U+0             CR INS 
+--------------------------------------------------------------------------------
+ Program console | Esc Cmd F6 File                                              
+ Run Stop Clear Hide Editor                                                     
+ Completed · status 0                                                           
+ classic-rexx | /private/tmp/the-alignment-console-review/workspace/Reader.rexx 
+Retained row 33 stable passage                                                  
+Retained row 34 stable passage                                                  
+Retained row 35 stable passage                                                  
+Input closed>                                                    Tab: controls  

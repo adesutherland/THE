@@ -1,0 +1,40 @@
+ MENU (F10) |  Console |  Tools & Profiles | Welcome.txt|Reader.rexx|Colours.profile.the     | Tools & Profiles | Build results             
+CRXTHE                                                    1:56pm  [ ] U+0             CR INS | Profiles Tools Build Edit Hide Editor        
+/private/tmp/the-align<>workspace/Errors.crexx Line=0      Col=1    Size=32    Alt=0,0       | Failed                                       
+======>                                                                                      |Error in profile.the @ 2:5 - #BADEXPR, ")"    
+        |...+....1....+....2....+....3....+....4....+....5....+....6....+....7.]..+....8....+|Error in profile.the @ 3:5 - #BADEXPR, ")"    
+0000000 *** Top of File ***                                                                  |Error in profile.the @ 4:5 - #BADEXPR, ")"    
+0000001 options levelb                                                                       |Error in profile.the @ 5:5 - #BADEXPR, ")"    
+0000002 say )                                                                                |Error in profile.the @ 6:5 - #BADEXPR, ")"    
+0000003 say )                                                                                |Error in profile.the @ 7:5 - #BADEXPR, ")"    
+0000004 say )                                                                                |Error in profile.the @ 8:5 - #BADEXPR, ")"    
+0000005 say )                                                                                |Error in profile.the @ 9:5 - #BADEXPR, ")"    
+0000006 say )                                                                                |Error in profile.the @ 10:5 - #BADEXPR, ")"   
+0000007 say )                                                                                |Error in profile.the @ 11:5 - #BADEXPR, ")"   
+0000008 say )                                                                                |Error in profile.the @ 12:5 - #BADEXPR, ")"   
+0000009 say )                                                                                |Error in profile.the @ 13:5 - #BADEXPR, ")"   
+0000010 say )                                                                                |Error in profile.the @ 14:5 - #BADEXPR, ")"   
+0000011 say )                                                                                |Error in profile.the @ 15:5 - #BADEXPR, ")"   
+0000012 say )                                                                                |Error in profile.the @ 16:5 - #BADEXPR, ")"   
+0000013 say )                                                                                |Error in profile.the @ 17:5 - #BADEXPR, ")"   
+0000014 say )                                                                                |Error in profile.the @ 18:5 - #BADEXPR, ")"   
+0000015 say )                                                                                |Error in profile.the @ 19:5 - #BADEXPR, ")"   
+0000016 say )                                                                                |Error in profile.the @ 20:5 - #BADEXPR, ")"   
+0000017 say )                                                                                |Error in profile.the @ 21:5 - #BADEXPR, ")"   
+0000018 say )                                                                                |Error in profile.the @ 22:5 - #BADEXPR, ")"   
+0000019 say )                                                                                |Error in profile.the @ 23:5 - #BADEXPR, ")"   
+0000020 say )                                                                                |Error in profile.the @ 24:5 - #BADEXPR, ")"   
+0000021 say )                                                                                |Error in profile.the @ 25:5 - #BADEXPR, ")"   
+0000022 say )                                                                                |Error in profile.the @ 26:5 - #BADEXPR, ")"   
+0000023 say )                                                                                |Error in profile.the @ 27:5 - #BADEXPR, ")"   
+0000024 say )                                                                                |Error in profile.the @ 28:5 - #BADEXPR, ")"   
+0000025 say )                                                                                |Error in profile.the @ 29:5 - #BADEXPR, ")"   
+                                                                                             |Error in profile.the @ 30:5 - #BADEXPR, ")"   
+BLACK λ界                                                                                    |Error in profile.the @ 31:5 - #BADEXPR, ")"   
+BLUE λ界                                                                                     |30 error(s) in source file                    
+GREEN λ界                                                                                    |Profile compilation failed                    
+CYAN λ界                                                                                     |                                              
+RED λ界                                                                                      |                                              
+MAGENTA λ界                                                                                  |                                              
+YELLOW λ界                                                                                   |                                              
+WHITE λ界                                                                                    | Read-only | PgUp/PgDn Home/End | F10 actions 

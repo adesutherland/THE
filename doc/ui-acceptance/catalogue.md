@@ -2,11 +2,18 @@
 
 The [versioned scenario data](../../tests/ui-acceptance/catalogue.json) specifies
 acceptance against the agreed guided workbench. It is a **scenario
-specification, not an executable runner**. Version 1.0.0 contains 18
-requirements, 29 stable scenarios and eight decision records: one resolved
-reference annotation and seven open dispositions/design tasks. Every initial
-execution and verdict remains `NotRun`; creating this catalogue qualifies no
-implementation.
+specification, not an executable runner**. Version 1.0.1 retains 18
+requirements and 29 stable scenarios. Its eight decision records now contain
+six resolved dispositions and two open scope items: D02 general Redo and D03
+full source transfer/Save as. Every full-script initial execution and all four
+verdicts remain `NotRun`.
+
+The [consolidated alignment ledger](alignment-review.md) separately records
+targeted browser, GTK and console implementation-review gates for the changed
+mandatory scope. Those gates have passed with their documented candidate/cohort
+and manual coverage limits. Console aesthetics use actual terminal cells and
+colours; native Terminal fonts and output selection remain unqualified. Targeted checkpoint acceptance does not execute all 29 scripts,
+qualify other OS/device cohorts or establish installed/release qualification.
 
 Review the browser experience first, then record GTK macOS, other GTK desktops
 and console adaptations separately. Return one consolidated findings report
@@ -39,17 +46,24 @@ The accepted decisions include:
 - The prototype's literal `Ready` is sample content. D01 is resolved: quiet idle
   is acceptable, while meaningful responses remain visible and profile-owned.
   For the stock/reference profile, default geometry follows the agreed
-  prototype: response above THE command, followed by key guide then status.
-  Current stock documentation does not approve a geometric departure.
+  prototype: response above THE command, followed by explicit `AFTERCMDLINE`
+  key-guide bands then status. Resolved D04 preserves inline/custom rows,
+  two-operand undocking, command TOP/OFF and status OFF behavior.
 - Browser and GTK pane buttons toggle their target: show, hide, show again.
   Switching destinations retains job, draft, output, reader and editor state.
-  This newer user decision overrides the prototype's selection-only handlers.
+  Resolved D08 returns to the editor when the active target is hidden, without
+  automatically revealing a retained latent sibling. Explicit sibling activation
+  restores it. Intentional simultaneous Program/named-LOG presentation remains.
+- Resolved D05 supplies compact Expand/Return routes with state preservation.
+  Resolved D06 records the user-authorized, implemented persistent GTK Files
+  view, alongside the separate native Open chooser.
 - Native executable programs belong to desktop adapters. Browser execution
   uses its admitted Wasm/RXBIN adapters and never pretends to run a native tool.
 - `.profile.the` means Build profile/Apply profile; ordinary `.the` means Build
   macro/Run macro; compiled profile artifacts end in `.profile.rxbin`.
 - Aesthetic quality requires an explicit judgement, including the user's
-  concerns about small GTK margins and large buttons.
+  concerns about small GTK margins and large buttons. Resolved D07 records
+  accepted platform-appropriate proportions in the targeted UI review.
 
 The [fixed scope baseline](../ide-scope-baseline.md) supplies required journeys
 and host boundaries. [First launch](../first-launch.md), the
@@ -148,10 +162,11 @@ skipped GUI test or unimplemented behavior is not `NotApplicable`. Expected
 browser host refusal can pass its refusal assertion; unexpected refusal of a
 required operation remains a gap.
 
-An open design record cannot turn an observed mandatory failure into
+An open decision cannot turn an observed mandatory failure into
 `DecisionNeeded`. Pane toggling, state preservation, stock reference geometry,
-profile authority and aesthetic quality remain assessable while a coherent
-implementation design is prepared.
+profile authority and aesthetic quality remain assessable under the resolved
+contracts. Only D02/D03 scope details remain open; targeted gate passes cannot
+fill an unexecuted full-script verdict.
 
 Existing tests are recorded as **candidate partial regression evidence**, with
 execution `NotRun` and explicit limitations. Inspect their assertions and exact
@@ -178,13 +193,31 @@ platform at a comparable text scale. Native styling need not copy browser pixels
 The prototype's 44 px coarse-pointer rule applies to the targeted browser touch
 sample; it does not require desktop GTK buttons to be touch-sized.
 
-No exact 8 px inset or other numeric golden has been approved. Proposed numeric
-tolerances belong to the D07 implementation design task, alongside footer
-geometry, compact navigation and pane state. Prepare one coherent proposal;
-do not ask the user to approve each pixel or state transition. Concrete findings
-about clipped labels, crowded margins, disproportionate buttons or poor hierarchy
-remain valid. Record the observation, screenshot and measurement before proposing
-a target.
+Resolved D07 accepts the reviewed proportions in their platform context: GTK
+12-unit insets and 8-unit gaps around ordinary controls of about 34 units, and
+browser coarse-pointer controls at least 44 CSS px high with 13 px labels.
+These relationships are not a universal fixed pixel golden or a requirement for
+touch-sized desktop GTK buttons. Actual theme, font, scale and input-mode
+comfort still require evidence. Concrete findings about clipped labels, crowded
+margins, disproportionate controls or poor hierarchy remain valid; any new
+universal numeric target needs an explicit proposal.
+
+## Custom footer fixture guidance
+
+F08 explicitly opts guide rows into bands with
+`SET FOOTER name position AFTERCMDLINE`. Inline named/unnamed rows remain
+inline; the two-operand form undocks a row, and `FOOTER name OFF` removes its
+name without deleting reserved text. Custom text, colours, count and declared
+ordering remain profile-owned. The bottom bands remain at the bottom for
+command TOP/OFF; status OFF remains supported.
+
+Native `SET MSGLINE` retains screen-relative overlay coordinates. With three
+bottom guide bands and response on the last inline reserved row, choose
+`SET MSGLINE ON -5 1` for a bottom command line, or
+`SET MSGLINE ON -4 1` for command TOP/OFF. Explicit legacy overlay collisions
+may temporarily cover a row without deleting its text or colour. Collision-free
+coordinates are the profile author's responsibility; no automatic relocation
+is required or claimed.
 
 ## Targeted sample matrix
 
@@ -251,45 +284,45 @@ captures, platform exceptions and regression leads are in the JSON.
 
 For pane testing, record **logically open**, **selected** and **actually
 rendered** states separately. Repeated activation must hide the clicked visible
-target. Another already-open pane appearing afterward does not itself fail
-that hide and does not mean the entire auxiliary area must disappear. D08 owns
-the unresolved sibling-selection policy. Program and Tools retain job, input
-draft, reader and source state across hiding and cross-switching. A native GTK
-Open chooser does not establish the proposed persistent GTK Files list.
+standard target and return to the editor without automatically revealing a
+retained latent sibling. Explicit activation restores that sibling's state.
+Resolved D08 preserves intentional simultaneous Program/named-LOG presentation;
+target Hide is not an indiscriminate close-all auxiliary operation. Program,
+Tools and Files retain their data across hiding, compact Expand/Return and
+explicit cross-switching. Resolved D06 provides the persistent GTK Files view;
+native Open remains a separate chooser route.
 
 ## Dispositions, design work and changes
 
 The eight records are not eight user-permission questions. Each has a
 `decision_authority` and `recommended_resolution`. D01 remains traceable as
-`Resolved` and is absent from all `open_decisions` lists. The other seven are
-open: three scope/sequencing dispositions and four related design tasks.
+`Resolved`; approved implemented D04–D08 are now resolved too. Resolved IDs
+remain traceable through `resolved_decision_ids` and are absent from every
+`open_decisions` list. D02/D03 remain open baseline scope/sequencing items.
 
 | ID | Status / authority | Recommended handling |
 | --- | --- | --- |
 | D01 | Resolved / reference interpretation | Accept quiet idle; meaningful responses remain profile-owned |
 | D02 | Open / scope owner | Include real Redo and target semantics in one scope/sequencing disposition |
 | D03 | Open / scope owner | Retain baseline bounded transfer; disposition Save as and transfer sequencing together |
-| D04 | Open / implementation design | Follow prototype stock geometry and preserve custom-profile rendering |
-| D05 | Open / implementation design | Propose coherent compact navigation and any needed Expand/Return route |
-| D06 | Open / scope owner | Recommend sequencing for the proposed persistent GTK Files view |
-| D07 | Open / implementation design | Derive native spacing/control proportions from measured aesthetic evidence |
-| D08 | Open / implementation design | Specify predictable sibling selection and latent-open pane state |
+| D04 | Resolved / implementation design | Explicit AFTERCMDLINE bands; stock geometry and inline/custom/TOP/OFF preserved |
+| D05 | Resolved / implementation design | Compact Expand/Return with retained state |
+| D06 | Resolved / scope owner | User-authorized persistent GTK Files view implemented beside native Open |
+| D07 | Resolved / implementation design | Reviewed GTK/browser proportions accepted in platform context |
+| D08 | Resolved / implementation design | Hide returns editor; latent siblings require explicit activation; Program/LOG retained |
 
-D04, D05, D07 and D08 belong in one coherent design proposal with screenshots,
-state transitions and measurable acceptance. The coordinator should make those
-design recommendations, rather than escalating each row position, breakpoint,
-gap or sibling transition into a separate user question. D04 does not reopen
-the agreed stock geometry: the prototype is its reference, and descriptions of
-the current implementation do not approve a departure. Custom profile text,
-colours, row count and explicit settings retain their authority.
+D04–D08 record approved implemented contracts and the targeted alignment review,
+rather than inventing new requirements or adding full-script pass results.
+The frozen prototype remains unchanged. Custom profile text, colours, row count
+and explicit settings retain their authority; the accepted stock geometry does
+not forcibly relocate arbitrary custom rows or legacy message overlays.
 
 D03 retains the conflict explicitly: the prototype shows Save as, the fixed
 baseline requires bounded source import/export, and implementation guides
 describe their absence. An absence is a reported gap/scope conflict, not an
-automatic deferral. D06 is a user proposal and must not silently become a
-mandatory new GTK feature. D01/D04 do not weaken existing profile ownership.
-Observed mandatory gaps remain findings while these dispositions/design tasks
-are open; `DecisionNeeded` covers only a genuinely unsettled checkpoint.
+automatic deferral. General Redo and full source transfer/Save as remain baseline
+work. Observed mandatory gaps remain findings; `DecisionNeeded` covers only a
+genuinely unsettled D02/D03 checkpoint.
 
 Turn new user feedback into a traceable observation with original wording,
 candidate/state evidence and affected requirement/scenario IDs. Extend an

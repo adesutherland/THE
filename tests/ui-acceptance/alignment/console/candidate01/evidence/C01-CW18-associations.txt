@@ -1,0 +1,40 @@
+ MENU (F10) |  Console |  Tools & Profiles | Welcome.txt|Squares.crexx|Reader.rexx           | Tools & Profiles | File types & tools        
+CRXTHE                                                    1:28pm  [ ] U+0             CR INS | Profiles Tools Build Edit Hide Editor        
+/private/tmp/the-align<>ace/Review.profile.the Line=0      Col=1    Size=11    Alt=0,0       | .rexx,.rex: Classic Rexx (runner; available) 
+======>                                                                                      | .crexx: cREXX (runner; available)            
+        |...+....1....+....2....+....3....+....4....+....5....+....6....+....7.]..+....8....+| .rxbin: RXBIN program (program; available)   
+0000000 *** Top of File ***                                                                  | .the,.crexx: cREXX compiler (compiler; avail 
+0000001 options levelb                                                                       | .rexx,.rex: Classic Rexx highlighter (langua 
+0000002 address THE                                                                          |                                              
+0000003 'set reserved -2 off';                                                               |                                              
+0000004 'set reserved -4 white on blue NATIVEONE';                                           |                                              
+0000005 'set reserved -3 yellow on black NATIVETWO λ界';                                     |                                              
+0000006 'set footer REVIEWONE -4 AFTERCMDLINE';                                              |                                              
+0000007 'set footer REVIEWTWO -3 AFTERCMDLINE';                                              |                                              
+0000008 'set msgline on -3 1';                                                               |                                              
+0000009 'set statusline top';                                                                |                                              
+0000010 'set cmdline top';                                                                   |                                              
+0000011 return 0                                                                             |                                              
+0000012 *** Bottom of File ***                                                               |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+Profile activated                                                                            |                                              
+NATIVEONE                                                                                    |                                              
+NATIVETWO λ界                                                                                | Edit profile: associations | PgUp/PgDn       

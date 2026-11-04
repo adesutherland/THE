@@ -1,0 +1,40 @@
+ MENU (F10) |  Console |  Tools & Profiles | Welcome.txt|Squares.crexx                       | Program console | Esc Cmd F6 File            
+/private/tmp/the-align<>/workspace/Reader.rexx Line=0      Col=1    Size=7     Alt=0,0       | Run Stop Clear Hide Editor                   
+        |...+....1....+....2....+....3....+....4....+....5....+....6....+....7.]..+....8....+| Running | ^D EOF ^C stop                     
+0000000 *** Top of File ***                                                                  | Source: Reader.rexx | PgUp/PgDn              
+0000001 do i=1 to 65                                                                         |Retained row 1 stable passage                 
+0000002  say 'Retained row' i 'stable passage'                                               |Retained row 2 stable passage                 
+0000003 end                                                                                  |Retained row 3 stable passage                 
+0000004 say 'Name?'                                                                          |Retained row 4 stable passage                 
+0000005 parse pull name                                                                      |Retained row 5 stable passage                 
+0000006 say 'Hello,' name                                                                    |Retained row 6 stable passage                 
+0000007 return 0                                                                             |Retained row 7 stable passage                 
+0000008 *** Bottom of File ***                                                               |Retained row 8 stable passage                 
+                                                                                             |Retained row 9 stable passage                 
+                                                                                             |Retained row 10 stable passage                
+                                                                                             |Retained row 11 stable passage                
+                                                                                             |Retained row 12 stable passage                
+                                                                                             |Retained row 13 stable passage                
+                                                                                             |Retained row 14 stable passage                
+                                                                                             |Retained row 15 stable passage                
+                                                                                             |Retained row 16 stable passage                
+                                                                                             |Retained row 17 stable passage                
+                                                                                             |Retained row 18 stable passage                
+                                                                                             |Retained row 19 stable passage                
+                                                                                             |Retained row 20 stable passage                
+                                                                                             |Retained row 21 stable passage                
+                                                                                             |Retained row 22 stable passage                
+                                                                                             |Retained row 23 stable passage                
+                                                                                             |Retained row 24 stable passage                
+                                                                                             |Retained row 25 stable passage                
+                                                                                             |Retained row 26 stable passage                
+                                                                                             |Retained row 27 stable passage                
+                                                                                             |Retained row 28 stable passage                
+                                                                                             |Retained row 29 stable passage                
+                                                                                             |Retained row 30 stable passage                
+                                                                                             |Retained row 31 stable passage                
+                                                                                             |Retained row 32 stable passage                
+                                                                                             |Retained row 33 stable passage                
+======>                                                                                      |Retained row 34 stable passage                
+        F10 Menu  F6 Cmd/File  Esc Cmd  F1 Help  Ctrl-S Save  Shift-Tab Controls             |Retained row 35 stable passage                
+CRXTHE                                                    1:25pm  [ ] U+0             CR INS |Program input> retained draft                 

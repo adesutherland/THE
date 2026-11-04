@@ -1,0 +1,40 @@
+ MENU (F10) |  Console |  Tools & Profiles |                                                                                                
+lq Menu qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqk                Line=1      Col=1    Size=3     Alt=0,0       
+x File: New                                                                  x.]..+....8....+....9....+...10....+...11....+...12....+...13..
+x File: Open                                                                 x                                                              
+x File: Save                                                                 x                                                              
+x File: Close                                                                x                                                              
+x Edit: Undo                                                                 x                                                              
+x Edit: Cut                                                                  x                                                              
+x Edit: Copy                                                                 x                                                              
+x Edit: Paste                                                                x                                                              
+x Edit: Select All                                                           x                                                              
+x File: Next file (F2)                                                       x                                                              
+x Edit: Find... (Ctrl-F)                                                     x                                                              
+x Edit: Go to line... (Ctrl-G)                                               x                                                              
+x View: Tools & Profiles                                                     x                                                              
+x View: Show or focus Program console                                        x                                                              
+x View: Hide program console                                                 x                                                              
+x Tools: Edit profile                                                        x                                                              
+x Tools: Build results                                                       x                                                              
+x Tools: Stop current task                                                   x                                                              
+x Tools: Clear program output                                                x                                                              
+x Tools: End program input                                                   x                                                              
+x Help: Key definitions                                                      x                                                              
+x Help: Help (F1)                                                            x                                                              
+x                                                                            x                                                              
+xArrows/Tab: select  Enter: invoke  Esc: return                              x                                                              
+mqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqj                                                              
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+======>                                                                                                                                     
+        F10 Menu  F6 Cmd/File  Esc Cmd  F1 Help  Ctrl-S Save  Shift-Tab Controls                                                            
+CRXTHE       Copyright (C) 1991-2026 Mark Hessling; CRXTHE by the cREXX team                             1:19pm  [T] U+54            CR INS 

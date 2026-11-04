@@ -101,13 +101,28 @@ help shortcuts. The Menu offers file, editing, navigation, program and profile
 actions; **Key definitions** opens `SHOWKEY ALL`. Editor responses appear
 immediately above the command line. These footer rows are inherited by new
 buffers, including help. The terminal file-tab strip also contains Menu,
-Console and Run Rexx controls even when only one file is open.
+Console and Tools & Profiles controls even when only one file is open.
 F6 toggles between command and file editing, restoring the file caret. From
 the prefix field, F6 enters command; the next F6 returns to file editing.
 Esc goes to the THE command line. Shift-Tab from editing enters controls.
 Browser Esc focuses its command input and Esc again returns to editing.
 F6 is also handled when the browser delivers it. Ctrl-L remains a console
 shortcut because browsers generally reserve it for their address bar.
+
+In the terminal, choose **Tools & Profiles** to inspect the active profile,
+file-type tools or retained Build results. **Edit** opens the editable profile
+source. F10 offers the selected file's actions: Build source/Run for compiled
+programs, Build profile/Apply profile for profile source, or Build macro/Run
+macro for macro source. Unavailable actions explain their prerequisite in the
+menu; selecting an ordinary Text file does not suggest that it needs a runner.
+
+Console and Tools & Profiles are target toggles: selecting the visible target
+hides it and returns to the editor; selecting it again restores its state.
+Selecting the other target switches directly to it. Build results and Program
+output are retained separately. Shift-Tab enters the header controls, arrows
+move between them, and Enter activates one. In Tools & Profiles, Tab or Left/Right
+move through section controls; PgUp/PgDn and Home/End scroll the current
+read-only view. Esc returns to the command line and F6 to file editing.
 
 Profiles name reserved footer rows explicitly. These are THE commands; in a
 Rexx profile, quote each command and send it to `ADDRESS THE`. In the browser,

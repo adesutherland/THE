@@ -1,0 +1,9 @@
+{
+  "owned_pty_pid": 88095,
+  "owned_pty_absent": true,
+  "owned_reference_server_pid": 44045,
+  "reference_server_term_sent": true,
+  "operator_origin64823": "untouched",
+  "root_preview49293": "untouched",
+  "tabs": "No console browser tab was created; prior owned reference/candidate tabs were closed before this phase."
+}

@@ -1,0 +1,105 @@
+{
+  "bands": [
+    {
+      "name": "black",
+      "pyte_fg": "black",
+      "wide_row": 32,
+      "narrow_row": 7,
+      "background": "white",
+      "unicode_text": "BLACK λ界",
+      "assertion": "exact ANSI-name match; pyte brown means SGR33 yellow"
+    },
+    {
+      "name": "blue",
+      "pyte_fg": "blue",
+      "wide_row": 33,
+      "narrow_row": 8,
+      "background": "black",
+      "unicode_text": "BLUE λ界",
+      "assertion": "exact ANSI-name match; pyte brown means SGR33 yellow"
+    },
+    {
+      "name": "green",
+      "pyte_fg": "green",
+      "wide_row": 34,
+      "narrow_row": 9,
+      "background": "black",
+      "unicode_text": "GREEN λ界",
+      "assertion": "exact ANSI-name match; pyte brown means SGR33 yellow"
+    },
+    {
+      "name": "cyan",
+      "pyte_fg": "cyan",
+      "wide_row": 35,
+      "narrow_row": 10,
+      "background": "black",
+      "unicode_text": "CYAN λ界",
+      "assertion": "exact ANSI-name match; pyte brown means SGR33 yellow"
+    },
+    {
+      "name": "red",
+      "pyte_fg": "red",
+      "wide_row": 36,
+      "narrow_row": 11,
+      "background": "black",
+      "unicode_text": "RED λ界",
+      "assertion": "exact ANSI-name match; pyte brown means SGR33 yellow"
+    },
+    {
+      "name": "magenta",
+      "pyte_fg": "magenta",
+      "wide_row": 37,
+      "narrow_row": 12,
+      "background": "black",
+      "unicode_text": "MAGENTA λ界",
+      "assertion": "exact ANSI-name match; pyte brown means SGR33 yellow"
+    },
+    {
+      "name": "yellow",
+      "pyte_fg": "brown",
+      "wide_row": 38,
+      "narrow_row": 13,
+      "background": "black",
+      "unicode_text": "YELLOW λ界",
+      "assertion": "exact ANSI-name match; pyte brown means SGR33 yellow"
+    },
+    {
+      "name": "white",
+      "pyte_fg": "white",
+      "wide_row": 39,
+      "narrow_row": 14,
+      "background": "black",
+      "unicode_text": "WHITE λ界",
+      "assertion": "exact ANSI-name match; pyte brown means SGR33 yellow"
+    }
+  ],
+  "command_role": {
+    "proof": "Interactive SET COLOR CMDLINE red on cyan",
+    "attributes": {
+      "text": " ",
+      "fg": "red",
+      "bg": "cyan",
+      "bold": false,
+      "italics": false,
+      "underscore": false,
+      "reverse": false,
+      "strikethrough": false,
+      "blink": false
+    }
+  },
+  "console_body_role": {
+    "proof": "Applied SET COLOR CONSOLEBODY yellow on blue with retained Program output",
+    "attributes": {
+      "text": "R",
+      "fg": "brown",
+      "bg": "blue",
+      "bold": true,
+      "italics": false,
+      "underscore": false,
+      "reverse": false,
+      "strikethrough": false,
+      "blink": false
+    }
+  },
+  "profile_seed_note": "A preliminary SET COLOR COMMAND spelling in the authored profile is not used as a CMDLINE assertion; the separate valid interactive CMDLINE checkpoint is authoritative."
+}

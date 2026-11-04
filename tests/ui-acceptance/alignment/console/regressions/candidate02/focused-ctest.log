@@ -1,0 +1,23 @@
+Start testing: Nov 04 13:48 GMT
+----------------------------------------------------------
+57/122 Testing: test_curses_reader_colors
+57/122 Test: test_curses_reader_colors
+Command: "/opt/homebrew/bin/python3" "/Users/adrian/CLionProjects/THE/tests/test_curses_reader_colors.py" "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/the"
+Directory: /Users/adrian/CLionProjects/THE/build/gtk-focus-review
+"test_curses_reader_colors" start time: Nov 04 13:48 GMT
+Output:
+----------------------------------------------------------
+CREXX: eight named fg/bg colours, two Unicode bands, Console roles and basic palette write/RGB isolation passed
+REGINA: eight named fg/bg colours, two Unicode bands, Console roles and basic palette write/RGB isolation passed
+32x20: six-row reader preserves completion/status0 and closed input beside unread/End cue
+140x40: live PULL completion unread cue/retained viewport, End recovery, independent Build reader, new-job/Clear resets and fixture bytes passed
+80x24: live PULL completion unread cue/retained viewport, End recovery, independent Build reader, new-job/Clear resets and fixture bytes passed
+<end of output>
+Test time =  86.12 sec
+----------------------------------------------------------
+Test Passed.
+"test_curses_reader_colors" end time: Nov 04 13:49 GMT
+"test_curses_reader_colors" time elapsed: 00:01:26
+----------------------------------------------------------
+
+End testing: Nov 04 13:49 GMT

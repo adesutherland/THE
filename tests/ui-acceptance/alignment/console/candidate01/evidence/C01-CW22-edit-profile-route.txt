@@ -1,0 +1,40 @@
+ MENU (F10) |  Console |  Tools & Profiles | Welcome.txt|Squares.crexx|Reader.rexx           | Program console | F10: Menu                  
+/private/tmp/the-align<>ace/Review.profile.the Line=0      Col=1    Size=11    Alt=0,0       | Tools Stop Clear Hide Editor                 
+        |...+....1....+....2....+....3....+....4....+....5....+....6....+....7.]..+....8....+| Completed · status 0                         
+0000000 *** Top of File ***                                                                  | Source: Reader.rexx | PgUp/PgDn              
+0000001 options levelb                                                                       |Retained row 34 stable passage                
+0000002 address THE                                                                          |Retained row 35 stable passage                
+0000003 'set reserved -2 off';                                                               |Retained row 36 stable passage                
+0000004 'set reserved -4 white on blue NATIVEONE';                                           |Retained row 37 stable passage                
+0000005 'set reserved -3 yellow on black NATIVETWO λ界';                                     |Retained row 38 stable passage                
+0000006 'set footer REVIEWONE -4 AFTERCMDLINE';                                              |Retained row 39 stable passage                
+0000007 'set footer REVIEWTWO -3 AFTERCMDLINE';                                              |Retained row 40 stable passage                
+0000008 'set msgline on -3 1';                                                               |Retained row 41 stable passage                
+0000009 'set statusline top';                                                                |Retained row 42 stable passage                
+0000010 'set cmdline top';                                                                   |Retained row 43 stable passage                
+0000011 return 0                                                                             |Retained row 44 stable passage                
+0000012 *** Bottom of File ***                                                               |Retained row 45 stable passage                
+                                                                                             |Retained row 46 stable passage                
+                                                                                             |Retained row 47 stable passage                
+                                                                                             |Retained row 48 stable passage                
+                                                                                             |Retained row 49 stable passage                
+                                                                                             |Retained row 50 stable passage                
+                                                                                             |Retained row 51 stable passage                
+                                                                                             |Retained row 52 stable passage                
+                                                                                             |Retained row 53 stable passage                
+                                                                                             |Retained row 54 stable passage                
+                                                                                             |Retained row 55 stable passage                
+                                                                                             |Retained row 56 stable passage                
+                                                                                             |Retained row 57 stable passage                
+                                                                                             |Retained row 58 stable passage                
+                                                                                             |Retained row 59 stable passage                
+                                                                                             |Retained row 60 stable passage                
+                                                                                             |Retained row 61 stable passage                
+                                                                                             |Retained row 62 stable passage                
+                                                                                             |Retained row 63 stable passage                
+                                                                                             |Retained row 64 stable passage                
+                                                                                             |Retained row 65 stable passage                
+                                                                                             |Name?                                         
+                                                                                             |› Ada😀                                       
+                                                                                             |Hello, Ada😀                                  
+                                                                                             |Input closed>                  Tab: controls  

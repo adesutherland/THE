@@ -76,11 +76,11 @@ def stop_process(process):
         process.wait()
 
 
-def run_logged(command, environment, log):
-    message = "$ " + shlex.join(command) + "\n"
+def run_logged(command, environment, log, cwd=ROOT):
+    message = f"$ (cd {shlex.quote(str(cwd))} && {shlex.join(command)})\n"
     print(message, end="", flush=True)
     log.write(message)
-    with subprocess.Popen(command, cwd=ROOT, env=environment, stdout=subprocess.PIPE,
+    with subprocess.Popen(command, cwd=cwd, env=environment, stdout=subprocess.PIPE,
                           stderr=subprocess.STDOUT, text=True, encoding="utf-8", errors="replace",
                           bufsize=1, start_new_session=os.name == "posix") as process:
         try:
@@ -93,7 +93,8 @@ def run_logged(command, environment, log):
             stop_process(process)
     if status:
         raise RuntimeError(f"Command failed with status {status}: {shlex.join(command)}")
-    return {"command": command, "status": "passed", "returncode": status}
+    return {"command": command, "working_directory": str(cwd),
+            "status": "passed", "returncode": status}
 
 
 class SiteHandler(SimpleHTTPRequestHandler):
@@ -104,7 +105,7 @@ class SiteHandler(SimpleHTTPRequestHandler):
         pass
 
 
-def qualify(site, fixture_build, output_dir):
+def qualify(site, fixture_build, output_dir, npm):
     site = site.resolve(strict=True)
     fixture_build = fixture_build.resolve(strict=True)
     output_dir = output_dir.resolve()
@@ -119,12 +120,18 @@ def qualify(site, fixture_build, output_dir):
     node = shutil.which("node")
     if not node:
         raise ValueError("Node.js was not found on PATH")
+    npm = shutil.which(npm)
+    if not npm:
+        raise ValueError("npm was not found; pass --npm from the configured Wasm build")
+    if not (ROOT / "web/node_modules/.bin/vite").is_file():
+        raise ValueError("Installed web dependencies are missing; build the_wasm_bundle first")
     chromium = chromium_binary()
     for name in ("tool-example.rxbin", "source-file-probe.rxbin"):
         if not (fixture_build / name).is_file():
             raise ValueError(f"Browser QA fixture is missing: {fixture_build / name}")
     environment = {key: value for key, value in os.environ.items()
-                   if not (key.startswith("THE_WASM_") and key.endswith("_ONLY"))}
+                   if not (key.startswith(("THE_WASM_", "THE_WORKBENCH_"))
+                           and key.endswith("_ONLY"))}
     environment.pop("THE_WASM_SCREENSHOT", None)
     environment.update(CHROMIUM_BIN=chromium, THE_WASM_FIXTURE_BUILD=str(fixture_build))
 
@@ -158,14 +165,35 @@ def qualify(site, fixture_build, output_dir):
                     server.shutdown()
                     thread.join()
                 server.server_close()
+            # The production UI fixture uses the native-backend Vite build and
+            # a semantic protocol server. Its assets never enter the Wasm ZIP.
+            ui_assets = staging / "production-ui"
+            ui_environment = dict(environment)
+            ui_environment.pop("THE_WEB_URL", None)
+            for key in ("THE_WORKBENCH_SCREENSHOTS", "THE_WORKBENCH_COARSE_EVIDENCE",
+                        "THE_WORKBENCH_LAYOUT_EVIDENCE", "THE_WORKBENCH_COARSE_STAGE"):
+                ui_environment.pop(key, None)
+            ui_environment.update(THE_WEB_BACKEND="native", THE_WEB_ASSETS=str(ui_assets))
+            ui_build = run_logged([npm, "run", "build", "--", "--outDir",
+                                   str(ui_assets), "--emptyOutDir"],
+                                  ui_environment, log, cwd=ROOT / "web")
+            ui_test = run_logged([node, str(ROOT / "web/test/workbench-smoke.mjs")],
+                                 ui_environment, log)
             check_source(manifest)
-            log.write(f"PASS extracted browser candidate {digest}\n")
+            log.write(f"PASS extracted browser candidate and production UI fixture {digest}\n")
         receipt = {
             "status": "passed", "qualification": "local-extracted-zip-browser",
             "completed_utc": datetime.now(timezone.utc).isoformat(),
             "source_revision": manifest["source_revision"], "source_dirty": False,
             "candidate": archive.name, "candidate_sha256": digest,
             "capabilities": capabilities, "package": package, "tests": tests,
+            "tests_scope": "Actual Wasm runtime and paint checks against the extracted candidate ZIP",
+            "production_ui_fixture": {
+                "qualification": "local-production-ui-semantic-protocol-fixture",
+                "scope": "Production UI presentation and interaction with semantic protocol fixture messages; excludes actual Wasm execution, full UI acceptance, aesthetics, and independent discoverability",
+                "backend": "native", "assets": "disposable build outside candidate ZIP",
+                "build": ui_build, "test": ui_test,
+            },
             "test_environment": {key: environment[key] for key in
                                  ("THE_WEB_URL", "CHROMIUM_BIN", "THE_WASM_FIXTURE_BUILD")},
         }
@@ -188,9 +216,10 @@ def main():
     parser.add_argument("--site", required=True, type=Path)
     parser.add_argument("--fixture-build", required=True, type=Path)
     parser.add_argument("--output-dir", required=True, type=Path)
+    parser.add_argument("--npm", default="npm", help="npm executable from the configured Wasm build")
     args = parser.parse_args()
     signal.signal(signal.SIGTERM, lambda signum, frame: sys.exit(1))
-    qualify(args.site, args.fixture_build, args.output_dir)
+    qualify(args.site, args.fixture_build, args.output_dir, args.npm)
 
 
 if __name__ == "__main__":

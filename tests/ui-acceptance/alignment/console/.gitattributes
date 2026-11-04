@@ -1,0 +1,5 @@
+# Actual terminal grids retain trailing cells as evidence of their width.
+candidate*/evidence/*.txt -whitespace
+candidate*/preflight/*.txt -whitespace
+# Failed terminal assertions include those same cell grids in the raw log.
+regressions/candidate*/focused-ctest.log -whitespace

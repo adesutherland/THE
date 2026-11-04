@@ -1,0 +1,11 @@
+options levelb
+address THE
+'set reserved -2 off';
+'set reserved -4 white on blue NATIVEONE';
+'set reserved -3 yellow on black NATIVETWO λ界';
+'set footer REVIEWONE -4 AFTERCMDLINE';
+'set footer REVIEWTWO -3 AFTERCMDLINE';
+'set msgline on -3 1';
+'set statusline top';
+'set cmdline top';
+return 0

@@ -1,0 +1,40 @@
+ MENU (F10) |  Console |  Tools & Profiles | Squares.crexx|Reader.rexx|Review.profile.the    | Tools & Profiles | Build results             
+CRXTHE                                                    1:32pm  [ ] U+0             CR INS | Profiles Tools Build Edit Hide Editor        
+/private/tmp/the-align<>/workspace/Welcome.txt Line=0      Col=1    Size=3     Alt=0,0       | Profile activated                            
+        |...+....1....+....2....+....3....+....4....+....5....+....6....+....7.]..+....8....+|                                              
+0000000 *** Top of File ***                                                                  |                                              
+0000001 THE console design review                                                            |                                              
+0000002 Use F10 to inspect the workbench menu.                                               |                                              
+0000003 This temporary file is plain Text.IVEONE';                                           |                                              
+0000004 *** Bottom of File ***                                                               |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                           ***                                                               |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+STOCK RESPONSE                                                                               |                                              
+======>                                                                                      |                                              
+        F10 Menu  F6 Cmd/File  Esc Cmd  F1 Help  Ctrl-S Save  Shift-Tab Controls             | Read-only | PgUp/PgDn Home/End | F10 actions 

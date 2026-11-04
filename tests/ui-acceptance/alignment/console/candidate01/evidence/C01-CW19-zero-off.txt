@@ -1,0 +1,40 @@
+ MENU (F10) |  Console |  Tools & Profiles | Welcome.txt|Squares.crexx|Reader.rexx           | Tools & Profiles | File types & tools        
+/private/tmp/the-align<>ace/Review.profile.the Line=0      Col=1    Size=11    Alt=0,0       | Profiles Tools Build Edit Hide Editor        
+        |...+....1....+....2....+....3....+....4....+....5....+....6....+....7.]..+....8....+| .rexx,.rex: Classic Rexx (runner; available) 
+0000000 *** Top of File ***                                                                  | .crexx: cREXX (runner; available)            
+0000001 options levelb                                                                       | .rxbin: RXBIN program (program; available)   
+0000002 address THE                                                                          | .the,.crexx: cREXX compiler (compiler; avail 
+0000003 'set reserved -2 off';                                                               | .rexx,.rex: Classic Rexx highlighter (langua 
+0000004 'set reserved -4 white on blue NATIVEONE';                                           |                                              
+0000005 'set reserved -3 yellow on black NATIVETWO λ界';                                     |                                              
+0000006 'set footer REVIEWONE -4 AFTERCMDLINE';                                              |                                              
+0000007 'set footer REVIEWTWO -3 AFTERCMDLINE';                                              |                                              
+0000008 'set msgline on -3 1';                                                               |                                              
+0000009 'set statusline top';                                                                |                                              
+0000010 'set cmdline top';                                                                   |                                              
+0000011 return 0                                                                             |                                              
+0000012 *** Bottom of File ***                                                               |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             | Edit profile: associations | PgUp/PgDn       

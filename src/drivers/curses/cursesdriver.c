@@ -35,6 +35,8 @@
 
 static TheWorkbenchControl workbench_control = THE_WORKBENCH_EDITOR;
 static int native_log_focused(void);
+static int native_program_focused(void);
+static int native_tools_has_focus(void);
 
 static int curses_driver_valid_screen(CHARTYPE scrno)
 {
@@ -120,6 +122,18 @@ static void curses_driver_reset_colour_cache(void)
       curses_driver_colour_cache_count = limit;
 }
 
+/* THE uses a stable BGR logical order. ncurses and some PDCurses builds use
+ * RGB order; native constants, rather than numeric IDs, own that boundary. */
+static short curses_driver_basic_colour(int colour)
+{
+#ifdef A_COLOR
+   static const short basic[] = { COLOR_BLACK, COLOR_BLUE, COLOR_GREEN, COLOR_CYAN,
+      COLOR_RED, COLOR_MAGENTA, COLOR_YELLOW, COLOR_WHITE };
+   if (colour >= THE_COLOR_BLACK && colour <= THE_COLOR_WHITE) return basic[colour];
+#endif
+   return (short)colour;
+}
+
 static short curses_driver_physical_colour_for_logical(int colour)
 {
 #ifdef A_COLOR
@@ -132,7 +146,7 @@ static short curses_driver_physical_colour_for_logical(int colour)
    if (colour < 0)
       return -1;
    if (!the_render_color_is_rgb(colour))
-      return (short)colour;
+      return curses_driver_basic_colour(colour);
    if (!colour_support || !can_change_color())
       return THE_COLOR_WHITE;
    if (curses_driver_colour_cache == NULL)
@@ -474,19 +488,19 @@ static TheDriverWindow **curses_driver_global_window_slot(
 
 static CursorShape curses_driver_current_cursor_shape(void)
 {
-   if (the_tool_console()->focused) return cursorstyle_insert_shape;
+   if (native_program_focused()) return cursorstyle_insert_shape;
    return INSERTMODEx ? cursorstyle_insert_shape : cursorstyle_over_shape;
 }
 
 static CursorBlink curses_driver_current_cursor_blink(void)
 {
-   if (the_tool_console()->focused) return cursorstyle_insert_blink;
+   if (native_program_focused()) return cursorstyle_insert_blink;
    return INSERTMODEx ? cursorstyle_insert_blink : cursorstyle_over_blink;
 }
 
 static CursorPresentation curses_driver_current_cursor_presentation(void)
 {
-   if (the_tool_console()->focused || native_log_focused() ||
+   if (native_program_focused() || native_tools_has_focus() || native_log_focused() ||
        workbench_control != THE_WORKBENCH_EDITOR)
       return CURSOR_PRESENTATION_HARDWARE;
 #ifdef USE_UTF8
@@ -1034,6 +1048,13 @@ static int console_rows, console_cols, console_top, console_left;
 static int console_timeout = -1, console_toolbar_focus, console_control;
 static int console_scroll_offset, console_scroll_lines, console_scroll_page;
 static unsigned console_scroll_id;
+static uint64_t console_scroll_epoch;
+static uint64_t console_scroll_displayed;
+static int console_scroll_unread;
+static int native_tools_visible, native_tools_focused, native_tools_control, native_tools_section;
+static int native_aux_suppressed;
+static TheToolsFileSnapshot native_file;
+static struct { int offset, lines, page, unread; unsigned id; uint64_t epoch, displayed; } native_build_reader;
 static int console_cached_mouse, console_mouse_button, console_mouse_action;
 static int console_mouse_modifier;
 typedef struct { size_t line, offset; } NativeDocumentCursor;
@@ -1081,6 +1102,34 @@ static struct
 } log_ui;
 
 static int native_log_focused(void) { return log_ui.focused; }
+static int native_program_focused(void)
+{ return !native_aux_suppressed && !native_tools_visible && !log_ui.focused && the_tool_program_console()->focused; }
+static int native_tools_has_focus(void) { return native_tools_visible && native_tools_focused && !native_aux_suppressed; }
+static void native_editor_focus(void)
+{
+   native_tools_focused = console_toolbar_focus = 0;
+   the_tool_console_visibility(the_tool_console()->visible, 0);
+   the_tool_program_console_visibility(the_tool_program_console()->visible, 0);
+   workbench_control = THE_WORKBENCH_EDITOR;
+}
+static void native_show_tools(int section, int toggle)
+{
+   int hide = toggle && native_tools_visible && !native_aux_suppressed;
+   native_editor_focus();
+   log_ui.focused = 0;
+   native_tools_visible = !hide;
+   native_aux_suppressed = hide;
+   if (!hide) { native_tools_section = section; native_tools_focused = 1; }
+}
+static void native_show_program(int toggle)
+{
+   int hide = toggle && !native_aux_suppressed && !native_tools_visible
+      && !log_ui.selected[0] && the_tool_program_console()->visible;
+   native_editor_focus();
+   log_ui.focused = 0; log_ui.selected[0] = 0;
+   native_tools_visible = 0; native_aux_suppressed = hide;
+   the_tool_program_console_visibility(!hide, !hide);
+}
 static int native_text_panel(const TheWorkbenchPanel *panel)
 { return panel->kind == THE_WORKBENCH_PANEL_LOG || panel->kind == THE_WORKBENCH_PANEL_DOCUMENT || panel->kind == THE_WORKBENCH_PANEL_FIELDS; }
 
@@ -1181,6 +1230,7 @@ static const TheWorkbenchPanel *native_log_at(size_t index)
 
 static const TheWorkbenchPanel *native_selected_log(void)
 {
+   if (native_tools_visible || native_aux_suppressed) return NULL;
    const TheWorkbenchPanel *panel = the_workbench_panel_find(log_ui.selected);
    const TheWorkbenchPanelState *state = panel ? the_workbench_panel_state(panel->id) : NULL;
    return panel && panel->generation == log_ui.selected_generation && state && state->visible ? panel : NULL;
@@ -1222,9 +1272,10 @@ static void native_logs_sync(void)
       panel = the_workbench_panel_find(focus->panel);
       if (panel && panel->generation == focus->generation)
       {
+         native_aux_suppressed = native_tools_visible = native_tools_focused = 0;
          if (!log_ui.focused)
          {
-            log_ui.origin_program = the_tool_console()->focused;
+            log_ui.origin_program = the_tool_program_console()->focused;
             log_ui.origin_toolbar = console_toolbar_focus; log_ui.origin_control = console_control;
             log_ui.origin_chrome = workbench_control;
          }
@@ -1236,26 +1287,26 @@ static void native_logs_sync(void)
                if (panel->document_id) native_filefields_sync(panel, &log_ui.views[i].filefields);
                else native_form_sync(panel, &log_ui.views[i].form, 1);
             }
-         if (the_tool_console()->focused)
-            the_tool_console_visibility(the_tool_console()->visible, 0);
+         if (the_tool_program_console()->focused)
+            the_tool_program_console_visibility(the_tool_program_console()->visible, 0);
       }
       else if (!focus->panel[0] && log_ui.focused)
       {
          log_ui.focused = 0;
          console_toolbar_focus = log_ui.origin_toolbar; console_control = log_ui.origin_control;
          workbench_control = log_ui.origin_chrome;
-         if (log_ui.origin_program && the_tool_console()->visible)
+         if (log_ui.origin_program && the_tool_program_console()->visible)
          {
             log_ui.selected[0] = '\0';
-            the_tool_console_visibility(1, 1);
+            the_tool_program_console_visibility(1, 1);
          }
       }
    }
-   if (!log_ui.focused && the_tool_console()->focused) log_ui.selected[0] = '\0';
+   if (!log_ui.focused && native_program_focused()) log_ui.selected[0] = '\0';
    if (!native_selected_log())
    {
       log_ui.selected[0] = '\0';
-      if (!the_tool_console()->visible && (panel = native_log_at(0)) != NULL)
+      if (!native_tools_visible && !native_aux_suppressed && !the_tool_program_console()->visible && (panel = native_log_at(0)) != NULL)
       { strcpy(log_ui.selected, panel->id); log_ui.selected_generation = panel->generation; }
    }
    if (console_control > 4 && !native_log_count()) console_control = 0;
@@ -1270,7 +1321,7 @@ static int native_log_view(const TheWorkbenchPanel *panel)
 }
 static struct
 {
-   int active, program_focused, toolbar_focused, toolbar_control;
+   int active, program_focused, toolbar_focused, toolbar_control, tools_focused;
    TheWorkbenchControl chrome;
 } workbench_menu_origin;
 
@@ -1281,6 +1332,7 @@ static int console_control_count(void) { return native_log_count() ? 6 : 5; }
 static const char *console_control_label(int control)
 {
    size_t i;
+   if (!control) return *native_file.actions[1].tool ? native_file.actions[1].label : "Tools";
    if (control == 5)
       for (i = 0; i < native_log_count(); i++)
          if (native_log_at(i)->kind == THE_WORKBENCH_PANEL_DOCUMENT) return "Panes";
@@ -1292,8 +1344,9 @@ static void workbench_set_focus(TheWorkbenchControl control)
    workbench_control = FILETABSx && filetabs ? control : THE_WORKBENCH_EDITOR;
    if (workbench_control != THE_WORKBENCH_EDITOR)
    {
+      native_tools_focused = 0;
       console_toolbar_focus = 0;
-      the_tool_console_visibility(the_tool_console()->visible, 0);
+      the_tool_program_console_visibility(the_tool_program_console()->visible, 0);
    }
    if (FILETABSx && filetabs) display_filetabs(NULL);
    /* The file-tabs repaint must not replace the editor's saved caret. */
@@ -1305,7 +1358,8 @@ static void workbench_set_focus(TheWorkbenchControl control)
 static void workbench_remember_menu_origin(void)
 {
    workbench_menu_origin.active = 1;
-   workbench_menu_origin.program_focused = the_tool_console()->focused;
+   workbench_menu_origin.program_focused = native_program_focused();
+   workbench_menu_origin.tools_focused = native_tools_has_focus();
    workbench_menu_origin.toolbar_focused = console_toolbar_focus;
    workbench_menu_origin.toolbar_control = console_control;
    workbench_menu_origin.chrome = workbench_control;
@@ -1319,8 +1373,9 @@ static void workbench_restore_cancelled_menu(void)
    {
       console_toolbar_focus = workbench_menu_origin.toolbar_focused;
       console_control = workbench_menu_origin.toolbar_control;
-      the_tool_console_visibility(the_tool_console()->visible, 1);
+      the_tool_program_console_visibility(the_tool_program_console()->visible, 1);
    }
+   else if (workbench_menu_origin.tools_focused) native_tools_focused = 1;
    else if (workbench_menu_origin.chrome != THE_WORKBENCH_EDITOR)
       workbench_set_focus(workbench_menu_origin.chrome);
 }
@@ -1342,6 +1397,38 @@ static TheWorkbenchControl curses_driver_workbench_focus(bool enter)
    if (enter) workbench_set_focus(THE_WORKBENCH_CONSOLE);
    if (!FILETABSx || !filetabs) workbench_control = THE_WORKBENCH_EDITOR;
    return workbench_control;
+}
+
+/* Presentation reads C-owned roles and actions. Invocation binds the exact
+ * source/action tokens that supplied the visible control. */
+static int native_file_action(const TheToolsFileSnapshot *snapshot, unsigned index, TheInputEvent *event)
+{
+   static const char *const names[] = {"file-build", "file-run", "file-activate"};
+   const TheToolsFileActionSnapshot *action;
+   char generation[32];
+   if (index >= THE_TOOLS_FILE_ACTION_COUNT || in_macro || the_panel_active) return 0;
+   action = snapshot->actions + index;
+   if (!action->enabled) return 0;
+   snprintf(generation, sizeof(generation), "%lu", action->generation);
+   if (!the_tools_prepare_lines_bound(names[index], action->tool, "", "",
+       snapshot->source_id, snapshot->revision, generation, event)) return 0;
+   if (index == 1) native_show_program(0); else native_show_tools(2, 0);
+   return 1;
+}
+
+static void native_tools_sync(void)
+{
+   static unsigned program_id, build_id;
+   static int program_visible, program_focused;
+   const TheToolConsole *program = the_tool_program_console(), *build = the_tool_build_console();
+   the_tools_file_snapshot(&native_file);
+   if (build->id != build_id)
+   { build_id = build->id; if (build_id) native_show_tools(2, 0); }
+   if (program->id != program_id)
+   { program_id = program->id; if (program_id) native_show_program(0); }
+   else if ((program->visible && !program_visible) || (program->focused && !program_focused))
+   { native_tools_visible = native_aux_suppressed = 0; }
+   program_visible = program->visible; program_focused = program->focused;
 }
 
 static void console_delete_windows(void)
@@ -1392,7 +1479,7 @@ static int console_is_right(void)
 
 static int console_height(void)
 {
-   return (the_tool_console()->visible || native_log_count()) && LINES >= 16 && COLS >= 32
+   return !native_aux_suppressed && (native_tools_visible || the_tool_program_console()->visible || native_log_count()) && LINES >= 16 && COLS >= 32
       ? (console_is_right() ? LINES : max(LINES >= 24 ? 8 : 6,
           native_selected_log() ? min(native_selected_log()->minrows, LINES - 10) : 0)) : 0;
 }
@@ -1411,25 +1498,24 @@ static int console_layout_changed(void)
 
 static int console_control_event(int control, TheInputEvent *event)
 {
-   const TheToolConsole *c = the_tool_console();
+   const TheToolConsole *c = the_tool_program_console();
 
    switch (control)
    {
       case 0:
-         if (c->running) return 0;
+         if (!*native_file.actions[1].tool) { native_show_tools(0, 0); break; }
          console_toolbar_focus = 0;
-         return the_input_event_from_command("rx run", event);
+         return native_file_action(&native_file, 1, event);
       case 1:
          return c->running ? the_input_event_from_command("rx stop", event) : 0;
-      case 2: return the_input_event_from_command("rx clear", event);
+      case 2: the_tool_clear_program(); break;
       case 3:
-         console_toolbar_focus = 0;
-         return the_input_event_from_command("rx console off", event);
+         native_show_program(1); break;
       case 4:
-         console_toolbar_focus = 0;
-         return the_input_event_from_command("rx key escape", event);
+         native_editor_focus(); break;
       case 5: return native_log_event(native_log_at(0), THE_WORKBENCH_PANEL_FOCUS, event);
    }
+   curses_driver_update();
    return 0;
 }
 
@@ -2052,9 +2138,139 @@ static void native_log_draw(const TheWorkbenchPanel *panel)
    wnoutrefresh(console_window);
 }
 
+static const char *const native_tools_controls[] = {"Profiles", "Tools", "Build", "Edit", "Hide", "Editor"};
+static int native_tools_top;
+
+static int native_tools_control_event(int control, TheInputEvent *event)
+{
+   if (control < 3) { native_tools_section = control; native_tools_top = 0; }
+   else if (control == 3)
+   {
+      native_editor_focus();
+      return the_tools_prepare_input("profile", "", "", 0, NULL, event);
+   }
+   else if (control == 4) native_show_tools(native_tools_section, 1);
+   else native_editor_focus();
+   return 0;
+}
+
+static const char *native_path_name(const char *path)
+{
+   const char *name = strrchr(path, '/');
+#ifdef _WIN32
+   const char *backslash = strrchr(path, '\\');
+   if (backslash && (!name || backslash > name)) name = backslash;
+#endif
+   return name ? name + 1 : path;
+}
+
+static void native_tools_draw(void)
+{
+   const TheToolConsole *build = the_tool_build_console();
+   static char output[THE_TOOL_OUTPUT + 1];
+   static unsigned char streams[THE_TOOL_OUTPUT];
+   char line[THE_TOOL_PATH + 300];
+   int row, col = 1, w = console_cols, h = console_rows;
+   size_t i, length = 0;
+   const char *section = native_tools_section == 0 ? "Profiles" : native_tools_section == 1 ? "File types & tools" : "Build results";
+   wattrset(console_window, console_theme_attr(ATTR_CONSOLEHEADER, 0));
+   mvwhline(console_window, 0, 0, ' ', w);
+   snprintf(line, sizeof(line), " Tools & Profiles | %s", section);
+   console_write_text(0, 0, line, strlen(line), w - 1);
+   for (i = 0; i < sizeof(native_tools_controls) / sizeof(native_tools_controls[0]); i++)
+   {
+      wattrset(console_window, console_theme_attr(native_tools_focused && native_tools_control == (int)i
+         ? ATTR_CONSOLESELECTED : ATTR_CONSOLECONTROL, THE_STYLE_BOLD));
+      col += console_write_text(1, col, native_tools_controls[i], strlen(native_tools_controls[i]), w - col - 1) + 1;
+   }
+   wattrset(console_window, console_theme_attr(ATTR_CONSOLESTATUS, 0));
+   if (native_tools_section == 2)
+   {
+      const char *state = native_file.result.serial && strcmp(native_file.result.action, "run")
+         ? native_file.result.message : build->id ? build->state : "Build the current source; details appear here.";
+      console_write_text(2, 1, state, strlen(state), w - 2);
+      for (i = 0; i < build->count && length < THE_TOOL_OUTPUT; i++)
+      {
+         size_t bytes = min(build->chunks[i].length, THE_TOOL_OUTPUT - length);
+         memcpy(output + length, build->chunks[i].text, bytes);
+         memset(streams + length, build->chunks[i].fd, bytes); length += bytes;
+      }
+      output[length] = 0;
+      row = console_output_rows(output, streams, length, w - 1, 0, 3, 0, NULL, 0);
+      if (native_build_reader.id != build->id || native_build_reader.epoch != build->history_epoch)
+      {
+         native_build_reader.id = build->id; native_build_reader.epoch = build->history_epoch;
+         native_build_reader.offset = native_build_reader.unread = 0;
+      }
+      else if (native_build_reader.offset)
+      {
+         if (build->displayed > native_build_reader.displayed) native_build_reader.unread = 1;
+         if (row > native_build_reader.lines) native_build_reader.offset += row - native_build_reader.lines;
+      }
+      native_build_reader.displayed = build->displayed;
+      native_build_reader.lines = row; native_build_reader.page = max(1, h - 5);
+      native_build_reader.offset = min(native_build_reader.offset, max(0, row - (h - 4)));
+      if (!native_build_reader.offset) native_build_reader.unread = 0;
+      console_output_rows(output, streams, length, w - 1,
+         max(0, row - (h - 4) - native_build_reader.offset), 3, h - 4, NULL, 0);
+   }
+   else if (native_tools_section == 1)
+   {
+      for (row = 2, i = (size_t)native_tools_top; row < h - 1 && i < the_tool_count(); row++, i++)
+      {
+         const TheToolDefinition *tool = the_tool_at(i);
+         snprintf(line, sizeof(line), "%s: %s (%s; %s)", *tool->extensions ? tool->extensions : tool->id,
+            tool->label, tool->role, tool->available ? "available" : "unavailable");
+         console_write_text(row, 1, line, strlen(line), w - 2);
+      }
+      if (!the_tool_count())
+      {
+         const char *note = "No file tools registered. Edit profile to define them.";
+         console_write_text(2, 1, note, strlen(note), w - 2);
+      }
+   }
+   else
+   {
+      const TheToolsProfileSnapshot *profile = &native_file.profile;
+      snprintf(line, sizeof(line), "Active profile: %s", *profile->active.image
+         ? native_path_name(*profile->active.source_path ? profile->active.source_path : profile->active.image) : "Stock defaults");
+      console_write_text(2, 1, line, strlen(line), w - 2);
+      snprintf(line, sizeof(line), "%s", *profile->active.image
+         ? profile->active.startup_saved ? "Applied; startup selection saved" : "Applied; startup selection not saved" : "No user profile applied");
+      console_write_text(3, 1, line, strlen(line), w - 2);
+      snprintf(line, sizeof(line), "Editable source: %s", native_path_name(profile->source_path));
+      console_write_text(4, 1, line, strlen(line), w - 2);
+      if (h > 7)
+      {
+         snprintf(line, sizeof(line), "Latest build: %s%s%s", profile->build.state,
+            *profile->build.name ? " | " : "", profile->build.name);
+         console_write_text(5, 1, line, strlen(line), w - 2);
+      }
+      if (h > 8)
+      {
+         const char *note = "Edit profile, then Build profile and Apply profile from F10.";
+         console_write_text(6, 1, note, strlen(note), w - 2);
+      }
+   }
+   wattrset(console_window, console_theme_attr(ATTR_CONSOLESTATUS, 0));
+   {
+      const char *hint = native_tools_section == 2 ? native_build_reader.offset
+         ? native_build_reader.unread ? " New output | End: Latest" : " Earlier output | End: Latest"
+         : " Read-only | PgUp/PgDn Home/End | F10 actions"
+         : native_tools_section == 1 ? " Edit profile: associations | PgUp/PgDn"
+         : " F10: file actions | Edit: profile source";
+      console_write_text(h - 1, 0, hint, strlen(hint), w - 1);
+   }
+   col = 1;
+   for (i = 0; i < (size_t)native_tools_control; i++) col += (int)strlen(native_tools_controls[i]) + 1;
+   wmove(console_window, 1, min(w - 1, col));
+   leaveok(console_window, native_tools_focused ? FALSE : TRUE);
+   wnoutrefresh(console_window);
+}
+
 static void console_draw(void)
 {
-   const TheToolConsole *c = the_tool_console();
+   const TheToolConsole *c = the_tool_program_console();
    static char text[THE_TOOL_OUTPUT + 1];
    static unsigned char streams[THE_TOOL_OUTPUT];
    char heading[384], context[THE_TOOL_PATH + 160], state[128];
@@ -2066,7 +2282,8 @@ static void console_draw(void)
    TextCellSlice input_slice;
 
    if (!h) return;
-   if (!console_window) console_window = newwin(h, w, console_top, console_left);
+   if (!console_window)
+   { console_window = newwin(h, w, console_top, console_left); if (console_window) keypad(console_window, TRUE); }
    if (!console_window) return;
    if (!console_divider)
       console_divider = console_left
@@ -2086,6 +2303,7 @@ static void console_draw(void)
     * explicitly so the pane never inherits the terminal's default colours. */
    wattrset(console_window, console_theme_attr(ATTR_CONSOLEBODY, 0));
    for (i = 0; i < h; i++) mvwhline(console_window, i, 0, ' ', w);
+   if (native_tools_visible) { native_tools_draw(); return; }
    if (native_selected_log())
    {
       if (native_selected_log()->kind == THE_WORKBENCH_PANEL_FIELDS && native_selected_log()->document_id) native_filefields_draw(native_selected_log());
@@ -2102,7 +2320,7 @@ static void console_draw(void)
    console_write_text(0, 0, heading, strlen(heading), w - 1);
    for (i = 0; i < console_control_count(); i++)
    {
-      int enabled = i == 0 ? !c->running : i == 1 ? c->running : 1;
+      int enabled = i == 0 ? !*native_file.actions[1].tool || native_file.actions[1].enabled : i == 1 ? c->running : 1;
       int selected = c->focused && console_toolbar_focus && console_control == i;
 
       wattrset(console_window, console_theme_attr(
@@ -2120,7 +2338,7 @@ static void console_draw(void)
    {
       wattrset(console_window, console_theme_attr(ATTR_CONSOLESTATUS, 0));
       if (w < 64)
-         snprintf(context, sizeof(context), " PgUp/PgDn scroll | Home/End");
+         snprintf(context, sizeof(context), " Source: %s | PgUp/PgDn", *c->filename ? native_path_name(c->filename) : "none");
       else
          snprintf(context, sizeof(context), " %s | %s | source %u revision %u | PgUp/PgDn scroll",
             c->tool, c->filename, c->source_id, c->revision);
@@ -2136,16 +2354,32 @@ static void console_draw(void)
    }
    text[length] = 0;
    lines = console_output_rows(text, streams, length, w - 1, 0, row, 0, NULL, 0);
-   if (c->id != console_scroll_id || !c->count)
+   if (c->id != console_scroll_id || c->history_epoch != console_scroll_epoch)
    {
       console_scroll_id = c->id;
-      console_scroll_offset = 0;
+      console_scroll_epoch = c->history_epoch;
+      console_scroll_offset = console_scroll_unread = 0;
    }
-   else if (console_scroll_offset && lines > console_scroll_lines)
-      console_scroll_offset += lines - console_scroll_lines;
+   else if (console_scroll_offset)
+   {
+      if (c->displayed > console_scroll_displayed) console_scroll_unread = 1;
+      if (lines > console_scroll_lines) console_scroll_offset += lines - console_scroll_lines;
+   }
+   console_scroll_displayed = c->displayed;
    console_scroll_lines = lines;
    console_scroll_page = max(1, output_rows - 1);
    console_scroll_offset = min(console_scroll_offset, max(0, lines - output_rows));
+   if (!console_scroll_offset) console_scroll_unread = 0;
+   if (console_scroll_offset)
+   {
+      const char *hint = console_scroll_unread ? " New output | End: Latest" : " Earlier output | End: Latest";
+      /* A six-row dock has no context row: put recovery in its header and
+       * retain the independent completion/status row and Program input. */
+      int hint_row = h >= 8 ? 3 : 0;
+      wattrset(console_window, console_theme_attr(ATTR_CONSOLESTATUS, 0));
+      mvwhline(console_window, hint_row, 0, ' ', w);
+      console_write_text(hint_row, 0, hint, strlen(hint), w - 1);
+   }
    console_output_rows(text, streams, length, w - 1,
                        max(0, lines - output_rows - console_scroll_offset),
                        row, output_rows, NULL, 0);
@@ -2187,6 +2421,7 @@ static struct
    unsigned long revision;
    char argument[THE_WORKBENCH_OPERAND_MAX + 1];
    int path_count, path_selected, path_first, path_more;
+   TheToolsFileSnapshot file;
    size_t path_base_length;
    struct { char path[THE_WORKBENCH_OPERAND_MAX + 1]; int directory; } paths[128];
    struct
@@ -2194,9 +2429,38 @@ static struct
       char item[THE_WORKBENCH_ID_MAX + 1], action[THE_WORKBENCH_ID_MAX + 1];
       char label[THE_WORKBENCH_LABEL_MAX * 2 + 5];
       unsigned long generation;
-      int separator;
-   } entries[THE_WORKBENCH_ITEM_MAX];
+      int separator, kind;
+   } entries[THE_WORKBENCH_ITEM_MAX + 12];
 } native_menu;
+
+enum { NATIVE_MENU_GRAPH, NATIVE_MENU_BUILD, NATIVE_MENU_RUN, NATIVE_MENU_APPLY,
+       NATIVE_MENU_TOOLS, NATIVE_MENU_PROGRAM, NATIVE_MENU_HIDE_PROGRAM,
+       NATIVE_MENU_EDIT_PROFILE, NATIVE_MENU_BUILD_RESULTS, NATIVE_MENU_CLEAR_PROGRAM };
+
+static void native_menu_local(int kind, const char *id, const char *label, const char *selected)
+{
+   int entry = native_menu.count++;
+   memset(native_menu.entries + entry, 0, sizeof(native_menu.entries[entry]));
+   native_menu.entries[entry].kind = kind;
+   snprintf(native_menu.entries[entry].item, sizeof(native_menu.entries[entry].item), "%s", id);
+   snprintf(native_menu.entries[entry].label, sizeof(native_menu.entries[entry].label), "%s", label);
+   if (!strcmp(selected, id)) native_menu.selected = entry;
+}
+
+static void native_menu_file_actions(const char *selected)
+{
+   size_t i;
+   char label[THE_WORKBENCH_LABEL_MAX + 16], id[32];
+   for (i = 0; i < THE_TOOLS_FILE_ACTION_COUNT; i++)
+      if (*native_menu.file.actions[i].tool)
+      {
+         snprintf(label, sizeof(label), "Tools: %s", native_menu.file.actions[i].label);
+         snprintf(id, sizeof(id), "curses.file.%lu", (unsigned long)i);
+         native_menu_local(NATIVE_MENU_BUILD + (int)i, id, label, selected);
+      }
+   native_menu_local(NATIVE_MENU_EDIT_PROFILE, "curses.profile", "Tools: Edit profile", selected);
+   native_menu_local(NATIVE_MENU_BUILD_RESULTS, "curses.build-results", "Tools: Build results", selected);
+}
 
 /* Only lower the stock shared-menu binding. Profiles retain authority to
  * redefine F10; modal READ and active macros always keep their own keys. */
@@ -2227,8 +2491,8 @@ static void native_menu_sync(void)
    size_t menus[THE_WORKBENCH_MENU_MAX], items[THE_WORKBENCH_ITEM_MAX];
    size_t nm = the_workbench_menu_count(), ni = the_workbench_item_count();
    size_t i, j, k, n;
+   int view_added = 0, tools_added = 0;
    char selected[THE_WORKBENCH_ID_MAX + 1] = "";
-   if (native_menu.revision == the_workbench_revision()) return;
    if (native_menu.count && native_menu.selected < native_menu.count)
       strcpy(selected, native_menu.entries[native_menu.selected].item);
    for (i = 0; i < nm; i++)
@@ -2240,9 +2504,14 @@ static void native_menu_sync(void)
    }
    native_menu.count = 0;
    native_menu.selected = 0;
+   native_menu.file = native_file;
    for (i = 0; i < nm; i++)
    {
       const TheWorkbenchMenu *menu = the_workbench_menu_at(menus[i]);
+      if (!view_added && menu->order >= 30)
+      { native_menu_local(NATIVE_MENU_TOOLS, "curses.tools", "View: Tools & Profiles", selected); view_added = 1; }
+      if (!tools_added && menu->order >= 40)
+      { native_menu_file_actions(selected); tools_added = 1; }
       n = 0;
       for (j = 0; j < ni; j++)
          if (!strcmp(the_workbench_item_at(j)->menu, menu->id))
@@ -2256,16 +2525,29 @@ static void native_menu_sync(void)
       {
          const TheWorkbenchItem *item = the_workbench_item_at(items[j]);
          const TheWorkbenchAction *action = the_workbench_action_find(item->action);
+         /* Adapt the exact stock generic Run only. Replaced/custom actions
+          * retain their profile-owned identity and command semantics. */
+         if (action && !strcmp(action->id, "profile.action.8")
+         && action->kind == THE_WORKBENCH_ACTION_COMMAND && !strcmp(action->operand, "rx menu-run")) continue;
          int entry = native_menu.count++;
+         memset(native_menu.entries + entry, 0, sizeof(native_menu.entries[entry]));
          strcpy(native_menu.entries[entry].item, item->id);
          strcpy(native_menu.entries[entry].action, item->action);
          native_menu.entries[entry].generation = action ? action->generation : 0;
          native_menu.entries[entry].separator = item->separator;
+         if (action && action->kind == THE_WORKBENCH_ACTION_COMMAND)
+         {
+            if (!strcmp(action->id, "profile.action.9") && !strcmp(action->operand, "rx console on")) native_menu.entries[entry].kind = NATIVE_MENU_PROGRAM;
+            if (!strcmp(action->id, "profile.action.10") && !strcmp(action->operand, "rx console off")) native_menu.entries[entry].kind = NATIVE_MENU_HIDE_PROGRAM;
+            if (!strcmp(action->id, "profile.action.12") && !strcmp(action->operand, "rx clear")) native_menu.entries[entry].kind = NATIVE_MENU_CLEAR_PROGRAM;
+         }
          snprintf(native_menu.entries[entry].label, sizeof(native_menu.entries[entry].label),
                   "%s: %s", menu->label, item->separator ? "--------" : item->label);
          if (!strcmp(selected, item->id)) native_menu.selected = entry;
       }
    }
+   if (!view_added) native_menu_local(NATIVE_MENU_TOOLS, "curses.tools", "View: Tools & Profiles", selected);
+   if (!tools_added) native_menu_file_actions(selected);
    native_menu.revision = the_workbench_revision();
 }
 
@@ -2353,6 +2635,36 @@ static int native_action_needs_argument(const TheWorkbenchAction *action)
    return definition && definition->requires_argument && !action->operand[0];
 }
 
+static const char *native_menu_reason(int entry)
+{
+   int kind = native_menu.entries[entry].kind;
+   if (kind >= NATIVE_MENU_BUILD && kind <= NATIVE_MENU_APPLY)
+   {
+      const TheToolsFileActionSnapshot *action = native_menu.file.actions + kind - NATIVE_MENU_BUILD;
+      return action->enabled ? "ok" : action->reason;
+   }
+   return kind ? "ok" : the_workbench_action_reason(the_workbench_action_find(native_menu.entries[entry].action));
+}
+
+static int native_menu_local_invoke(int kind, TheInputEvent *event)
+{
+   if (kind >= NATIVE_MENU_BUILD && kind <= NATIVE_MENU_APPLY)
+      return native_file_action(&native_menu.file, (unsigned)(kind - NATIVE_MENU_BUILD), event);
+   if (kind == NATIVE_MENU_TOOLS) native_show_tools(native_tools_section, 1);
+   else if (kind == NATIVE_MENU_BUILD_RESULTS) native_show_tools(2, 0);
+   else if (kind == NATIVE_MENU_PROGRAM) native_show_program(0);
+   else if (kind == NATIVE_MENU_HIDE_PROGRAM)
+   {
+      the_tool_program_console_visibility(0, 0);
+      if (!native_tools_visible && !native_selected_log())
+      { native_aux_suppressed = 1; native_editor_focus(); }
+   }
+   else if (kind == NATIVE_MENU_CLEAR_PROGRAM) the_tool_clear_program();
+   else if (kind == NATIVE_MENU_EDIT_PROFILE)
+   { native_editor_focus(); return the_tools_prepare_input("profile", "", "", 0, NULL, event); }
+   return 0;
+}
+
 static void native_menu_draw(void)
 {
    int row, height, width, page;
@@ -2404,7 +2716,7 @@ static void native_menu_draw(void)
    {
       int entry = native_menu.first + row;
       const TheWorkbenchAction *action = the_workbench_action_find(native_menu.entries[entry].action);
-      const char *reason = action ? the_workbench_action_reason(action) : "unavailable";
+      const char *reason = native_menu_reason(entry);
       int promptable = native_action_needs_argument(action);
       wattrset(native_menu.window, console_theme_attr(entry == native_menu.selected
          ? ATTR_POP_CURLINE : ATTR_POPUP, (reason && strcmp(reason, "ok") && !promptable) ? THE_STYLE_DIM : THE_STYLE_NORMAL));
@@ -2433,8 +2745,7 @@ static void native_menu_draw(void)
    {
       if (native_menu.count)
       {
-         const char *reason = the_workbench_action_reason(
-            the_workbench_action_find(native_menu.entries[native_menu.selected].action));
+         const char *reason = native_menu_reason(native_menu.selected);
          if (strcmp(reason, "ok") && strcmp(reason, "argument-required")) hint = reason;
       }
       curses_write_text(native_menu.window, height - 2, 1, hint, strlen(hint), width - 2);
@@ -2527,8 +2838,18 @@ static int native_menu_key(int key, const TheInputEvent *input, TheInputEvent *e
 activate:
       if (native_menu.count && !native_menu.entries[native_menu.selected].separator)
       {
+         int kind = native_menu.entries[native_menu.selected].kind;
          const TheWorkbenchAction *action = the_workbench_action_find(native_menu.entries[native_menu.selected].action);
-         const char *reason = action ? the_workbench_action_reason(action) : "unavailable";
+         const char *reason = native_menu_reason(native_menu.selected);
+         if (kind)
+         {
+            if (!reason || !strcmp(reason, "ok"))
+            {
+               int ready = native_menu_local_invoke(kind, event);
+               native_menu_close(0); curses_driver_update(); return ready;
+            }
+            curses_driver_update(); return 0;
+         }
          if (native_action_needs_argument(action) && (!reason || !strcmp(reason, "ok") || !strcmp(reason, "argument-required")))
          {
             native_menu.prompting = 1;
@@ -2559,8 +2880,9 @@ void curses_driver_update(void)
 {
    static int cursor_focus_state = -1;
    int focus_state;
+   native_tools_sync();
    native_logs_sync();
-   focus_state = log_ui.focused ? 3 : the_tool_console()->focused ? 2
+   focus_state = log_ui.focused || native_tools_has_focus() ? 3 : native_program_focused() ? 2
       : workbench_control != THE_WORKBENCH_EDITOR ? 1 : 0;
 
    console_draw();
@@ -2576,7 +2898,7 @@ void curses_driver_update(void)
       leaveok(chrome, FALSE);
       wnoutrefresh(chrome);
    }
-   else if (!log_ui.focused && !the_tool_console()->focused && curses_driver_current_active_window())
+   else if (!log_ui.focused && !native_tools_has_focus() && !native_program_focused() && curses_driver_current_active_window())
       wnoutrefresh(curses_driver_current_active_window());
    if (!in_macro && !the_panel_active && focus_state != cursor_focus_state)
    {
@@ -2832,12 +3154,33 @@ int curses_driver_peek_raw_driver_window_key(TheDriverWindow *win)
  * editor's normal mouse bindings through read_pending_mouse_button(). */
 static int console_mouse_event(TheInputEvent *event)
 {
-   const TheToolConsole *c = the_tool_console();
+   const TheToolConsole *c = the_tool_program_console();
    int button, action, modifier, row, col, i, start = 1;
 
    if (!curses_driver_read_pending_mouse_button(&button, &action, &modifier))
       return 0;
    curses_driver_current_mouse_screen_position(&row, &col);
+   if (native_tools_visible && row >= console_top && row < console_top + console_rows &&
+       col >= console_left && col < console_left + console_cols)
+   {
+      if (button == 1 && !modifier && (action == CURSES_DRIVER_MOUSE_BUTTON_PRESSED || action == CURSES_DRIVER_MOUSE_BUTTON_CLICKED))
+      {
+         native_tools_focused = 1; workbench_control = THE_WORKBENCH_EDITOR;
+         if (row == console_top + 1)
+            for (i = 0; i < 6; i++)
+            {
+               if (col - console_left >= start && col - console_left < start + (int)strlen(native_tools_controls[i]))
+               {
+                  int ready;
+                  native_tools_control = i; ready = native_tools_control_event(i, event);
+                  curses_driver_update(); return ready;
+               }
+               start += (int)strlen(native_tools_controls[i]) + 1;
+            }
+      }
+      curses_driver_update();
+      return 0;
+   }
    if (native_selected_log() && row >= console_top && row < console_top + console_rows &&
        col >= console_left && col < console_left + console_cols)
    {
@@ -2886,21 +3229,11 @@ static int console_mouse_event(TheInputEvent *event)
       {
          if (col < THE_NATIVE_MENU_WIDTH)
             workbench_remember_menu_origin();
-         if (col >= THE_NATIVE_MENU_WIDTH && col < THE_NATIVE_MENU_WIDTH + THE_NATIVE_CONSOLE_WIDTH)
-         {
-            if (log_ui.focused && native_selected_log())
-            {
-               log_ui.origin_program = 1; log_ui.origin_toolbar = 0; log_ui.origin_chrome = THE_WORKBENCH_EDITOR;
-               return native_log_event(native_selected_log(), THE_WORKBENCH_PANEL_RETURN, event);
-            }
-            log_ui.selected[0] = '\0';
-         }
          workbench_set_focus(THE_WORKBENCH_EDITOR);
-         return col < THE_NATIVE_MENU_WIDTH
-            ? native_menu_open()
-            : col < THE_NATIVE_MENU_WIDTH + THE_NATIVE_CONSOLE_WIDTH
-               ? the_input_event_from_command("rx console on", event)
-               : the_input_event_from_command("rx run", event);
+         if (col < THE_NATIVE_MENU_WIDTH) return native_menu_open();
+         if (col < THE_NATIVE_MENU_WIDTH + THE_NATIVE_CONSOLE_WIDTH) native_show_program(1);
+         else native_show_tools(native_tools_section, 1);
+         curses_driver_update(); return 0;
       }
       return 0;
    }
@@ -2918,8 +3251,9 @@ static int console_mouse_event(TheInputEvent *event)
       if (button == 1 && c->focused)
       {
          console_toolbar_focus = 0;
-         the_tool_console_visibility(c->visible, 0);
+         the_tool_program_console_visibility(c->visible, 0);
       }
+      if (button == 1) native_tools_focused = 0;
       return the_input_event_from_legacy_key(THE_KEY_MOUSE, event);
    }
    if (button != 1 || modifier ||
@@ -2946,7 +3280,43 @@ static int console_mouse_event(TheInputEvent *event)
       curses_driver_update();
       return 0;
    }
-   return the_input_event_from_command("rx console on", event);
+   native_show_program(0); curses_driver_update(); return 0;
+}
+
+static int native_tools_key(int key, TheInputEvent *event)
+{
+   if (key == 27 || key == THE_KEY_F(6))
+   { native_editor_focus(); return 1; }
+   if (key == 9 || key == THE_KEY_RIGHT || key == THE_KEY_LEFT || key == THE_KEY_BTAB)
+   {
+      if (key == THE_KEY_BTAB && !native_tools_control) workbench_set_focus(THE_WORKBENCH_TOOLS);
+      else native_tools_control = (native_tools_control + 6 + ((key == THE_KEY_BTAB || key == THE_KEY_LEFT) ? -1 : 1)) % 6;
+   }
+   else if (key == 10 || key == 13 || key == THE_KEY_ENTER || key == ' ')
+   {
+      int ready = native_tools_control_event(native_tools_control, event);
+      curses_driver_update(); return ready;
+   }
+   else if (native_tools_section == 2)
+   {
+      int maximum = max(0, native_build_reader.lines - (console_rows - 4));
+      if (key == THE_KEY_HOME) native_build_reader.offset = maximum;
+      else if (key == THE_KEY_END) native_build_reader.offset = 0;
+      else if (key == THE_KEY_PPAGE || key == THE_KEY_UP) native_build_reader.offset = min(maximum,
+         native_build_reader.offset + (key == THE_KEY_UP ? 1 : native_build_reader.page));
+      else if (key == THE_KEY_NPAGE || key == THE_KEY_DOWN) native_build_reader.offset = max(0,
+         native_build_reader.offset - (key == THE_KEY_DOWN ? 1 : native_build_reader.page));
+   }
+   else if (native_tools_section == 1)
+   {
+      if (key == THE_KEY_HOME) native_tools_top = 0;
+      else if (key == THE_KEY_END) native_tools_top = max(0, (int)the_tool_count() - (console_rows - 3));
+      else if (key == THE_KEY_PPAGE || key == THE_KEY_UP) native_tools_top = max(0,
+         native_tools_top - (key == THE_KEY_UP ? 1 : console_rows - 3));
+      else if (key == THE_KEY_NPAGE || key == THE_KEY_DOWN) native_tools_top = min(max(0, (int)the_tool_count() - 1),
+         native_tools_top + (key == THE_KEY_DOWN ? 1 : console_rows - 3));
+   }
+   curses_driver_update(); return 0;
 }
 
 static int native_log_key(int key, TheInputEvent *event)
@@ -2964,7 +3334,7 @@ static int native_log_key(int key, TheInputEvent *event)
       for (i = 0; i < count && native_log_at(i) != panel; i++);
       if ((key == 9 && i + 1 == count) || (key == THE_KEY_BTAB && !i))
       {
-         if (the_tool_console()->visible)
+         if (the_tool_program_console()->visible)
          {
             log_ui.origin_program = 1; log_ui.origin_toolbar = 0; log_ui.origin_chrome = THE_WORKBENCH_EDITOR;
             return native_log_event(panel, THE_WORKBENCH_PANEL_RETURN, event);
@@ -3022,8 +3392,9 @@ int curses_driver_read_input_event(TheInputEvent *event)
    console_cached_mouse = 0;
    the_tools_native_initialise();
    the_tools_native_poll();
+   native_tools_sync();
    native_logs_sync();
-   c = the_tool_console();
+   c = the_tool_program_console();
    if (log_ui.focused && c->focused && native_selected_log())
    {
       log_ui.origin_program = 1; log_ui.origin_toolbar = 0; log_ui.origin_chrome = THE_WORKBENCH_EDITOR;
@@ -3036,22 +3407,22 @@ int curses_driver_read_input_event(TheInputEvent *event)
       return the_input_event_from_resize(0, 0, event);
    }
    if (!c->focused) console_toolbar_focus = 0;
-   if (c->focused && !console_rows && !in_macro && !the_panel_active)
-      return the_input_event_from_command("rx key escape", event);
+   if ((native_program_focused() || native_tools_has_focus()) && !console_rows && !in_macro && !the_panel_active)
+   { native_editor_focus(); curses_driver_update(); return 0; }
    /* wgetch() refreshes its window and caret. The visible menu owns input;
     * polling the underlying Program/editor window would move the terminal
     * caret away from the menu on every active-job timeout. */
    input_window = native_menu.active && native_menu.window && !in_macro && !the_panel_active
       ? native_menu.window
-      : log_ui.focused && console_window && !in_macro && !the_panel_active ? console_window
+      : (log_ui.focused || native_tools_has_focus() || native_program_focused()) && console_window && !in_macro && !the_panel_active ? console_window
       : workbench_control != THE_WORKBENCH_EDITOR && FILETABSx && filetabs
         && !in_macro && !the_panel_active
          ? curses_driver_window_from_driver(filetabs) : curses_driver_current_active_window();
    curses_driver_set_window_timeout(input_window, console_timeout);
-   if (c->running)
+   if (the_tool_console()->running)
       curses_driver_set_window_timeout(input_window, 50);
    key = curses_driver_read_window_key(input_window);
-   if (c->running)
+   if (the_tool_console()->running)
       curses_driver_set_window_timeout(input_window, console_timeout);
    if (key == ERR)
    {
@@ -3070,6 +3441,7 @@ int curses_driver_read_input_event(TheInputEvent *event)
          return native_menu_key(key, &input, event);
       }
       if (key == THE_KEY_F(10) && shared_menu_key_binding()) return native_menu_open();
+      if (native_tools_has_focus() && key != THE_KEY_RESIZE && key != THE_KEY_MOUSE) return native_tools_key(key, event);
       if (log_ui.focused && key != THE_KEY_RESIZE && key != THE_KEY_MOUSE) return native_log_key(key, event);
       if (key == THE_KEY_MOUSE) return console_mouse_event(event);
       if (workbench_control != THE_WORKBENCH_EDITOR)
@@ -3095,15 +3467,15 @@ int curses_driver_read_input_event(TheInputEvent *event)
             if (control == THE_WORKBENCH_MENU)
                workbench_remember_menu_origin();
             workbench_set_focus(THE_WORKBENCH_EDITOR);
-            return control == THE_WORKBENCH_MENU
-               ? native_menu_open()
-               : the_input_event_from_command(control == THE_WORKBENCH_RUN
-                  ? "rx run" : "rx console on", event);
+            if (control == THE_WORKBENCH_MENU) return native_menu_open();
+            if (control == THE_WORKBENCH_TOOLS) native_show_tools(native_tools_section, 1);
+            else native_show_program(1);
+            curses_driver_update(); return 0;
          }
          curses_driver_update();
          return 0;
       }
-      if (c->focused)
+      if (native_program_focused())
       {
          /* Route editor shortcuts through their active profile after leaving
           * Program input. The unsent input stays in the console model. */
@@ -3111,7 +3483,7 @@ int curses_driver_read_input_event(TheInputEvent *event)
          {
             if (key == THE_KEY_F(10)) workbench_remember_menu_origin();
             console_toolbar_focus = 0;
-            the_tool_console_visibility(c->visible, 0);
+            the_tool_program_console_visibility(c->visible, 0);
             return ok;
          }
          if (key == THE_KEY_RESIZE) return ok;
@@ -4537,7 +4909,7 @@ static void curses_driver_init_color_lifecycle(int color, int red, int green,
                                                int blue)
 {
 #ifdef A_COLOR
-   init_color((short)color, (short)red, (short)green, (short)blue);
+   init_color(curses_driver_basic_colour(color), (short)red, (short)green, (short)blue);
 #else
    (void)color;
    (void)red;

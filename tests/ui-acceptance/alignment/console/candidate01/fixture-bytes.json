@@ -1,0 +1,23 @@
+{
+  "initial": {
+    "Welcome.txt": "69c2852e512c82dc80e0ad0b8789533aa8092e54134b817a28915e91b5169d28",
+    "Input.rexx": "568cdff049bbd509f8832d24f8765cc5af21b52e867210ebdf3a4832c51e115c",
+    "Squares.crexx": "3db1abf7b52b04666d6f686d6a983d37cc7f5f59ef6c88ffe6f4b8ef5f4d0206",
+    "Reader.rexx": "5c53be3a83dbadb8d1b5056cc80c74ca7f7f0dccf3cbd25e570fa06eb933d52d",
+    "Review.profile.the": "722d14d143599ae9d493169cec9c39c0bb296102be93fb0c14f0a79462661f57"
+  },
+  "final": {
+    "Welcome.txt": "69c2852e512c82dc80e0ad0b8789533aa8092e54134b817a28915e91b5169d28",
+    "Input.rexx": "568cdff049bbd509f8832d24f8765cc5af21b52e867210ebdf3a4832c51e115c",
+    "Squares.crexx": "3db1abf7b52b04666d6f686d6a983d37cc7f5f59ef6c88ffe6f4b8ef5f4d0206",
+    "Reader.rexx": "5c53be3a83dbadb8d1b5056cc80c74ca7f7f0dccf3cbd25e570fa06eb933d52d",
+    "Review.profile.the": "3d38dcc53a5b879882bf4fbc5ae0a21cff39fd77649ab2e87ae3d86da2db3e65"
+  },
+  "unchanged": false,
+  "process_returncode": -9,
+  "classification": {
+    "Review.profile.the": "Reviewer-authored seed correction before opening/building: remove stock guide, choose noncolliding explicit message row. Expected disk change; not editor save.",
+    "other_fixtures": "All four original disk hashes unchanged; actual compile/run/input did not save source.",
+    "semantic_limit": "No independent core cursor/dirty mutation test inferred from curses cells."
+  }
+}

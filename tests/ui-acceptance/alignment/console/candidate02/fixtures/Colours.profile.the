@@ -1,0 +1,25 @@
+options levelb
+address THE
+'set reserved -2 off';
+'set reserved -10 black on white BLACK λ界';
+'set footer COLOUR0 -10 AFTERCMDLINE';
+'set reserved -9 blue on black BLUE λ界';
+'set footer COLOUR1 -9 AFTERCMDLINE';
+'set reserved -8 green on black GREEN λ界';
+'set footer COLOUR2 -8 AFTERCMDLINE';
+'set reserved -7 cyan on black CYAN λ界';
+'set footer COLOUR3 -7 AFTERCMDLINE';
+'set reserved -6 red on black RED λ界';
+'set footer COLOUR4 -6 AFTERCMDLINE';
+'set reserved -5 magenta on black MAGENTA λ界';
+'set footer COLOUR5 -5 AFTERCMDLINE';
+'set reserved -4 yellow on black YELLOW λ界';
+'set footer COLOUR6 -4 AFTERCMDLINE';
+'set reserved -3 white on black WHITE λ界';
+'set footer COLOUR7 -3 AFTERCMDLINE';
+'set statusline top';
+'set cmdline top';
+'set msgline on -9 1';
+'set color command red on cyan';
+'set color consolebody yellow on blue';
+return 0

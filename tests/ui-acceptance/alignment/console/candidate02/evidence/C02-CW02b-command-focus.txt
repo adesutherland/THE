@@ -1,0 +1,40 @@
+ MENU (F10) |  Console |  Tools & Profiles |                                                                                                
+/private/tmp/the-alignment-console-review02/workspace/Welcome.txt                             Line=0      Col=1    Size=2     Alt=2,2       
+        |...+....1....+....2....+....3....+....4....+....5....+....6....+....7.]..+....8....+....9....+...10....+...11....+...12....+...13..
+0000000 *** Top of File ***                                                                                                                 
+0000001 dit /tmp/the-alignment-console-review02/workspace/Reader.rexx                                                                       
+0000002 C02 console review. Plain Text remains usable.                                                                                      
+0000003 *** Bottom of File ***                                                                                                              
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+                                                                                                                                            
+======>                                                                                                                                     
+        F10 Menu  F6 Cmd/File  Esc Cmd  F1 Help  Ctrl-S Save  Shift-Tab Controls                                                            
+CRXTHE                                                                                                   1:50pm  [ ] U+0             CR INS 

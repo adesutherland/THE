@@ -1,0 +1,3 @@
+options levelb
+say 'Console squares:' 5 * 5
+return 0

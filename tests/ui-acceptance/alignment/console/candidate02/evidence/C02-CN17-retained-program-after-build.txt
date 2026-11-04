@@ -1,0 +1,24 @@
+ MENU (F10) |  Console |  Tools & Profiles | Welcome.txt|Reader.rexx          <>
+CRXTHE                                       1:58pm  [ ] U+0             CR INS 
+/private/tmp/the<>ce/Errors.crexx Line=0      Col=1    Size=32    Alt=0,0       
+======>                                                                         
+        |...+....1....+....2....+....3....+....4....+....5....+....6....+....7.]
+0000000 *** Top of File ***                                                     
+                                                                                
+BLACK λ界                                                                       
+BLUE λ界                                                                        
+GREEN λ界                                                                       
+CYAN λ界                                                                        
+RED λ界                                                                         
+MAGENTA λ界                                                                     
+YELLOW λ界                                                                      
+WHITE λ界                                                                       
+--------------------------------------------------------------------------------
+ Program console | Esc Cmd F6 File                                              
+ Run Stop Clear Hide Editor                                                     
+ Stopped                                                                        
+ classic-rexx | /private/tmp/the-alignment-console-review02/workspace/Reader.re 
+Retained row 63 stable passage                                                  
+Retained row 64 stable passage                                                  
+Retained row 65 stable passage                                                  
+Input closed>                                                    Tab: controls  

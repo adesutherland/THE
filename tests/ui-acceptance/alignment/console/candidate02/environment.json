@@ -1,0 +1,17 @@
+{
+  "PATH": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin:/opt/homebrew/bin:/usr/bin:/bin",
+  "TERM": "xterm-256color",
+  "THE_CREXX_RXC": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin/rxc",
+  "THE_CREXX_RXAS": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin/rxas",
+  "THE_CREXX_IMPORT_DIR": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin",
+  "THE_CREXX_LIBRARY_RXBIN": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin/library.rxbin",
+  "THE_REXX_INTERPRETER": "CREXX",
+  "THE_HOME_DIR": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/release",
+  "THE_DRIVER_PATH": "/Users/adrian/CLionProjects/THE/build/gtk-focus-review",
+  "THE_TOOL_ROOT": "/Users/adrian/CLionProjects/THE/build/native-tools-gtk-aligned/tools",
+  "THE_TOOL_CONFIG_DIR": "/tmp/the-alignment-console-review02/config",
+  "XDG_CONFIG_HOME": "/tmp/the-alignment-console-review02/xdg",
+  "THE_CREXX_CACHE_DIR": "/tmp/the-alignment-console-review02/cache",
+  "THE_MACRO_PATH": "/Users/adrian/CLionProjects/THE",
+  "DYLD_LIBRARY_PATH": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin"
+}

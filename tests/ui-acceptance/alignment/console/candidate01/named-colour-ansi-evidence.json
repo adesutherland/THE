@@ -1,0 +1,35 @@
+{
+  "profile": "SET RESERVED -4 white on blue NATIVEONE; SET RESERVED -3 yellow on black NATIVETWO \u03bb\u754c",
+  "expected_named_ansi": {
+    "blue_background": 44,
+    "yellow_foreground": 33
+  },
+  "observed_sgr": {
+    "first": "37m 41m",
+    "second": "36m 40m"
+  },
+  "no_basic_palette_remapping": true,
+  "native_footer_example_fragments": [
+    {
+      "offset": 214709,
+      "ansi_fragment_repr": "b'file activated\\x1b[76X\\x1b[38;94H\\x1b[38;5;245m\\x1b[48;5;254m|\\x1b[38;5;252m\\x1b[48;5;254m\\x1b[K\\r\\x1b[39d\\x1b(B\\x1b[0;1m\\x1b[37m\\x1b[41mNATIVEONE\\x1b[84X\\x1b[39;94H\\x1b(B\\x1b[0m\\x1b[38;5;245m\\x1b[48;5;254m|\\x1b[38;5;252m\\x1b[48;5;254m\\x1b[K\\r\\x1b'"
+    },
+    {
+      "offset": 233753,
+      "ansi_fragment_repr": "b\"5;251m\\x1b[48;5;250m0000004\\x1b[38;5;255m\\x1b[48;5;254m \\x1b[38;5;230m\\x1b[48;5;254m'set reserved -4 white on blue NATIVEONE'\\x1b[38;5;252m\\x1b[48;5;254m;\\x1b[28X\\x1b[8;95HRetained row 4 stable passage\\r\\x1b[9d\""
+    },
+    {
+      "offset": 245415,
+      "ansi_fragment_repr": "b\"5;251m\\x1b[48;5;250m0000004\\x1b[38;5;255m\\x1b[48;5;254m \\x1b[38;5;230m\\x1b[48;5;254m'set reserved -4 white on blue NATIVEONE'\\x1b[38;5;252m\\x1b[48;5;254m;\\x1b[28X\\r\\x1b[9d\\x1b[38;5;251m\\x1b[48;5;250m0000005\\x1b[38;5;\""
+    },
+    {
+      "offset": 255576,
+      "ansi_fragment_repr": "b\"5;251m\\x1b[48;5;250m0000004\\x1b[38;5;255m\\x1b[48;5;254m \\x1b[38;5;230m\\x1b[48;5;254m'set reserved -4 white on blue NATIVEONE'\\x1b[38;5;252m\\x1b[48;5;254m;\\x1b[28X\\x1b[8;95H\\x1b[K\\r\\x1b[9d\\x1b[38;5;251m\\x1b[48;5;250m0000\""
+    },
+    {
+      "offset": 258931,
+      "ansi_fragment_repr": "b';5;254m\\x1b[K\\x1b[5d \\x1b[K\\r\\x1b[38d\\x1b[38;5;229m\\x1b[48;5;254mProfile activated            \\r\\x1b[39d\\x1b(B\\x1b[0;1m\\x1b[37m\\x1b[41mNATIVEONE\\x1b[84X\\r\\x1b[40d\\x1b[36m\\x1b[40mNATIVETWO \\xce\\xbb\\xe7\\x95\\x8c\\x1b[80X\\x1b(B\\x1b[m\\x1b[39;49m\\x1b[37m\\x1b[40m\\r\\x1b[2d'"
+    }
+  ],
+  "coordinator_source_audit": "Logical Blue=1/Yellow=6 passed verbatim into ncurses; ncurses COLOR_BLUE=4/COLOR_YELLOW=3. Curses boundary defect, not core or profile semantic reinterpretation."
+}

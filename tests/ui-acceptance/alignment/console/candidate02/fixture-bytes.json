@@ -1,0 +1,20 @@
+{
+  "initial": {
+    "Welcome.txt": "a85eb6241301927ed8ffa864181f178906900a9c6f271450ecc3d3d6db205ab4",
+    "Reader.rexx": "0d2f413255dbb2ca2dc193ff6b9c8876aa46705c87d32a75c48ba219ffb4af15",
+    "Colours.profile.the": "c4b2acd8083e79f5978a8d9607218d13cc01e199c4c4aaba8ba91fa4cc31d219"
+  },
+  "final": {
+    "Welcome.txt": "a85eb6241301927ed8ffa864181f178906900a9c6f271450ecc3d3d6db205ab4",
+    "Reader.rexx": "0d2f413255dbb2ca2dc193ff6b9c8876aa46705c87d32a75c48ba219ffb4af15",
+    "Colours.profile.the": "89507e553ee648ba746f5d3747191fd1287236062701e173e66f1fbfbedb4fa2"
+  },
+  "unchanged": false,
+  "process_returncode": -9,
+  "classification": {
+    "original_two_text_fixtures": "Welcome and Reader disk hashes remain unchanged; unsaved startup-input preflight never saved.",
+    "Colours.profile.the": "Reviewer-authored named role commands added before opening/building, an expected seed change; cmdline actual proof uses a separate correct interactive SET COLOR CMDLINE command.",
+    "Errors.crexx": "Additional disposable diagnostic fixture intentionally authored for Build reader scrolling; exact final bytes retained.",
+    "semantic_limit": "No core mutation/dirty/caret semantics inferred from curses cells."
+  }
+}

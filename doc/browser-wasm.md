@@ -207,8 +207,10 @@ CHROMIUM_BIN='/path/to/chrome' node web/test/wasm-paint-smoke.mjs
 node web/test/highlight-presentation.mjs
 ```
 
-The paint smoke requires a running highlighter-enabled site, so it is a manual
-browser check rather than a native CTest dependency. It delays only delivery of
+The paint smoke runs automatically in the
+[browser candidate gate](testing.md#browser-distribution-candidate). The direct
+command above requires a running highlighter-enabled site; it is not a native
+CTest dependency. It delays only delivery of
 completed UI snapshots to force observable pending frames, then checks pixel
 continuity on untouched text, DOM selection and caret retention, and exact
 saved/reopened bytes. The presentation check also covers identity changes,

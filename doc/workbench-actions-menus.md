@@ -178,6 +178,10 @@ authorization check.
   Tab/Backtab move, Enter selects, and Escape cancels. An unbound path opens a
   directory/prefix list: type a path, use Up/Down to select, Tab to complete,
   Enter to enter a directory or choose a file, and Ctrl-U to clear.
+  The driver supplements the shared entries with the selected file's bound
+  Build/Run/Apply actions, Edit profile, Build results and Tools & Profiles.
+  Disabled file actions show their actual prerequisite. Custom profile actions
+  retain their identity and command semantics.
 - **GTK:** the application menu uses the shared definitions. Default F10 opens
   it; path actions use a native chooser. A profile's replacement F10 binding
   retains its authority.

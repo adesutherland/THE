@@ -28,6 +28,8 @@ use it instead of assuming a system library or sibling build is selected.
 | Explicit footer names, custom reserved text, order, OFF, replacement and buffer inheritance | `test_named_footer`, `test_screenframe`, `test_llmdriver` |
 | Character deletion survives refresh, dirty tracking, save and reopen | `test_delete_persistence_CREXX`, `test_delete_persistence_REGINA` |
 | Real terminal Delete/Backspace, text input, Tab, Ctrl-S, Enter and focus restoration | `test_default_profile_curses`, `test_curses_text_entry` |
+| Console file-role actions, independent Build/Program results, pane toggles and Unicode PULL caret at wide and 80×24 sizes | `test_curses_alignment` |
+| Curses named-colour translation, profile guide colours and independent reader unread/Latest cues | `test_curses_reader_colors` |
 | Full semantic editor runtime, file ring, UTF edits and modal continuations | `test_the_llm_full_runtime`, `test_the_llm_profile_crexx` |
 | Command, prefix and file-area SOS field/query behavior | `test_sos_logical_edit_queries`, `test_sos_navigation_queries`, field/query tests |
 | UTF clusters, positions, mutation and rendering metrics | `test_textpos`, `test_textedit`, `test_utfcluster`, `test_utflayout`, `test_utfterm`, `test_utfrepair` |
@@ -132,13 +134,18 @@ It finds Node.js on PATH and Chrome/Chromium in its standard macOS location or
 on PATH; set `CHROMIUM_BIN` to select another executable. It creates the
 deterministic ZIP in temporary storage, extracts it, serves that copy on an
 available loopback port, and runs the complete browser smoke and paint suites.
-Test fixtures come from the selected build directory. Focused-suite environment
-flags are cleared for this target.
+It also builds disposable native-backend production UI assets and runs the
+semantic-protocol workbench fixture, including reader retention, coarse-pointer
+targets and short Settings layout. Those assets stay outside the ZIP. The
+fixture checks presentation and interactions; it does not replace actual Wasm
+execution or independent design/aesthetic review. Test fixtures come from the
+selected build directory. Focused-suite environment flags are cleared.
 
-Only after both suites pass does a new immutable directory under
+Only after all checks pass does a new immutable directory under
 `build/wasm-review-candidate/candidate/` receive
 `CRXTHE-browser-candidate.zip`, its `.zip.sha256` checksum, `.qa.json` receipt
 and `.qa.log` output. The receipt records the exact source revision, ZIP hash,
-capabilities and test commands/results. Failure leaves any earlier successful
+capabilities and test commands/results, with production UI fixture results
+recorded separately. Failure leaves any earlier successful
 candidate unchanged. This qualifies the extracted ZIP locally; publication,
 hosted-browser checks and release authorization remain separate.

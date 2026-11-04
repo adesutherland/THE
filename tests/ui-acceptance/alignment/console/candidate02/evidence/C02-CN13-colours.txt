@@ -1,0 +1,24 @@
+ MENU (F10) |  Console |  Tools & Profiles | Welcome.txt|Reader.rexx            
+CRXTHE                                       1:55pm  [ ] U+0             CR INS 
+/private/tmp/th<>ours.profile.the Line=0      Col=1    Size=25    Alt=0,0       
+======>                                                                         
+        |...+....1....+....2....+....3....+....4....+....5....+....6....+....7.]
+0000000 *** Top of File ***                                                     
+Profile activated                                                               
+BLACK λ界                                                                       
+BLUE λ界                                                                        
+GREEN λ界                                                                       
+CYAN λ界                                                                        
+RED λ界                                                                         
+MAGENTA λ界                                                                     
+YELLOW λ界                                                                      
+WHITE λ界                                                                       
+--------------------------------------------------------------------------------
+ Tools & Profiles | Build results                                               
+ Profiles Tools Build Edit Hide Editor                                          
+ Profile activated                                                              
+                                                                                
+                                                                                
+                                                                                
+                                                                                
+ Read-only | PgUp/PgDn Home/End | F10 actions                                   

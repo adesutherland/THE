@@ -1,0 +1,251 @@
+{
+  "format_version": 1,
+  "platform": "console_macos_real_pty",
+  "candidate_id": "console-candidate02",
+  "gate_status": "pass_changed_mandatory_scope",
+  "remaining_changed_mandatory_defect_count": 0,
+  "candidate": {
+    "git_head": "0149c6d9c2bc80937b501b8df9bf2821dafd59c1",
+    "dirty_source": true,
+    "files_sha256": {
+      "build/gtk-focus-review/the": "b2e9ce309428dc2b5666f40ea298bbd49e9c2dce7acba3cd2f70917c75fdf76d",
+      "build/gtk-focus-review/the_driver_curses.so": "fa2adfb71b724e1b93b23d0824f66797a7b8213a7c45f3d14d2838a86dfe1a58",
+      "src/drivers/curses/cursesdriver.c": "4a04d100ed1699b0142eefcb7a612a4ca936099f69119e20175512678ed86e9c",
+      "src/show.c": "59edfab8e9b5885d265d0debb829bd4b2aa5a7ddd6480689e1e41370504c3fa1",
+      "src/the.h": "080df775c7e739fdc02a26c645a0f91ab703a53f43560c23ea7591b460b8c197",
+      "src/thedriver.h": "84722b90c66f9430cf142b457b514cbfa95017291683c4d8eda3f395eabc7857"
+    },
+    "verified_receipt": "candidate02-inputs.json",
+    "runtime": "candidate02/runtime-lsof.txt",
+    "tool_cohort": "configured43807b Debug SDK/native-tools-gtk-aligned ABI4",
+    "verification": "Reviewer independently verified all6 exact production binary/module/source hashes; lsof confirms loaded intended curses module and matching libcrexxsaa. Frozen through review."
+  },
+  "review": {
+    "reviewer": "design_conformance_review",
+    "tool": "real PTY, xterm-256color, pyte cell/attribute capture",
+    "observer_mode": "Informed independent review; no fresh participant/user study claim",
+    "operator_preserved": true,
+    "clipboard": "Untouched",
+    "cleanup": "Owned PTY88095 terminated after stopped/completed jobs; SIGTERM did not exit within3s so SIGKILL cleanup used. ps confirmed absent. No operator Terminal/window/settings touched."
+  },
+  "accepted_scope": {
+    "baseline_findings": [
+      "G01",
+      "G13",
+      "G14",
+      "G15",
+      "G16"
+    ],
+    "four_axes": "Pass within changed mandatory checkpoints and targeted samples; no full29 acceptance"
+  },
+  "samples": [
+    {
+      "id": "C-W",
+      "columns": 140,
+      "rows": 40,
+      "right_pane_columns": 46,
+      "layout": "right dock"
+    },
+    {
+      "id": "C-N",
+      "columns": 80,
+      "rows": 24,
+      "auxiliary_pane_columns": 80,
+      "layout": "bottom dock"
+    }
+  ],
+  "axes": {
+    "functional": {
+      "verdict": "Pass",
+      "summary": "Affected reader state/input/job/reset and profile colour/rendering checks pass. C01 contextual Build/Run/profile actions carry forward. Separate focused receipts supplement semantics."
+    },
+    "design_fidelity": {
+      "verdict": "Pass",
+      "summary": "Explicit terminal adaptation preserves stock/custom footer authority, named palette, distinct Program/Build readers, target-toggle policy and visible Earlier/New/End states."
+    },
+    "aesthetics": {
+      "verdict": "Pass",
+      "summary": "Actual cell hierarchy, dividers, head/body/selection/disabled contrast and control/cue fit are comfortable at both grids. All8 named colours retain intended meaning. Physical font/rendering remains NotRun."
+    },
+    "discoverability": {
+      "verdict": "Pass",
+      "summary": "Earlier/New output plus End: Latest is now visible and truthful; stock role/menu/profile routes carried from C01 remain explicit. No unassisted first-user study claim."
+    }
+  },
+  "closed_findings": [
+    "AC01",
+    "AC02"
+  ],
+  "open_product_findings": [],
+  "inherited_evidence": [
+    {
+      "candidate": "console-candidate01",
+      "result": "candidate01-result.json",
+      "accepted_checkpoints": [
+        "C01-C01",
+        "C01-C02",
+        "C01-C03",
+        "C01-C04",
+        "C01-C05 layout portions only"
+      ],
+      "boundary": "Only unaffected accepted checkpoints carry forward; C01 overall failed gate is never relabelled Pass. AC01/AC02 require the actual C02 evidence. Curses-only repairs described by coordinator; reviewed executable/show/the/thedriver hashes remain unchanged. Exact module/source change retained.",
+      "proof": "candidate02/carry-forward-proof.json"
+    }
+  ],
+  "checkpoints": [
+    {
+      "id": "C02-C01",
+      "verdict": "Pass",
+      "requirements": [
+        "R14",
+        "R03",
+        "R05",
+        "R13"
+      ],
+      "cases": [
+        "S18",
+        "S19",
+        "S29"
+      ],
+      "observed": "Actual Program PgUp shows Earlier output | End: Latest. Submitting first PULL while backscrolled appends ARRIVED WHILE READING FIRST, changes cue to New output and retains row1. The retained😀 draft and viewport survive Tools/Program switching, hide/show and80x24, with exact input caret25,23. End reaches the append, clears cue and preserves draft.",
+      "evidence": [
+        "candidate02/evidence/C02-CW05-earlier-draft.json",
+        "candidate02/evidence/C02-CW06-new-output.json",
+        "candidate02/evidence/C02-CW07-followup-draft.json",
+        "candidate02/evidence/C02-CW08-tools.json",
+        "candidate02/evidence/C02-CW09-restored.json",
+        "candidate02/evidence/C02-CN01-new-output.json",
+        "candidate02/evidence/C02-CN02-hidden.json",
+        "candidate02/evidence/C02-CN03-restored.json",
+        "candidate02/evidence/C02-CN04-latest.json"
+      ]
+    },
+    {
+      "id": "C02-C02",
+      "verdict": "Pass",
+      "requirements": [
+        "R14",
+        "R08",
+        "R03"
+      ],
+      "cases": [
+        "S18",
+        "S19"
+      ],
+      "observed": "Second input submission and Hide were queued together. Known waiting program host89520 exited while both auxiliaries were hidden; DONE marker had not been rendered in the raw stream. Show restores the earlier viewport with New output and completed status0. End reaches the echo and DONE RETAINED😀. Clear resets the cue; starting a new job shows Running with no stale cue; Stop remains usable. This is retention evidence, not a performance measurement.",
+      "evidence": [
+        "candidate02/evidence/C02-CN05-hidden-append.json",
+        "candidate02/evidence/C02-CN06-show-after-hidden-append.json",
+        "candidate02/evidence/C02-CN07-latest-after-hidden-append.json",
+        "candidate02/evidence/C02-CN08-clear.json",
+        "candidate02/evidence/C02-CN09-new-job.json",
+        "candidate02/evidence/C02-CN10-stop.json"
+      ]
+    },
+    {
+      "id": "C02-C03",
+      "verdict": "Pass",
+      "requirements": [
+        "R11",
+        "R18",
+        "R13"
+      ],
+      "cases": [
+        "S15",
+        "S29"
+      ],
+      "observed": "Actual profile Build/Apply renders all8 named foregrounds with λ界 at both grids. Black-on-white and remaining names on black map correctly; yellow is pyte brown/ANSI33. Applied consolebody yellow-on-blue changes the retained Program reader without changing its job/output. A valid interactive SET COLOR CMDLINE red on cyan renders exact red/cyan. The default RGB shell/body/heading/selection/disabled contrast remains readable; all Program/Tools controls fit.",
+      "evidence": [
+        "candidate02/evidence/C02-CW03-reader-source.json",
+        "candidate02/evidence/C02-CW04-program.json",
+        "candidate02/evidence/C02-CN01-new-output.json",
+        "candidate02/evidence/C02-CW12-colours-applied.json",
+        "candidate02/evidence/C02-CN13-colours.json",
+        "candidate02/evidence/C02-CW13-colours-repaint.json",
+        "candidate02/evidence/C02-CW14-named-console-role.json",
+        "candidate02/evidence/C02-CW15-named-command-role.json"
+      ]
+    },
+    {
+      "id": "C02-C04",
+      "verdict": "Pass",
+      "requirements": [
+        "R14",
+        "R05",
+        "R13",
+        "R18"
+      ],
+      "cases": [
+        "S19",
+        "S29"
+      ],
+      "observed": "A bounded failed source build supplies actual diagnostics. At80x24, PgUp shows Earlier output | End: Latest in the existing Build footer; End returns to final diagnostics and normal footer. Failed status and all6 controls remain separately visible. Switching back shows retained Stopped Program output. Manual Build same-job New-output append was not exercised; matching focused real-PTY receipt supplements lane/reset coverage.",
+      "evidence": [
+        "candidate02/evidence/C02-CW17-diagnostics.json",
+        "candidate02/evidence/C02-CN14-build-latest.json",
+        "candidate02/evidence/C02-CN15-build-earlier.json",
+        "candidate02/evidence/C02-CN16-build-end.json",
+        "candidate02/evidence/C02-CN17-retained-program-after-build.json"
+      ]
+    }
+  ],
+  "supplemental_evidence": {
+    "focused_receipt": "regressions/candidate02/README.md",
+    "qualification": "Matching frozen candidate targeted test_curses_reader_colors Pass exit0 in86.12s. It independently covers both engines/all8foreground+background names, named console roles, basic palette slot4, unchanged RGB, Program/Build lane resets and32x20status/header. Real PTY proof, not native pixels; not full122 suite. C01 receipt remains3passes/2failed fixture assertions exit8, not retrospectively changed."
+  },
+  "aesthetic_measurements": {
+    "basis": "Actual terminal cells/attributes; no graphical padding or terminal pixel mock",
+    "right_pane_columns": 46,
+    "program_controls_cells": 26,
+    "profile_role_program_controls_cells": 28,
+    "tools_controls_cells": 37,
+    "reader_cue": "New output | End: Latest =24cells; Earlier output | End: Latest =28cells, each fits wide46 and compact80; state row remains separate",
+    "named_colour_proof": "candidate02/colour-proof.json",
+    "judgement": "Comfortable readable cell density and purposeful head/control/state/context/body/input hierarchy. Stock RGB theme is preserved; named profile values are now correct. Physical font weight/metrics/DPI are not asserted."
+  },
+  "full_catalogue_execution": false,
+  "case_coverage": {
+    "S01": "Partial; Text startup, no Run, stock footer shell",
+    "S02": "NotRun",
+    "S03": "NotRun",
+    "S04": "NotRun",
+    "S05": "Partial; real F10/arrow/Enter/Escape and Shift-Tab routes; broad key override composition not replayed",
+    "S06": "Partial; actual Classic65rows/two PULL/Unicode input/draft/completion/Stop, not broad fixture matrix",
+    "S07": "Partial; fresh cREXX prerequisite, actual Build status0 then Run result25; no all-language or LevelG replay",
+    "S08": "NotRun",
+    "S09": "NotRun",
+    "S10": "NotRun",
+    "S11": "NotRun",
+    "S12": "Partial; actual Build profile/Apply/Edit source, active/source/build/startup summary; restart/import/failure variants not replayed",
+    "S13": "NotRun",
+    "S14": "NotRun",
+    "S15": "Partial; C01 stock/TOP/OFF/customband carry-forward, C02 all8 named foregrounds+Unicode at bothgrids and named background roles; broad profile composition/pointer not replayed",
+    "S16": "NotRun",
+    "S17": "Partial; real140x40 and80x24 PTY; physical Terminal rendering unavailable",
+    "S18": "Partial; C01+C02 keyboard toggles/switch/retained draft/viewport/job, observed hidden completion; physical native selection NotRun",
+    "S19": "Partial; actual Program Earlier/New/End/hidden completion/Clear/newjob reset and compact Build Earlier/End; manual Build same-job New append NotRun, separate focused receipt; broad named-reader forms not replayed",
+    "S20": "NotRun",
+    "S21": "NotRun",
+    "S22": "NotRun",
+    "S23": "NotRun",
+    "S24": "NotRun",
+    "S25": "NotRun",
+    "S26": "NotRun",
+    "S27": "NotRun",
+    "S28": "NotRun",
+    "S29": "Partial; changed mandatory cell/attribute aesthetics pass at140x40/80x24; physical terminal font/DPI/glyph/selection not qualified"
+  },
+  "baseline_work_not_closed": [
+    "D02 general Redo",
+    "D03 full source transfer/Save as",
+    "Broader R10 profile composition"
+  ],
+  "limitations": [
+    "Supported CUA explicitly prohibits Terminal. Physical font/DPI/glyph rendering, terminal-native selection/copy remain NotRun; no operator window accessed.",
+    "Manual Build same-job New-output append and compact32x20 were not exercised; separate matching focused receipt supplements these. Actual Build Earlier/End and Program New-output are direct reviewer evidence.",
+    "No fresh core mutation/dirty/caret semantics inferred from cells; original saved Welcome/Reader bytes remain unchanged. Authored profile/diagnostic fixtures are retained separately.",
+    "Cold-start preflight input entered disposable unsaved Welcome text before readiness; excluded captures/README retained. Actual task then used observed command focus. No saved source change.",
+    "Pyte/HTML/text/JSON are labelled cell projections, not native screenshots. DEC ACS/incremental repaint quirks are not classified as product defects; raw ANSI retained.",
+    "General Redo, full source transfer/SaveAs, broader R10 composition, all languages/LevelG and full29 case scripts remain outside this gate."
+  ]
+}

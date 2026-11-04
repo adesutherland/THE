@@ -1,0 +1,10 @@
+{
+  "known_waiting_host_pid": 89520,
+  "host_ps_exit": 1,
+  "host_ps": "  PID STAT COMMAND\n",
+  "capture_has_program_pane": false,
+  "capture_has_tools_pane": false,
+  "latest_visible_marker_in_raw_before_show": false,
+  "limitation": "Host exited while auxiliary panes hidden; absence of a rendered DONE marker before Show qualifies hidden output retention, not engine timing/performance.",
+  "detection_note": "Persistent launcher row is not a rendered pane; only the editor is rendered in CN05."
+}

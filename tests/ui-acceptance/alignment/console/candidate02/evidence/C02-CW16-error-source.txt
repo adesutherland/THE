@@ -1,0 +1,40 @@
+ MENU (F10) |  Console |  Tools & Profiles | Welcome.txt|Reader.rexx|Colours.profile.the     | Program console | F10: Menu                  
+CRXTHE                                                    1:56pm  [ ] U+0             CR INS | Run Stop Clear Hide Editor                   
+/private/tmp/the-align<>workspace/Errors.crexx Line=0      Col=1    Size=32    Alt=0,0       | Stopped                                      
+======>                                                                                      | Source: Reader.rexx | PgUp/PgDn              
+        |...+....1....+....2....+....3....+....4....+....5....+....6....+....7.]..+....8....+|Retained row 31 stable passage                
+0000000 *** Top of File ***                                                                  |Retained row 32 stable passage                
+0000001 options levelb                                                                       |Retained row 33 stable passage                
+0000002 say )                                                                                |Retained row 34 stable passage                
+0000003 say )                                                                                |Retained row 35 stable passage                
+0000004 say )                                                                                |Retained row 36 stable passage                
+0000005 say )                                                                                |Retained row 37 stable passage                
+0000006 say )                                                                                |Retained row 38 stable passage                
+0000007 say )                                                                                |Retained row 39 stable passage                
+0000008 say )                                                                                |Retained row 40 stable passage                
+0000009 say )                                                                                |Retained row 41 stable passage                
+0000010 say )                                                                                |Retained row 42 stable passage                
+0000011 say )                                                                                |Retained row 43 stable passage                
+0000012 say )                                                                                |Retained row 44 stable passage                
+0000013 say )                                                                                |Retained row 45 stable passage                
+0000014 say )                                                                                |Retained row 46 stable passage                
+0000015 say )                                                                                |Retained row 47 stable passage                
+0000016 say )                                                                                |Retained row 48 stable passage                
+0000017 say )                                                                                |Retained row 49 stable passage                
+0000018 say )                                                                                |Retained row 50 stable passage                
+0000019 say )                                                                                |Retained row 51 stable passage                
+0000020 say )                                                                                |Retained row 52 stable passage                
+0000021 say )                                                                                |Retained row 53 stable passage                
+0000022 say )                                                                                |Retained row 54 stable passage                
+0000023 say )                                                                                |Retained row 55 stable passage                
+0000024 say )                                                                                |Retained row 56 stable passage                
+0000025 say )                                                                                |Retained row 57 stable passage                
+                                                                                             |Retained row 58 stable passage                
+BLACK λ界                                                                                    |Retained row 59 stable passage                
+BLUE λ界                                                                                     |Retained row 60 stable passage                
+GREEN λ界                                                                                    |Retained row 61 stable passage                
+CYAN λ界                                                                                     |Retained row 62 stable passage                
+RED λ界                                                                                      |Retained row 63 stable passage                
+MAGENTA λ界                                                                                  |Retained row 64 stable passage                
+YELLOW λ界                                                                                   |Retained row 65 stable passage                
+WHITE λ界                                                                                    |Input closed>                  Tab: controls  

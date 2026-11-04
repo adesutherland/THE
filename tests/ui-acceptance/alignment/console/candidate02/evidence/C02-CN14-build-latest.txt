@@ -1,0 +1,24 @@
+ MENU (F10) |  Console |  Tools & Profiles | Welcome.txt|Reader.rexx          <>
+CRXTHE                                       1:57pm  [ ] U+0             CR INS 
+/private/tmp/the<>ce/Errors.crexx Line=0      Col=1    Size=32    Alt=0,0       
+======>                                                                         
+        |...+....1....+....2....+....3....+....4....+....5....+....6....+....7.]
+0000000 *** Top of File ***                                                     
+                                                                                
+BLACK λ界                                                                       
+BLUE λ界                                                                        
+GREEN λ界                                                                       
+CYAN λ界                                                                        
+RED λ界                                                                         
+MAGENTA λ界                                                                     
+YELLOW λ界                                                                      
+WHITE λ界                                                                       
+--------------------------------------------------------------------------------
+ Tools & Profiles | Build results                                               
+ Profiles Tools Build Edit Hide Editor                                          
+ Failed                                                                         
+Error in profile.the @ 30:5 - #BADEXPR, ")"                                     
+Error in profile.the @ 31:5 - #BADEXPR, ")"                                     
+30 error(s) in source file                                                      
+Profile compilation failed                                                      
+ Read-only | PgUp/PgDn Home/End | F10 actions                                   

@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "candidate": "Console candidate02 AC01 reader cues and AC02 named-colour translation",
+  "base_head": "0149c6d9c2bc80937b501b8df9bf2821dafd59c1",
+  "branch": "main",
+  "production_frozen": true,
+  "driver_abi": 4,
+  "files_sha256": {
+    "src/drivers/curses/cursesdriver.c": "4a04d100ed1699b0142eefcb7a612a4ca936099f69119e20175512678ed86e9c",
+    "src/thecolour.h": "cff6bcf01c7abd06298cd198eaf9634efde31cf857c54f69d692468e3d5ea6ff",
+    "src/colour.c": "fd8e1fc6494d3affbfd4f7f6c9657cd1b4f082e39e02eb50ed72c1d989e4bf65",
+    "src/tools.h": "85e804498811119fc0f425333481e8fc4feb3d205f9ce1edaef534219df92d99",
+    "src/tools.c": "158e11561d7a3e761c7e85cce5b6c842dfb24c855a2b314fe34988fed12facfd",
+    "src/toolhost.h": "125f277e26c9fae9e1076499d40faad1651c917f6c0e6472fefd57a9237f9e7f",
+    "src/toolhost.c": "30f6025a359c76b5a4f12d59aa5100ded331a5044e2bcdbf217552fb9e6aa16c",
+    "src/show.c": "59edfab8e9b5885d265d0debb829bd4b2aa5a7ddd6480689e1e41370504c3fa1",
+    "src/the.h": "080df775c7e739fdc02a26c645a0f91ab703a53f43560c23ea7591b460b8c197",
+    "src/thedriver.h": "84722b90c66f9430cf142b457b514cbfa95017291683c4d8eda3f395eabc7857",
+    "tests/test_curses_reader_colors.py": "803b65a0bdaaed6a39cf33971ddf266591eba0a243d68073de26f03fd3b5a4ef",
+    "CMakeLists.txt": "71c7aa4548276eae555907e7a91d295dd91946b36c322d0db153f2fdd630561a",
+    "build/gtk-focus-review/the": "b2e9ce309428dc2b5666f40ea298bbd49e9c2dce7acba3cd2f70917c75fdf76d",
+    "build/gtk-focus-review/the_driver_curses.so": "fa2adfb71b724e1b93b23d0824f66797a7b8213a7c45f3d14d2838a86dfe1a58"
+  },
+  "runtime_cohort": {
+    "CREXXSAA_LIBRARY": {
+      "path": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin/libcrexxsaa.dylib",
+      "sha256": "83ee3d9beac64547d023e5475e91d63da1fb3d60a373c60f2858a4ceb51ac30d"
+    },
+    "CREXX_RXC_EXECUTABLE": {
+      "path": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin/rxc",
+      "sha256": "a9b871c9e0f242a1d2bfbd5b3ade33d85246f2697bef3f8953e40d4d6190870d"
+    },
+    "CREXX_RXAS_EXECUTABLE": {
+      "path": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin/rxas",
+      "sha256": "851647ed51bec8d337d0428ba6c6db3723f36a47fca25108c27792889d06760e"
+    },
+    "CREXX_LIBRARY_RXBIN": {
+      "path": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin/library.rxbin",
+      "sha256": "f4ccad5f4f3837a18a1868c033fa8ec4f7804031661813cccbb03cd64182805b"
+    }
+  },
+  "command": "PYTHONPATH=/Users/adrian/CLionProjects/THE/build/recovery-test-python/lib/python3.14/site-packages ctest --test-dir build/gtk-focus-review -R \"^test_curses_reader_colors$\" --output-on-failure",
+  "result": {
+    "test": "test_curses_reader_colors",
+    "verdict": "Pass",
+    "seconds": 86.12,
+    "ctest_exit": 0
+  },
+  "coverage": {
+    "AC02": [
+      "CREXX and Regina eight named foreground/background colours against emitted standard SGR and interpreted PTY cells",
+      "White on blue NATIVEONE and yellow on black NATIVETWO lambda/CJK custom profile footer bands",
+      "Named Console header/body/input/control/selection/divider/status roles",
+      "THE yellow/white foreground brightness retained; pyte ANSI 3 brown alias normalized as yellow",
+      "SET COLOR blue writes native palette index 4, not index 1",
+      "RGB body foreground/background retain their allocated values across the basic palette write; initial RGB comparison uses existing ncurses quantization tolerance"
+    ],
+    "AC01": [
+      "140x40 and 80x24 live Classic PULL output",
+      "PgUp before completion shows Earlier output and End: Latest",
+      "Unicode draft/caret and retained top row survive hide/reopen",
+      "Completion reports status 0 and New output while the viewport remains fixed",
+      "End reveals appended tail and clears the cue",
+      "Program unread/viewport survives selection of a distinct Build reader",
+      "Build reader backscroll hint, independent position, new-job and Clear resets",
+      "Program new-job and Clear resets",
+      "32x20 six-row dock retains completion/status0 and closed input beside header unread/End cue",
+      "Saved public fixture bytes remain unchanged"
+    ]
+  },
+  "implementation_scope": "Driver-only basic logical-to-native COLOR_* translation and basic SET COLOR write mapping; per-lane displayed watermark/unread flag and existing context/footer/header hints. Core colour IDs, RGB cache/high slots, shared APIs, Browser and GTK source unchanged.",
+  "lifecycle_audit": "No live the_driver_init_pair caller; init_colour_pairs is a no-op, so unused pair lifecycle remains unchanged. No color_content lifecycle/query path exists; QUERY/EXTRACT COLOR reads stored logical COLOUR_ATTR.",
+  "boundary": "Only the new targeted PTY test was run for candidate02. This is not native terminal pixel/font/physical-device qualification, a Console UI-gate verdict, full 122-test source qualification, hosted CI or a release claim.",
+  "log_sha256": "fc1b535b6629f1724813fd8b6438f45d82746ca9d662cb31bb92d38d0e0b0a4e"
+}

@@ -80,7 +80,7 @@ Terminal commands are:
 | --- | --- |
 | `RX CONSOLE` | Show the split and toggle console input focus (legacy). |
 | `RX CONSOLE ON` | Show the split and focus Program input. |
-| `RX CONSOLE OFF` | Hide the split without stopping its job. |
+| `RX CONSOLE OFF` | Hide Program input without stopping its job. |
 | `RX CONTROLS` | Focus the terminal Console launcher (FILETABS on). |
 | `RX INPUT text` | Send a line to the running program. |
 | `RX EOF` | Close stdin after queued input drains. |
@@ -90,31 +90,43 @@ Terminal commands are:
 
 The default terminal profile keeps actual editor responses immediately above
 the editor command line, leaving that row quiet while idle. **MENU (F10)** at
-the upper left, **Console**, and **Run file** are visible controls. Console
-shows the dock and focuses Program input; Run file captures the current buffer.
-F10 opens
-the same pull-down menu for file, editing, navigation, run and
-profile actions, with separate actions to show/focus or hide the Program console.
+the upper left, **Console**, and **Tools & Profiles** are visible controls.
+Console opens Program input; Tools & Profiles opens the active profile summary,
+file-type tools or retained Build results. Activating the visible target again
+hides it and returns to the editor. A retained sibling is restored only when
+explicitly selected. F10 opens the shared menu for file, editing, navigation
+and profile actions, with current-file Build/Run/Apply actions and separate
+actions to show/focus or hide the Program console.
 The menu remains available while Program input has focus; a Run chosen there
 starts after the menu closes. **Key definitions** retains the complete key guide. This
 editor response area is separate from the Program console and its labelled
 **Program input** field. Custom profiles can still choose their own MSGLINE
 position and reserved rows.
 
-The terminal toolbar provides **Run**, **Stop**, **Clear**, **Hide** and
-**Editor**, with mouse access. Run captures the current editor buffer. Hide
+The terminal Program toolbar provides the current file's Run action when one
+exists, otherwise a **Tools** route, followed by **Stop**, **Clear**, **Hide**
+and **Editor**, with mouse access. Run captures the current editor buffer and
+uses its registered tool. Compiled source must first be built; F10 explains
+that prerequisite and offers Build. Plain Text has no generic Run action. Hide
 retains output and any running program; Editor returns keyboard focus to the
 editor. Run is unavailable during a job, and Stop is available while a job
 runs. The terminal reserves the console's space before laying out
 the editor, including its response, command and status rows.
 
 In the default terminal profile, **Shift-Tab** focuses the Console launcher;
-another Shift-Tab focuses Menu, then Run file. While a top control has focus,
+another Shift-Tab focuses Menu, then Tools & Profiles. While a top control has focus,
 Tab, Shift-Tab or Left/Right moves between the three, Enter or Space activates the
 selected launcher, and Esc restores the editor caret. Ordinary editor Tab
 keeps the profile's indentation command. F10 remains a direct menu shortcut.
 The terminal-specific Shift-Tab definition is visible in Key definitions;
 GTK and browser controls handle the same focus transition in their drivers.
+
+Tools & Profiles has **Profiles**, **Tools**, **Build**, **Edit**, **Hide** and
+**Editor** controls. Tab or Left/Right moves between them; Enter activates a
+control. Profiles shows active/startup identity and editable source; Edit opens
+that source. Tools lists file-type registrations. Build keeps compiler output
+separate from Program output; PgUp/PgDn, Home/End and Up/Down read either result
+lane without changing source or unsent Program input.
 
 Choose **Console** or **F10 Menu → Show or focus Program console** to reach Program input from the
 keyboard. While the console has focus, Tab switches between input and the
@@ -129,6 +141,10 @@ Ctrl-C stops, F10 opens the menu, Esc focuses the THE command line, and F6
 returns to the file. PageUp/PageDown scroll retained output, Home shows the
 earliest output, and End returns to the latest output while Program input has
 focus. The current scroll position stays put as new output arrives.
+While backscrolled, **Earlier output | End: Latest** provides the recovery
+shortcut. **New output | End: Latest** appears when more output arrives;
+returning to the tail, clearing the lane or starting a new job clears that cue.
+Program and Build track these reader states independently.
 Input closes at EOF or completion. Panels and
 macro READ retain their own input route. At fewer than 16 terminal rows or 32
 columns the split hides and input focus returns to the editor; use commands

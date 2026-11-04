@@ -1,0 +1,3 @@
+THE console design review
+Use F10 to inspect the workbench menu.
+This temporary file is plain Text.

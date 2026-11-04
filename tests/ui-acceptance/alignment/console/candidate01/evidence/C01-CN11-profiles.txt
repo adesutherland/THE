@@ -1,0 +1,24 @@
+ MENU (F10) |  Console |  Tools & Profiles | Welcome.txt|Squares.crexx        <>
+CRXTHE                                       1:28pm  [ ] U+0             CR INS 
+/private/tmp/the<>iew.profile.the Line=0      Col=1    Size=11    Alt=0,0       
+======>                                                                         
+0000001 options levelb                                                          
+0000002 address THE                                                             
+0000003 'set reserved -2 off';                                                  
+0000004 'set reserved -4 white on blue NATIVEONE';                              
+0000005 'set reserved -3 yellow on black NATIVETWO λ界';                        
+0000006 'set footer REVIEWONE -4 AFTERCMDLINE';                                 
+0000007 'set footer REVIEWTWO -3 AFTERCMDLINE';                                 
+                                                                                
+Profile activated                                                               
+NATIVEONE                                                                       
+NATIVETWO λ界                                                                   
+--------------------------------------------------------------------------------
+ Tools & Profiles | Profiles                                                    
+ Profiles Tools Build Edit Hide Editor                                          
+ Active profile: Review.profile.the                                             
+ Applied; startup selection saved                                               
+ Editable source: Review.profile.the                                            
+ Latest build: ready | Review.profile.rxbin                                     
+                                                                                
+ F10: file actions | Edit: profile source                                       

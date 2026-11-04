@@ -1,0 +1,33 @@
+{
+  "git_head": "0149c6d9c2bc80937b501b8df9bf2821dafd59c1",
+  "dirty": true,
+  "verified": true,
+  "files_sha256": {
+    "build/gtk-focus-review/the": "b2e9ce309428dc2b5666f40ea298bbd49e9c2dce7acba3cd2f70917c75fdf76d",
+    "build/gtk-focus-review/the_driver_curses.so": "9bd5c38afcee64456f9b7ef0cbdf58114ebc3cc186892c32e8d292055ff927d1",
+    "src/drivers/curses/cursesdriver.c": "9dcfda006679d57d27219a69582d3fcfe642f0107bdeff68dcdb5ffcfdec4350",
+    "src/show.c": "59edfab8e9b5885d265d0debb829bd4b2aa5a7ddd6480689e1e41370504c3fa1",
+    "src/the.h": "080df775c7e739fdc02a26c645a0f91ab703a53f43560c23ea7591b460b8c197",
+    "src/thedriver.h": "84722b90c66f9430cf142b457b514cbfa95017291683c4d8eda3f395eabc7857"
+  },
+  "reviewer": "design_conformance_review",
+  "terminal": {
+    "TERM": "xterm-256color",
+    "samples": [
+      [
+        140,
+        40
+      ],
+      [
+        80,
+        24
+      ]
+    ],
+    "backend": "real PTY + ncurses production driver",
+    "native_terminal": "CUA explicitly disallows com.apple.Terminal; no operator Terminal accessed",
+    "font_dpi_physical_rendering": "NotRun; cell-grid/attributes only"
+  },
+  "runtime_lsof": "candidate01/runtime-lsof.txt",
+  "environment": "candidate01/environment.json",
+  "tool_cohort": "43807b matching configured Debug SDK, ABI4; detailed hashes in regressions/candidate01/receipt.json"
+}

@@ -1,0 +1,2 @@
+the     83252 adrian  txt    REG               1,15  1948640            93660045 /Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin/libcrexxsaa.dylib
+the     83252 adrian  txt    REG               1,15   217800            98799074 /Users/adrian/CLionProjects/THE/build/gtk-focus-review/the_driver_curses.so

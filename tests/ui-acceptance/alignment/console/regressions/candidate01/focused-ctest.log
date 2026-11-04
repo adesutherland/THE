@@ -1,0 +1,145 @@
+Start testing: Nov 04 13:10 GMT
+----------------------------------------------------------
+28/121 Testing: test_workbench_curses
+28/121 Test: test_workbench_curses
+Command: "/opt/homebrew/bin/python3" "/Users/adrian/CLionProjects/THE/tests/test_workbench_curses.py" "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/the"
+Directory: /Users/adrian/CLionProjects/THE/build/gtk-focus-review
+"test_workbench_curses" start time: Nov 04 13:10 GMT
+Output:
+----------------------------------------------------------
+Both engines: Shift-Tab launchers, truthful key guide, draft/caret preservation, Menu, response rows and compact resize passed
+<end of output>
+Test time =  87.07 sec
+----------------------------------------------------------
+Test Passed.
+"test_workbench_curses" end time: Nov 04 13:12 GMT
+"test_workbench_curses" time elapsed: 00:01:27
+----------------------------------------------------------
+
+54/121 Testing: test_tool_console_curses
+54/121 Test: test_tool_console_curses
+Command: "/opt/homebrew/bin/python3" "/Users/adrian/CLionProjects/THE/tests/test_tool_console_curses.py" "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/the"
+Directory: /Users/adrian/CLionProjects/THE/build/gtk-focus-review
+"test_tool_console_curses" start time: Nov 04 13:12 GMT
+Output:
+----------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/adrian/CLionProjects/THE/tests/test_tool_console_curses.py", line 318, in <module>
+    wait(lambda: screen.cursor.y == 13, 'hidden console returns input to editor')
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/adrian/CLionProjects/THE/tests/test_tool_console_curses.py", line 108, in wait
+    raise AssertionError(label + '\n' + '\n'.join(screen.display))
+AssertionError: hidden console returns input to editor
+ MENU (F10) |  Console |  Tools & Profiles |                
+/priva<>.rexx Line=0      Col=1    Size=16    Alt=0,0       
+        |...+....1....+....2....+....3....+....4....+....5..
+0000000 *** Top of File ***                                 
+0000001 say 'Console ready'                                 
+0000002 say 'ASCII:' || copies('A', 41) || 'TAIL'           
+0000003 say 'WIDE:' || copies('B', 41) || '界éTAIL'         
+0000004 say 'TAB:' || '09'x || 'TAIL'                       
+0000005 say 'CRLF' || '0d0a'x || 'NEXT'                     
+0000006 say 'BLANK-BEFORE'                                  
+0000007 say ''                                              
+                                                            
+======>                                                     
+        F10 Menu  F6 Cmd/File  Esc Cmd  F1 Help  Ctrl-S Save
+CRXTHE                   1:12pm  [ ] U+0             CR INS 
+<end of output>
+Test time =  76.51 sec
+----------------------------------------------------------
+Test Failed.
+"test_tool_console_curses" end time: Nov 04 13:13 GMT
+"test_tool_console_curses" time elapsed: 00:01:16
+----------------------------------------------------------
+
+55/121 Testing: test_curses_workbench_sizes
+55/121 Test: test_curses_workbench_sizes
+Command: "/opt/homebrew/bin/python3" "/Users/adrian/CLionProjects/THE/tests/test_curses_workbench_sizes.py" "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/the"
+Directory: /Users/adrian/CLionProjects/THE/build/gtk-focus-review
+"test_curses_workbench_sizes" start time: Nov 04 13:13 GMT
+Output:
+----------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/adrian/CLionProjects/THE/tests/test_curses_workbench_sizes.py", line 317, in <module>
+    wait(lambda: screen.display[screen.cursor.y].startswith('======>')
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+         and not console_focused(), 'F6 follows editor Cmd/File toggle')
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/adrian/CLionProjects/THE/tests/test_curses_workbench_sizes.py", line 110, in wait
+    raise AssertionError(f'{cols}x{rows}: {label}; cursor '
+    ...<2 lines>...
+                                   in enumerate(screen.display)))
+AssertionError: 117x30: F6 follows editor Cmd/File toggle; cursor 8,4
+00  MENU (F10) |  Console |  Tools & Profiles |                            | Program console | F10: Menu                
+01 /private/var<>rogram.rexx Line=1      Col=1    Size=86    Alt=0,0       | Run Stop Clear Hide Editor Logs            
+02         |...+....1....+....2....+....3....+....4....+....5....+....6....| Running | ^D EOF ^C stop                   
+03 0000000 *** Top of File ***                                             | Source: program.rexx | PgUp/PgDn           
+04 0000001 do i = 1 to 40                                                  |LINE 16                                     
+05 0000002   say 'LINE' i                                                  |LINE 17                                     
+06 0000003 end                                                             |LINE 18                                     
+07 0000004 pull answer                                                     |LINE 19                                     
+08 0000005 say 'ECHO' answer                                               |LINE 20                                     
+09 0000006 /* DOC-LINE 001 Ω */                                            |LINE 21                                     
+10 0000007 /* DOC-LINE 002 Ω */                                            |LINE 22                                     
+11 0000008 /* DOC-LINE 003 Ω */                                            |LINE 23                                     
+12 0000009 /* DOC-LINE 004 Ω */                                            |LINE 24                                     
+13 0000010 /* DOC-LINE 005 Ω */                                            |LINE 25                                     
+14 0000011 /* DOC-LINE 006 Ω */                                            |LINE 26                                     
+15 0000012 /* DOC-LINE 007 Ω */                                            |LINE 27                                     
+16 0000013 /* DOC-LINE 008 Ω */                                            |LINE 28                                     
+17 0000014 /* DOC-LINE 009 Ω */                                            |LINE 29                                     
+18 0000015 /* DOC-LINE 010 Ω */                                            |LINE 30                                     
+19 0000016 /* DOC-LINE 011 Ω */                                            |LINE 31                                     
+20 0000017 /* DOC-LINE 012 Ω */                                            |LINE 32                                     
+21 0000018 /* DOC-LINE 013 Ω */                                            |LINE 33                                     
+22 0000019 /* DOC-LINE 014 Ω */                                            |LINE 34                                     
+23 0000020 /* DOC-LINE 015 Ω */                                            |LINE 35                                     
+24 0000021 /* DOC-LINE 016 Ω */                                            |LINE 36                                     
+25 0000022 /* DOC-LINE 017 Ω */                                            |LINE 37                                     
+26                                                                         |LINE 38                                     
+27 ======>                                                                 |LINE 39                                     
+28         F10 Menu  F6 Cmd/File  Esc Cmd  F1 Help  Ctrl-S Save  Shift-Tab |LINE 40                                     
+29 CRXTHE                               1:14pm  [d] U+64            CR INS |Program input> DRAFT                        
+<end of output>
+Test time =  66.91 sec
+----------------------------------------------------------
+Test Failed.
+"test_curses_workbench_sizes" end time: Nov 04 13:14 GMT
+"test_curses_workbench_sizes" time elapsed: 00:01:06
+----------------------------------------------------------
+
+56/121 Testing: test_curses_alignment
+56/121 Test: test_curses_alignment
+Command: "/opt/homebrew/bin/python3" "/Users/adrian/CLionProjects/THE/tests/test_curses_alignment.py" "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/the"
+Directory: /Users/adrian/CLionProjects/THE/build/gtk-focus-review
+"test_curses_alignment" start time: Nov 04 13:14 GMT
+Output:
+----------------------------------------------------------
+140x40: Text, compiled Build/Run, profile Build/Apply/Edit, separate lanes, keyboard/mouse target toggles, Unicode PULL draft/caret and unchanged fixture bytes passed
+80x24: Text, compiled Build/Run, profile Build/Apply/Edit, separate lanes, keyboard/mouse target toggles, Unicode PULL draft/caret and unchanged fixture bytes passed
+<end of output>
+Test time =  80.25 sec
+----------------------------------------------------------
+Test Passed.
+"test_curses_alignment" end time: Nov 04 13:15 GMT
+"test_curses_alignment" time elapsed: 00:01:20
+----------------------------------------------------------
+
+61/121 Testing: test_workbench_native_tools_curses
+61/121 Test: test_workbench_native_tools_curses
+Command: "/opt/homebrew/bin/python3" "/Users/adrian/CLionProjects/THE/tests/test_workbench_native_tools_curses.py" "/Users/adrian/CLionProjects/THE/build/gtk-focus-review/the"
+Directory: /Users/adrian/CLionProjects/THE/build/gtk-focus-review
+"test_workbench_native_tools_curses" start time: Nov 04 13:15 GMT
+Output:
+----------------------------------------------------------
+Native PTY menu invoked TOOL action through safe source capture without saving
+<end of output>
+Test time =  14.35 sec
+----------------------------------------------------------
+Test Passed.
+"test_workbench_native_tools_curses" end time: Nov 04 13:16 GMT
+"test_workbench_native_tools_curses" time elapsed: 00:00:14
+----------------------------------------------------------
+
+End testing: Nov 04 13:16 GMT

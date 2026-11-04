@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "catalogue_id": "THE-UI-ACCEPTANCE",
-  "catalogue_version": "1.0.0",
+  "catalogue_version": "1.0.1",
   "kind": "scenario_specification",
   "not_an_executable_runner": true,
   "purpose": "Versioned acceptance specification and review contract against the agreed guided workbench. Function, design fidelity, aesthetics and discoverability are independent verdicts. This file records no execution pass and authorizes no UI change, build, publication or release.",
@@ -19,7 +19,11 @@
       "Native executable programs belong to desktop hosts only.",
       ".profile.the -> Build profile/Apply profile; ordinary .the -> Build macro/Run macro; compiled profile -> .profile.rxbin.",
       "GTK margins, gaps and control sizing require an explicit aesthetic acceptance review; small margins and large buttons are concerns to assess, not implementation-approved defaults.",
-      "Command response/error history is reviewable, explicitly clearable and filtered to the current file; this does not add a command-line recall requirement."
+      "Command response/error history is reviewable, explicitly clearable and filtered to the current file; this does not add a command-line recall requirement.",
+      "Resolved D04: explicit AFTERCMDLINE profile bands implement stock response -> command -> key guide -> status while inline/custom rows, TOP/OFF and profile-owned legacy overlay coordinates remain supported.",
+      "Resolved D05/D08: compact Expand/Return preserves state; hiding the active standard target returns to editor without auto-revealing a latent sibling. Explicit sibling activation restores it; existing simultaneous Program/named-LOG presentation remains supported.",
+      "Resolved D06: the user-authorized persistent GTK Files view is implemented separately from native Open.",
+      "Resolved D07: targeted browser/GTK review accepts their platform-appropriate spacing/control proportions, without a universal fixed pixel golden."
     ],
     "prototype": {
       "path": "doc/ui-acceptance/reference/workbench-polish.html",
@@ -56,6 +60,10 @@
       {
         "path": "doc/testing.md",
         "use": "Existing regression evidence leads and separate qualification boundaries."
+      },
+      {
+        "path": "doc/ui-acceptance/alignment-review.md",
+        "use": "Current consolidated implementation alignment review with targeted browser/GTK/console gate results and exact qualification limits; separate from full catalogue-script execution."
       }
     ],
     "precedence": "Explicit newer user decisions, then agreed design/scope and resolved decisions. Existing implementation or prior PASS never redefines design. Record unresolved conflicts in decision register."
@@ -136,15 +144,16 @@
           "code_region": "selection-only mock handlers: lines 160-166"
         }
       ],
-      "principle": "A visible pane control shows its target, hides that active visible target on repetition, and restores the target on the next activation. Another already-open sibling may become rendered after target hiding; this does not mean the target failed to hide.",
+      "principle": "A visible pane control shows its target, hides that active visible target on repetition and restores the target on the next activation. Hiding returns to the editor without automatically revealing a retained latent sibling; only explicit sibling activation renders it again.",
       "observable_checkpoints": [
-        "For Program console and Tools & Profiles, activate while target hidden -> target shown; activate that same visible target control -> target hidden; activate again -> target restored. Inspect target visibility independently of whether the auxiliary area still renders another open pane.",
-        "Selecting another pane activates that destination without discarding either pane state; repeated toggles work in wide and compact layouts.",
+        "For Program console and Tools & Profiles, activate while target hidden -> target shown; activate the same visible target control -> target hidden/editor returned; activate again -> target restored. A latent sibling must not appear automatically after hiding.",
+        "Selecting another pane explicitly activates that destination without discarding either pane state; repeated toggles and compact Expand/Return retain the same state.",
         "Toggling or switching preserves the program job, unsent input, output, reader position/selection, source caret and editor bytes.",
-        "Files is a distinct browser workspace view. A native Open chooser does not establish a persistent GTK file list.",
-        "Record logically open, selected and actually rendered states separately for every pane. Post-hide sibling selection/latent-open policy is D08, not an invented requirement to close the whole auxiliary area."
+        "Browser and GTK provide persistent Files views; native Open remains a separate chooser route and is not a substitute for the persistent list.",
+        "Record logically open, selected and actually rendered states separately. Resolved D08 preserves explicit simultaneous Program/named-LOG presentation; it does not turn target Hide into an indiscriminate close-all auxiliary operation."
       ],
-      "open_decisions": [
+      "open_decisions": [],
+      "resolved_decision_ids": [
         "D05",
         "D06",
         "D08"
@@ -373,13 +382,12 @@
         "Status, command and response areas remain distinct from file bytes. A quiet idle response is acceptable under resolved D01; meaningful responses remain visible and profile-owned.",
         "Console colour roles update immediately from the active file profile without losing job, draft, reader selection or focus.",
         "Clicking informational status/footer areas preserves the existing keyboard target and logical insertion point.",
-        "For the stock/reference profile, compare the agreed prototype geometry: response above THE command, followed by key guide then status. Current implementation documentation cannot approve a departure. Preserve custom profile text, colours, row count and explicitly configured positions; D04 is the implementation design task, not a waiver of stock reference fidelity."
+        "For the stock/reference profile, explicit AFTERCMDLINE bands render response above THE command, followed by key guide then status. Inline named/unnamed rows, custom text/colours/count, two-operand undocking and CMDLINE TOP/OFF or STATUSLINE OFF retain profile authority. Native MSGLINE overlays keep explicit screen-relative positions; valid custom profiles choose noncolliding coordinates rather than requiring automatic relocation."
       ],
-      "open_decisions": [
-        "D04"
-      ],
+      "open_decisions": [],
       "resolved_decision_ids": [
-        "D01"
+        "D01",
+        "D04"
       ]
     },
     {
@@ -433,9 +441,10 @@
         "A wide layout can show editor beside an auxiliary pane; narrow layouts adapt placement rather than clipping essential input or controls.",
         "Menu, current-file actions, command entry, pane controls and modal dismissal remain reachable at the specified sample sizes.",
         "Resizing, opening/hiding panes and font/zoom changes preserve source caret, pending edit, job, draft, reader position and selection.",
-        "Touch targets and scrolling permit the specified phone journeys; short-height navigation is reviewed as a distinct adaptation."
+        "Touch targets and scrolling permit the specified phone journeys; compact/short Expand and Return expose the active pane and restore editor access while preserving source, job, drafts and reader state."
       ],
-      "open_decisions": [
+      "open_decisions": [],
+      "resolved_decision_ids": [
         "D05"
       ]
     },
@@ -542,21 +551,21 @@
       ],
       "principle": "Separate genuine scope/sequencing dispositions from reference interpretation and implementation design work; unresolved records never waive observed mandatory failures.",
       "observable_checkpoints": [
-        "D01 is resolved: quiet idle is acceptable, meaningful responses remain profile-owned; no permanent Ready text is required.",
-        "Record one consolidated scope/sequencing disposition for D02 Redo, D03 Save as/source transfer and D06 proposed GTK persistent Files view.",
-        "Develop D04 stock geometry/custom profile rendering, D05 compact navigation, D07 spacing/control proportions and D08 sibling state as one coherent design proposal rather than separate user permission questions.",
-        "Default geometry follows the agreed prototype; current stock documentation does not approve departure. Preserve all custom profile authority.",
-        "Observed mandatory toggle, state-preservation, editing, reference-fidelity or aesthetic gaps keep their failure finding; DecisionNeeded covers only an unresolved checkpoint."
+        "D01 remains resolved: quiet idle is acceptable and meaningful responses remain profile-owned.",
+        "Keep D02 general Redo and D03 full source transfer/Save as visible as open scope/baseline sequencing; missing behavior is not N/A.",
+        "Apply resolved D04 AFTERCMDLINE/custom footer, D05 compact Expand/Return, D06 persistent GTK Files, D07 platform proportions and D08 explicit target hiding contracts.",
+        "The consolidated alignment ledger records targeted implementation review independently of the 29 full-script scenario results. Browser/GTK changed-scope passes do not establish a console gate or full-script acceptance.",
+        "Observed mandatory toggle, state-preservation, editing, reference-fidelity or aesthetic gaps retain failure findings; DecisionNeeded covers only a genuinely unresolved checkpoint."
       ],
       "open_decisions": [
         "D02",
-        "D03",
+        "D03"
+      ],
+      "resolved_decision_ids": [
+        "D01",
         "D04",
         "D05",
         "D06"
-      ],
-      "resolved_decision_ids": [
-        "D01"
       ]
     },
     {
@@ -589,9 +598,10 @@
         "Compare reference hierarchy and density with the actual platform at the same logical size and comparable text scale; native theme differences alone are not failures.",
         "Distinguish comfortable pointer controls from coarse-pointer touch targets; the prototype 44 px coarse-pointer rule does not require desktop GTK buttons to be touch-sized.",
         "No clipped labels, unreadable text, cramped focus rings, accidental collisions or inaccessible controls; repeated sections use a coherent spacing/control rhythm.",
-        "Separate user preference/comfort findings from objective clipping/measurement and proposed numeric thresholds; obtain D07 before making invented pixel values a golden."
+        "Use resolved D07 reviewed-platform proportions as context: GTK 12-unit insets/8-unit gaps/~34-unit ordinary controls, browser coarse-pointer >=44 CSS px controls/13 px labels. Preserve comfort/readability judgement and actual theme/font/input context; do not generalize these values into a universal fixed pixel golden."
       ],
-      "open_decisions": [
+      "open_decisions": [],
+      "resolved_decision_ids": [
         "D07"
       ]
     }
@@ -644,66 +654,92 @@
     {
       "id": "D04",
       "subject": "Default footer geometry and custom-profile rendering",
-      "status": "DecisionNeeded",
-      "question": "Design task: align stock footer geometry with the agreed prototype while preserving custom profile authority.",
+      "status": "Resolved",
+      "question": "Resolved design disposition; see resolution and the consolidated alignment ledger.",
       "affected_scenarios": [
         "S01",
         "S15"
       ],
-      "authority_conflict": "Prototype line 128 is the expected stock geometry. Current first-launch text describes an implementation and does not approve geometric departure. Custom profile text, colours, row count and explicit settings remain authoritative.",
+      "authority_conflict": "Resolved by the approved implemented design and targeted browser/GTK UI review; existing mandatory expectations are retained.",
       "decision_authority": "implementation-design",
-      "recommended_resolution": "Use the agreed prototype stock geometry: response above THE command, followed by key guide then status. Prepare one coherent implementation design that renders custom profile text, colours, row count and configured positions correctly. Current stock documentation does not approve a departure; no separate user question is needed for each row or key-label position."
+      "recommended_resolution": "Explicit profile AFTERCMDLINE placement implements stock response -> THE command -> key guide -> status. Inline named/unnamed rows, custom text/colours/count, two-operand undocking, CMDLINE TOP/OFF and STATUSLINE OFF remain profile-owned; band rows stay at the bottom for TOP/OFF. Native MSGLINE keeps its explicit screen-relative overlay coordinates and is not automatically relocated.",
+      "resolution": "Explicit profile AFTERCMDLINE placement implements stock response -> THE command -> key guide -> status. Inline named/unnamed rows, custom text/colours/count, two-operand undocking, CMDLINE TOP/OFF and STATUSLINE OFF remain profile-owned; band rows stay at the bottom for TOP/OFF. Native MSGLINE keeps its explicit screen-relative overlay coordinates and is not automatically relocated.",
+      "resolution_references": [
+        "doc/ui-acceptance/alignment-review.md",
+        "doc/first-launch.md#prefix-cursor-and-visible-key-guide"
+      ],
+      "resolution_scope": "Approved contract and targeted browser/GTK/console implementation review within their applicable checkpoints. Exact cohorts and tool limits are in the ledger; no full-script acceptance pass is claimed."
     },
     {
       "id": "D05",
-      "subject": "Compact navigation and short-height Expand",
-      "status": "DecisionNeeded",
-      "question": "Design task: propose one coherent compact/short-window navigation adaptation, including any needed Expand/Return route.",
+      "subject": "Compact navigation and short-height Expand/Return",
+      "status": "Resolved",
+      "question": "Resolved design disposition; see resolution and the consolidated alignment ledger.",
       "affected_scenarios": [
         "S17",
         "S18"
       ],
-      "authority_conflict": "Prototype supplies narrow stacking, but no short-height Expand contract. All existing pane controls must still toggle per the newer explicit user decision.",
+      "authority_conflict": "Resolved by the approved implemented design and targeted browser/GTK UI review; existing mandatory expectations are retained.",
       "decision_authority": "implementation-design",
-      "recommended_resolution": "Present narrow/short screenshots and one consistent navigation proposal alongside D04/D07/D08. Keep pane toggles, visible access, dismissal and state preservation mandatory; use an explicit Expand/Return route only where the compact design needs it. Do not seek separate approval for every breakpoint or control."
+      "recommended_resolution": "Compact/short-window Expand and Return routes are approved and implemented. Expansion exposes the active pane and its scrolling body; Return restores editor access. Pane identity, source caret, job, input draft and reader state survive expansion, return, resizing and explicit destination changes.",
+      "resolution": "Compact/short-window Expand and Return routes are approved and implemented. Expansion exposes the active pane and its scrolling body; Return restores editor access. Pane identity, source caret, job, input draft and reader state survive expansion, return, resizing and explicit destination changes.",
+      "resolution_references": [
+        "doc/ui-acceptance/alignment-review.md"
+      ],
+      "resolution_scope": "Approved contract and targeted browser/GTK/console implementation review within their applicable checkpoints. Exact cohorts and tool limits are in the ledger; no full-script acceptance pass is claimed."
     },
     {
       "id": "D06",
       "subject": "Persistent GTK Files list",
-      "status": "DecisionNeeded",
-      "question": "Should a persistent Files view be a shared browser/GTK capability?",
+      "status": "Resolved",
+      "question": "Resolved design disposition; see resolution and the consolidated alignment ledger.",
       "affected_scenarios": [
         "S02",
         "S18"
       ],
-      "authority_conflict": "The graphical reference depicts a Files affordance, GTK currently has a native chooser, and the user proposes making a file list common. Record the missing design capability and decide its implementation sequencing; a native chooser is not a persistent file list.",
+      "authority_conflict": "Resolved by the approved implemented design and targeted browser/GTK UI review; existing mandatory expectations are retained.",
       "decision_authority": "scope-owner",
-      "recommended_resolution": "Present the persistent GTK Files view as a distinct proposed capability with a scope/sequencing recommendation. Native Open remains an opening route, not file-list parity. Do not silently make the proposal mandatory or treat its absence as an approved shared-feature exception."
+      "recommended_resolution": "The user authorized the shared persistent GTK Files capability and it is implemented. Files is an explicit persistent view separate from the native Open chooser; both routes remain available. This resolves capability sequencing, not unexercised GTK OS/platform qualification.",
+      "resolution": "The user authorized the shared persistent GTK Files capability and it is implemented. Files is an explicit persistent view separate from the native Open chooser; both routes remain available. This resolves capability sequencing, not unexercised GTK OS/platform qualification.",
+      "resolution_references": [
+        "doc/ui-acceptance/alignment-review.md"
+      ],
+      "resolution_scope": "Approved contract and targeted browser/GTK/console implementation review within their applicable checkpoints. Exact cohorts and tool limits are in the ledger; no full-script acceptance pass is claimed."
     },
     {
       "id": "D07",
-      "subject": "Quantitative aesthetic tolerances",
-      "status": "DecisionNeeded",
-      "question": "Design task: derive comfortable native spacing and control proportions from measured evidence, then propose any useful platform tolerances.",
+      "subject": "Platform-appropriate spacing and control proportions",
+      "status": "Resolved",
+      "question": "Resolved design disposition; see resolution and the consolidated alignment ledger.",
       "affected_scenarios": [
         "S29"
       ],
-      "authority_conflict": "The user requires aesthetic review and raised small GTK margins/large buttons. No exact pixel target or 8 px golden was approved. Observable legibility, coherent hierarchy and usable comfortable spacing remain assessable now.",
+      "authority_conflict": "Resolved by the approved implemented design and targeted browser/GTK UI review; existing mandatory expectations are retained.",
       "decision_authority": "implementation-design",
-      "recommended_resolution": "Include measured GTK insets, gaps, button/font proportions and revised screenshots in the same coherent design proposal as D04/D05/D08. Use the agreed hierarchy and native platform context; do not request a pixel-by-pixel user decision or invent an 8 px golden. Aesthetic defects remain assessable before numeric tolerances are selected."
+      "recommended_resolution": "The targeted UI review accepts platform-appropriate proportions: GTK 12 logical-unit insets and 8-unit gaps around ordinary controls of about 34 units; browser coarse-pointer controls have at least 44 CSS px height with 13 px labels. These are accepted reviewed-platform relationships, not a universal fixed pixel golden or a requirement to give desktop GTK touch-sized buttons.",
+      "resolution": "The targeted UI review accepts platform-appropriate proportions: GTK 12 logical-unit insets and 8-unit gaps around ordinary controls of about 34 units; browser coarse-pointer controls have at least 44 CSS px height with 13 px labels. These are accepted reviewed-platform relationships, not a universal fixed pixel golden or a requirement to give desktop GTK touch-sized buttons.",
+      "resolution_references": [
+        "doc/ui-acceptance/alignment-review.md"
+      ],
+      "resolution_scope": "Approved contract and targeted browser/GTK/console implementation review within their applicable checkpoints. Exact cohorts and tool limits are in the ledger; no full-script acceptance pass is claimed."
     },
     {
       "id": "D08",
-      "subject": "Pane state after hiding the target",
-      "status": "DecisionNeeded",
-      "question": "Design task: specify coherent selected/rendered/logically-open pane state after the clicked target is hidden.",
+      "subject": "Explicit pane hiding and sibling activation",
+      "status": "Resolved",
+      "question": "Resolved design disposition; see resolution and the consolidated alignment ledger.",
       "affected_scenarios": [
         "S17",
         "S18"
       ],
-      "authority_conflict": "The clicked pane must toggle hidden/shown. The user has not required the entire auxiliary area to disappear when an already-open sibling can render. Record target visibility, logical openness and selected/rendered pane independently.",
+      "authority_conflict": "Resolved by the approved implemented design and targeted browser/GTK UI review; existing mandatory expectations are retained.",
       "decision_authority": "implementation-design",
-      "recommended_resolution": "Propose a predictable sibling-selection and latent-open policy together with compact navigation, while preserving all pane data. The clicked visible target must already hide/show correctly; another open sibling may render afterward. Do not ask the user to approve each state transition or require the entire auxiliary area to disappear."
+      "recommended_resolution": "Hiding the active standard target returns to the editor without automatically revealing a retained latent sibling. A sibling appears only after explicit activation and restores its retained state. Keep logically open, selected and actually rendered states distinct. Existing intentional simultaneous Program/named-LOG behavior remains supported; hiding a standard target does not invent a blanket close-all auxiliary operation.",
+      "resolution": "Hiding the active standard target returns to the editor without automatically revealing a retained latent sibling. A sibling appears only after explicit activation and restores its retained state. Keep logically open, selected and actually rendered states distinct. Existing intentional simultaneous Program/named-LOG behavior remains supported; hiding a standard target does not invent a blanket close-all auxiliary operation.",
+      "resolution_references": [
+        "doc/ui-acceptance/alignment-review.md"
+      ],
+      "resolution_scope": "Approved contract and targeted browser/GTK/console implementation review within their applicable checkpoints. Exact cohorts and tool limits are in the ledger; no full-script acceptance pass is claimed."
     }
   ],
   "shared_states": {
@@ -812,7 +848,7 @@
       "A mandatory unavailable/refused route is a functional/design gap unless refusal itself is the expected host boundary.",
       "DecisionNeeded applies only to affected checkpoints; it does not waive already mandatory assertions.",
       "Prior tests and reference screenshots are evidence leads, never approval or golden outputs.",
-      "Decision records identify who should resolve the issue, not automatic user-permission gates. D04/D05/D07/D08 are implementation design tasks; their presence cannot convert observed mandatory failures to DecisionNeeded."
+      "Only D02/D03 remain open scope decisions. Resolved D04-D08 specify approved contracts and targeted implementation dispositions; neither an open decision nor a targeted gate converts observed mandatory failures into DecisionNeeded or passes unexecuted full scripts."
     ]
   },
   "evidence_contract": {
@@ -858,7 +894,7 @@
     "gtk_macos": {
       "reference": false,
       "routes": [
-        "Native Open/New chooser; persistent Files list is separate D06 proposal",
+        "Persistent Files view plus separate native Open/New chooser; shared capability resolved by user-authorized D06",
         "Native application About/Settings/Quit plus F10 fallback",
         "Profile-authoritative logical Ctrl keys, including physical Command-letter translation",
         "Native font settings and measured right/below layout"
@@ -870,12 +906,12 @@
     "gtk_other": {
       "reference": false,
       "routes": [
-        "Native chooser and in-window File/Edit/View/Tools/Help",
+        "Persistent Files view, native chooser and in-window File/Edit/View/Tools/Help; each OS requires separate execution evidence",
         "GTK font/point-size settings and measured pane placement",
         "Same core role/action/profile and clipboard semantics"
       ],
       "exceptions": [
-        "Record Linux and Windows separately. No display means GUI evidence NotRun/Blocked, not Pass or N/A. Persistent Files view remains D06 proposal."
+        "Record Linux and Windows separately. No display means GUI evidence NotRun/Blocked, not Pass or N/A. Implemented shared Files capability does not qualify an unexercised OS cohort."
       ]
     },
     "console": {
@@ -1037,7 +1073,7 @@
       }
     ],
     "goal_first_protocol": "A fresh or reset independent participant receives only goal_first_prompt and allowed task materials. Record route, wrong turns, self-correction, requested hints and outcome before showing replay_steps. Then reset isolated fixtures and replay numbered steps for repeatability. If no independent observation is available, discoverability remains NotRun; implementer replay is not a substitute.",
-    "decision_gating": "Resolve only a genuinely unsettled checkpoint before judging that detail. Scope-owner records need a consolidated scope/sequencing disposition; implementation-design records belong in one coherent proposal. Continue judging observed mandatory assertions and retain their findings. Do not run speculative implementations or alter expected outcomes to fit current UI."
+    "decision_gating": "Only genuinely unresolved D02/D03 details need a scope/sequencing disposition. Use resolved D01/D04-D08 contracts for all affected checkpoints. Continue judging mandatory assertions, retain failures and keep targeted alignment-review evidence separate from full-script execution."
   },
   "fixtures": [
     {
@@ -1132,7 +1168,13 @@
     {
       "id": "F08",
       "kind": "custom footer and theme profile",
-      "recipe": "Use a personal test profile with unique named rows acceptance-a/acceptance-b, distinctive text and colours, then variants with one and zero guide rows. Set console colour roles individually. Keep commands/profile and expected row order as evidence. Never modify generated shipped profiles."
+      "recipe": "Use a personal test profile with unique named acceptance-a/acceptance-b rows, distinctive text/colours and one/two/three/zero guide-row variants. Explicitly opt band rows in with SET FOOTER name position AFTERCMDLINE; leave inline named and unnamed rows inline. Exercise the two-operand form to undock, FOOTER name OFF without deleting reserved text, CMDLINE TOP/OFF, STATUSLINE OFF and buffer inheritance. Set console roles individually. Record source/commands, expected resolved geometry and valid MSGLINE positions. Never modify generated shipped profiles.",
+      "message_overlay_guidance": {
+        "precondition": "Response occupies the last inline reserved row and three guide bands are placed at the bottom.",
+        "bottom_command": "SET MSGLINE ON -5 1",
+        "top_or_disabled_command": "SET MSGLINE ON -4 1",
+        "policy": "Native MSGLINE coordinates are explicit screen-relative legacy overlays. A deliberately colliding overlay may temporarily cover a footer row without deleting its text/colour. The profile author owns collision-free coordinates; no automatic relocation is required or claimed."
+      }
     },
     {
       "id": "F09",
@@ -1193,7 +1235,7 @@
         ],
         "design_fidelity": [
           "Compare shell hierarchy, compact action row and separated destinations to reference lines 121-128.",
-          "Profile-defined guide/status remain meaningful; quiet idle is accepted by resolved D01. Stock footer geometry follows the prototype; D04 tracks the coherent design work and does not waive an observed departure."
+          "Profile-defined guide/status remain meaningful; resolved D01 accepts quiet idle and resolved D04 supplies stock response -> command -> AFTERCMDLINE guide -> status geometry without overriding custom profile authority."
         ],
         "discoverability": [
           "A first user identifies editor, command and program-input destinations without a replay hint; record misidentifications and self-correction."
@@ -1227,9 +1269,7 @@
       "platform_routes_and_exceptions": [
         "Use the shared platform adaptations. Missing mandatory UI or adapter is a gap; record Fail/Partial or Blocked with evidence, not N/A."
       ],
-      "open_decisions": [
-        "D04"
-      ],
+      "open_decisions": [],
       "variants": [],
       "existing_test_evidence": [
         {
@@ -1259,7 +1299,8 @@
         "aesthetics": "NotRun"
       },
       "resolved_decision_ids": [
-        "D01"
+        "D01",
+        "D04"
       ]
     },
     {
@@ -1282,7 +1323,7 @@
       "replay_steps": [
         {
           "step": 1,
-          "action": "Open Files and open F01; inspect the file identity and ring/tab entry."
+          "action": "Open the persistent Files view in browser/GTK and open F01; inspect file identity and ring/tab entry. On console use the native menu/path route. Exercise the separate GTK native Open chooser later when cancelling Open/New."
         },
         {
           "step": 2,
@@ -1309,7 +1350,7 @@
         ],
         "design_fidelity": [
           "File identity, dirty marker and saved outcome are visible in the shared hierarchy.",
-          "Browser persistent Files view is distinct from Open; GTK native chooser is not evidence of a persistent Files list."
+          "Browser and GTK persistent Files views are distinct from Open. Resolved D06 admits the shared GTK list; native Open remains a separate chooser route."
         ],
         "discoverability": [
           "First user completes create/open/save/return and understands the dirty protection without implementation knowledge."
@@ -1346,9 +1387,7 @@
       "platform_routes_and_exceptions": [
         "Use the shared platform adaptations. Missing mandatory UI or adapter is a gap; record Fail/Partial or Blocked with evidence, not N/A."
       ],
-      "open_decisions": [
-        "D06"
-      ],
+      "open_decisions": [],
       "variants": [],
       "existing_test_evidence": [
         {
@@ -1382,7 +1421,10 @@
         "design_fidelity": "NotRun",
         "discoverability": "NotRun",
         "aesthetics": "NotRun"
-      }
+      },
+      "resolved_decision_ids": [
+        "D06"
+      ]
     },
     {
       "id": "S03",
@@ -2780,7 +2822,7 @@
         },
         {
           "step": 4,
-          "action": "Apply custom one/two/zero key-guide row variants with distinctive text, order and colours; switch buffers and create a new one to inspect inheritance."
+          "action": "Apply custom one/two/three/zero guide-row variants with distinctive text/order/colours, explicit AFTERCMDLINE bands and an inline row. Exercise undocking, CMDLINE TOP/OFF and STATUSLINE OFF with valid F08 MSGLINE coordinates; switch/create buffers and inspect inheritance."
         },
         {
           "step": 5,
@@ -2791,11 +2833,12 @@
         "functional": [
           "Action executes only on invocation; replacements/removals publish atomically and preserve owner isolation.",
           "Footer text/colour/count comes from profile data; typing after informational clicks reaches its previous logical target.",
-          "Colour updates retain job identity, reader selection, input draft and saved source bytes."
+          "Colour updates retain job identity, reader selection, input draft and saved source bytes.",
+          "With three bottom guide bands and response last inline, valid MSGLINE uses -5 for bottom command or -4 for TOP/OFF; intentional overlay collisions retain footer data and remain profile-author configuration responsibility."
         ],
         "design_fidelity": [
           "Custom extensions fit shared menu grouping and remain profile-owned.",
-          "Profile guide/status authority and stock reference geometry remain mandatory. Resolved D01 accepts quiet idle; D04 tracks implementation design and cannot waive an observed stock geometry departure."
+          "Profile guide/status authority and stock response -> command -> AFTERCMDLINE guide -> status geometry remain mandatory under resolved D04. D01 accepts quiet idle; inline/custom/TOP/OFF variants stay profile-owned and explicit legacy message collisions are not automatically relocated."
         ],
         "discoverability": [
           "First user can find a newly added helper and locate the profile source controlling footer/theme without frontend knowledge."
@@ -2832,9 +2875,7 @@
       "platform_routes_and_exceptions": [
         "Safe arbitrary user macro menu invocation is an agreed composition journey. Existing browser admission of only contextual Build macros is evidence of a gap, not an exception that passes this case."
       ],
-      "open_decisions": [
-        "D04"
-      ],
+      "open_decisions": [],
       "variants": [],
       "existing_test_evidence": [
         {
@@ -2876,7 +2917,8 @@
         "aesthetics": "NotRun"
       },
       "resolved_decision_ids": [
-        "D01"
+        "D01",
+        "D04"
       ]
     },
     {
@@ -3028,7 +3070,7 @@
         },
         {
           "step": 3,
-          "action": "Resize to 820x500, visit Program, Tools & Profiles and Settings, then dismiss each overlay/pane through visible controls."
+          "action": "Resize to 820x500, visit Program, Tools & Profiles and Settings; exercise compact Expand and Return, then dismiss overlays/panes through visible controls and verify editor access."
         },
         {
           "step": 4,
@@ -3043,11 +3085,11 @@
         "functional": [
           "Resizing never saves, mutates or discards source, job, draft or reader state.",
           "Required controls remain operable; no hidden overlay permanently traps focus or input.",
-          "Inspect each target pane separately; another logically open pane becoming rendered after hiding is not itself a failed hide."
+          "Inspect target and sibling state separately: hiding the active standard target returns to editor without auto-revealing a latent sibling; explicit sibling activation restores its state. Preserve intentional simultaneous Program/named-LOG behavior."
         ],
         "design_fidelity": [
           "Compare wide side-by-side and narrow adaptation principles, not prototype pixel dimensions.",
-          "Record short-layout navigation/Expand behavior under design task D05 and propose a coherent adaptation. Missing mandatory access, pane toggle or state preservation is a failure, not a DecisionNeeded waiver."
+          "Resolved D05/D08 compact Expand/Return and explicit target-hide behavior govern the adaptation; mandatory access, toggling and state preservation remain assessable."
         ],
         "discoverability": [
           "First user locates the same tasks across sizes without learning different terminology or receiving layout hints."
@@ -3096,10 +3138,7 @@
       "platform_routes_and_exceptions": [
         "Console replays wide 140x40 -> compact 80x24 -> wide with PTY; GTK uses its measured native breakpoint. Phone route applies to browser only. Missing stateful responsive behavior is not N/A."
       ],
-      "open_decisions": [
-        "D05",
-        "D08"
-      ],
+      "open_decisions": [],
       "variants": [],
       "existing_test_evidence": [
         {
@@ -3127,7 +3166,11 @@
         "design_fidelity": "NotRun",
         "discoverability": "NotRun",
         "aesthetics": "NotRun"
-      }
+      },
+      "resolved_decision_ids": [
+        "D05",
+        "D08"
+      ]
     },
     {
       "id": "S18",
@@ -3150,7 +3193,7 @@
       "replay_steps": [
         {
           "step": 1,
-          "action": "Activate the currently visible Program console button once; verify that Program becomes hidden without stopping the job. Record whether another already-open pane becomes selected/rendered; do not require the entire auxiliary area to disappear."
+          "action": "Activate the currently visible Program console button once; verify Program hides and the editor returns without auto-revealing a retained latent Tools/Files sibling. Confirm the running job and reader/input state remain retained."
         },
         {
           "step": 2,
@@ -3158,7 +3201,7 @@
         },
         {
           "step": 3,
-          "action": "Activate Tools & Profiles from visible Program, select a setup section, then activate the same Tools & Profiles button to hide that target and again to restore it. Record target visibility separately from any sibling that becomes visible."
+          "action": "Explicitly activate Tools & Profiles, select a setup section, activate its same button to hide it and return to editor without revealing Program, then activate Tools again and inspect restored state."
         },
         {
           "step": 4,
@@ -3166,11 +3209,11 @@
         },
         {
           "step": 5,
-          "action": "Repeat repeated-button toggles and cross-pane switches at the narrow/short samples, including any visible navigation or Expand route; return to source and type at its retained caret."
+          "action": "Repeat target toggles and explicit cross-pane switches at narrow/short sizes, including compact Expand/Return. Return to source and type at its retained caret; separately confirm existing intentional simultaneous Program/named-LOG behavior survives its supported show/hide routes."
         },
         {
           "step": 6,
-          "action": "Where Files is present, repeat its show/hide cycle; record GTK persistent Files proposal separately from native Open."
+          "action": "Repeat the persistent Files show/hide cycle in browser and GTK; explicit activation restores its state and the separate native Open chooser remains distinct."
         }
       ],
       "assertions": {
@@ -3178,12 +3221,12 @@
           "Same active visible pane button toggles shown -> hidden -> shown; selecting another destination activates it.",
           "Job, unsent input, output, reader scroll/selection, source caret and pending bytes survive every toggle and cross-switch.",
           "Hiding never clears or cancels data; source typing still reaches the original insertion point.",
-          "A sibling appearing after target hide is recorded under D08; it cannot turn a successful target hide into Fail by an invented whole-area rule."
+          "Target Hide returns to editor and does not auto-reveal a latent sibling. An explicitly selected sibling restores state; intentionally simultaneous Program/named-LOG presentation is preserved rather than indiscriminately closed."
         ],
         "design_fidelity": [
           "User toggle clarification is mandatory and overrides prototype selection-only handlers at lines 160-166.",
-          "Compact controls expose the same destinations. D05/D08 are related implementation design tasks; D06 remains the separate scope proposal for a persistent GTK Files view. Mandatory toggle and preservation gaps remain findings.",
-          "Do not collapse selected, actually rendered and logically open states into one boolean; the post-hide sibling policy awaits D08."
+          "Resolved D05/D08 govern compact Expand/Return and target hiding; resolved D06 supplies the persistent GTK Files capability. Mandatory toggle and preservation gaps remain findings.",
+          "Keep logically open, selected and actually rendered states distinct under resolved D08; latent state does not imply automatic presentation after target Hide."
         ],
         "discoverability": [
           "First user can predict repeated button behavior and recover a hidden pane without a command or hint."
@@ -3194,12 +3237,12 @@
       },
       "expected_state_transitions": [
         "Program shown -> hidden -> restored -> hidden -> restored; Program -> Tools -> hidden -> Tools restored -> Program restored",
-        "Target hidden with sibling rendered is allowed pending D08; only target toggle behavior is already mandatory."
+        "Active standard target -> hidden/editor returned, latent sibling not rendered -> explicit sibling activation/restored state; intentional Program/named-LOG simultaneous presentation retained."
       ],
       "screenshot_checkpoints": [
         {
           "after_step": 1,
-          "capture": "Program target hidden; record any rendered sibling plus running job evidence"
+          "capture": "Program target hidden/editor returned with no latent sibling revealed; retained running-job/reader/input evidence"
         },
         {
           "after_step": 2,
@@ -3227,13 +3270,9 @@
         "C-C"
       ],
       "platform_routes_and_exceptions": [
-        "Browser and GTK visible pane buttons must toggle. Console must expose equivalent explicit show/hide and restore navigation; it need not imitate a graphical button. GTK persistent Files is DecisionNeeded, not satisfied by native Open."
+        "Browser and GTK pane buttons follow resolved D08 hide/show and explicit activation. Console provides equivalent explicit navigation rather than graphical buttons; its targeted gate and limits are recorded separately in the ledger. Resolved D06 persistent GTK Files is separately assessed from native Open. Intentional simultaneous Program/named-LOG behavior is retained."
       ],
-      "open_decisions": [
-        "D05",
-        "D06",
-        "D08"
-      ],
+      "open_decisions": [],
       "variants": [],
       "existing_test_evidence": [
         {
@@ -3248,7 +3287,12 @@
         "design_fidelity": "NotRun",
         "discoverability": "NotRun",
         "aesthetics": "NotRun"
-      }
+      },
+      "resolved_decision_ids": [
+        "D05",
+        "D06",
+        "D08"
+      ]
     },
     {
       "id": "S19",
@@ -4423,7 +4467,7 @@
         },
         {
           "step": 6,
-          "action": "Write separate functional, design-fidelity, aesthetics and discoverability findings with screenshot/measurement anchors. Label any suggested numeric spacing/control targets as D07 proposals and send them to the consolidated review before product changes."
+          "action": "Write separate functional, design-fidelity, aesthetics and discoverability findings with screenshot/measurement anchors. Compare reviewed-platform D07 proportions in context, label any new universal/numeric target as a proposal, and preserve the distinction between targeted alignment review and full-script execution."
         }
       ],
       "assertions": {
@@ -4437,7 +4481,7 @@
         "aesthetics": [
           "Actual GTK margins and buttons receive an explicit comfort judgement backed by measured insets/gaps/control-to-label scale, not a function-only PASS.",
           "Toolbar, pane body, Tools & Profiles, Settings and About show deliberate, coherent margins and spacing rhythm, readable labels and proportionate controls.",
-          "Do not invent a fixed inset/control-size golden. D07 is part of the coherent implementation design proposal, not a request for pixel-by-pixel user permission; measured aesthetic defects remain assessable now."
+          "Resolved D07 accepts GTK 12-unit insets/8-unit gaps/~34-unit controls and browser coarse-pointer >=44 CSS px controls/13 px labels in their reviewed context. No universal fixed pixel golden or automatic cross-platform aesthetic pass follows."
         ],
         "discoverability": [
           "Observer can distinguish file actions, pane navigation, setup sections and primary input without hints; visual hierarchy supports rather than obscures those routes."
@@ -4445,7 +4489,7 @@
       },
       "expected_state_transitions": [
         "stock wide -> Program -> Tools sections -> Settings/About -> narrow/short/larger text -> restored stock; source/job/draft state retained",
-        "raw comfort observation -> measured finding -> proposed tolerance/DecisionNeeded, with no implementation change"
+        "raw comfort observation -> measured finding compared with resolved D07 platform context; any new universal target remains a proposal, with no automatic full-script pass"
       ],
       "screenshot_checkpoints": [
         {
@@ -4486,9 +4530,7 @@
         "Console adapts hierarchy, readability and density in cells; pixel padding and GTK dialog ratios are N/A only for those narrow subchecks.",
         "If no actual product visual evidence or independent aesthetic observation is available, aesthetics remains NotRun/Partial; no functional regression pass substitutes for it."
       ],
-      "open_decisions": [
-        "D07"
-      ],
+      "open_decisions": [],
       "variants": [
         "Stock appearance first; targeted larger text after baseline; no full Cartesian product of themes/fonts/sizes."
       ],
@@ -4505,7 +4547,10 @@
         "design_fidelity": "NotRun",
         "aesthetics": "NotRun",
         "discoverability": "NotRun"
-      }
+      },
+      "resolved_decision_ids": [
+        "D07"
+      ]
     }
   ],
   "change_control": {
@@ -4529,27 +4574,48 @@
       "Input mode: use comfortable pointer controls for desktop; evaluate the prototype 44 px minimum only for coarse-pointer browser samples, with actual device/emulation recorded."
     ],
     "judgement": "Record objective measurements and observed human comfort separately. Pass requires a coherent, readable, comfortable presentation at the exercised checkpoints. Fail identifies a concrete visual defect or supported comfort finding. Partial lists unreviewed surfaces. No independent aesthetic observation means NotRun; do not infer beauty from function or test success.",
-    "threshold_policy": "No unapproved fixed pixel golden. Measured spacing/control targets are design work under D07 and should be proposed coherently with D04/D05/D08, not as pixel-by-pixel permission questions. Their absence never waives clipping, poor hierarchy, disproportionate controls, crowded margins or the required aesthetic review."
+    "threshold_policy": "Resolved D07 accepts the reviewed GTK 12-unit insets/8-unit gaps/~34-unit controls and browser coarse-pointer >=44 CSS px controls/13 px labels in context. These values are not a universal fixed pixel golden. Actual platform/theme/font/input comfort, clipping, hierarchy and proportionality still require evidence; new universal targets require an explicit proposal."
   },
   "decision_summary": {
     "records": 8,
-    "resolved": 1,
-    "open": 7,
+    "resolved": 6,
+    "open": 2,
     "scope_owner_ids": [
       "D02",
-      "D03",
-      "D06"
+      "D03"
     ],
-    "implementation_design_ids": [
+    "implementation_design_ids": [],
+    "resolved_reference_annotation_ids": [
+      "D01"
+    ],
+    "resolved_implementation_design_ids": [
       "D04",
       "D05",
       "D07",
       "D08"
     ],
-    "resolved_reference_annotation_ids": [
-      "D01"
+    "resolved_scope_owner_ids": [
+      "D06"
     ],
-    "handling": "These are advisory dispositions, not eight user-permission questions. Scope-owner records need one consolidated scope/sequencing disposition; implementation-design records belong in one coherent design proposal. Resolved reference annotations require no new approval.",
-    "mandatory_gap_rule": "Observed failures of already mandatory assertions remain Fail/Partial findings. DecisionNeeded applies only to the genuinely unresolved checkpoint and never masks pane-toggle, state-preservation, reference stock geometry, profile authority or aesthetic defects."
+    "handling": "D01 and approved implemented D04-D08 are resolved traceable dispositions. Only D02 general Redo and D03 full source transfer/Save as remain open scope/baseline sequencing. No resolved decision remains in open_decisions lists.",
+    "mandatory_gap_rule": "Observed failures of already mandatory assertions remain Fail/Partial findings. DecisionNeeded applies only to a genuinely unresolved D02/D03 checkpoint and never masks pane-toggle, state-preservation, stock reference geometry, profile authority or aesthetic defects."
+  },
+  "implementation_review": {
+    "ledger": "doc/ui-acceptance/alignment-review.md",
+    "catalogue_version_at_integration": "1.0.1",
+    "kind": "targeted_alignment_review_not_full_catalogue_execution",
+    "browser": {
+      "status": "Pass",
+      "scope": "Changed mandatory UI scope G01-G07; exact candidate/cohort, evidence and limitations are in the ledger."
+    },
+    "gtk": {
+      "status": "Pass",
+      "scope": "Changed mandatory UI scope G01/G08-G12 for the reviewed native cohort; exact sizes, candidate provenance, manual limits and evidence are in the ledger."
+    },
+    "console": {
+      "status": "Pass",
+      "scope": "Changed mandatory UI scope G01/G13-G16; AC01/AC02 closed in the independent terminal-cell/colour review. Exact source/runtime, targeted regressions and physical Terminal/font/selection limits are in the ledger."
+    },
+    "full_script_boundary": "All 29 full-script scenario initial executions and four-axis verdicts remain NotRun. Targeted changed-checkpoint acceptance does not execute or pass complete scenario scripts, broaden OS/device coverage, qualify installed packages or authorize a release."
   }
 }

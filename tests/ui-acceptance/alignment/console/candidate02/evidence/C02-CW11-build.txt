@@ -1,0 +1,40 @@
+ MENU (F10) |  Console |  Tools & Profiles | Welcome.txt|Reader.rexx                         | Tools & Profiles | Build results             
+/private/tmp/the-align<>ce/Colours.profile.the Line=0      Col=1    Size=25    Alt=0,0       | Profiles Tools Build Edit Hide Editor        
+        |...+....1....+....2....+....3....+....4....+....5....+....6....+....7.]..+....8....+| Completed · status 0                         
+0000000 *** Top of File ***                                                                  |                                              
+0000001 options levelb                                                                       |                                              
+0000002 address THE                                                                          |                                              
+0000003 'set reserved -2 off';                                                               |                                              
+0000004 'set reserved -10 black on white BLACK λ界';                                         |                                              
+0000005 'set footer COLOUR0 -10 AFTERCMDLINE';                                               |                                              
+0000006 'set reserved -9 blue on black BLUE λ界';                                            |                                              
+0000007 'set footer COLOUR1 -9 AFTERCMDLINE';                                                |                                              
+0000008 'set reserved -8 green on black GREEN λ界';                                          |                                              
+0000009 'set footer COLOUR2 -8 AFTERCMDLINE';                                                |                                              
+0000010 'set reserved -7 cyan on black CYAN λ界';                                            |                                              
+0000011 'set footer COLOUR3 -7 AFTERCMDLINE';                                                |                                              
+0000012 'set reserved -6 red on black RED λ界';                                              |                                              
+0000013 'set footer COLOUR4 -6 AFTERCMDLINE';                                                |                                              
+0000014 'set reserved -5 magenta on black MAGENTA λ界';                                      |                                              
+0000015 'set footer COLOUR5 -5 AFTERCMDLINE';                                                |                                              
+0000016 'set reserved -4 yellow on black YELLOW λ界';                                        |                                              
+0000017 'set footer COLOUR6 -4 AFTERCMDLINE';                                                |                                              
+0000018 'set reserved -3 white on black WHITE λ界';                                          |                                              
+0000019 'set footer COLOUR7 -3 AFTERCMDLINE';                                                |                                              
+0000020 'set statusline top';                                                                |                                              
+0000021 'set cmdline top';                                                                   |                                              
+0000022 'set msgline on -9 1';                                                               |                                              
+0000023 'set color command red on cyan';                                                     |                                              
+0000024 'set color consolebody yellow on blue';                                              |                                              
+0000025 return 0                                                                             |                                              
+0000026 *** Bottom of File ***                                                               |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+                                                                                             |                                              
+======>                                                                                      |                                              
+        F10 Menu  F6 Cmd/File  Esc Cmd  F1 Help  Ctrl-S Save  Shift-Tab Controls             |                                              
+CRXTHE                                                    1:54pm  [ ] U+0             CR INS | Read-only | PgUp/PgDn Home/End | F10 actions 

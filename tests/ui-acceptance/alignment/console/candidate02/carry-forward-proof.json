@@ -1,0 +1,19 @@
+{
+  "changed_reviewed_inputs": {
+    "build/gtk-focus-review/the_driver_curses.so": {
+      "candidate01": "9bd5c38afcee64456f9b7ef0cbdf58114ebc3cc186892c32e8d292055ff927d1",
+      "candidate02": "fa2adfb71b724e1b93b23d0824f66797a7b8213a7c45f3d14d2838a86dfe1a58"
+    },
+    "src/drivers/curses/cursesdriver.c": {
+      "candidate01": "9dcfda006679d57d27219a69582d3fcfe642f0107bdeff68dcdb5ffcfdec4350",
+      "candidate02": "4a04d100ed1699b0142eefcb7a612a4ca936099f69119e20175512678ed86e9c"
+    }
+  },
+  "unchanged_reviewed_inputs": [
+    "build/gtk-focus-review/the",
+    "src/show.c",
+    "src/the.h",
+    "src/thedriver.h"
+  ],
+  "boundary": "Executable/show.c/the.h/thedriver.h unchanged. Curses-only reader cues and basic logical-colour lowering repairs. C01 contextual menu/source BuildRun/profile workflow and target toggles carry forward; C02 actual run/input/profileBuildApply/toggle/reader/errorBuild/colour samples exercise affected presentation. Not blanket full-suite or all29 acceptance."
+}

@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "base_head": "0149c6d9c2bc80937b501b8df9bf2821dafd59c1",
+  "branch": "main",
+  "candidate": "Console G13-G16 native development candidate; source frozen for independent UI review",
+  "production_frozen": true,
+  "production_manifest_sha256": "d46d4dbe0e258afa64ba9cb0644ecef9c22c261d6155507886791198609ad203",
+  "files_sha256": {
+    "src/drivers/curses/cursesdriver.c": "9dcfda006679d57d27219a69582d3fcfe642f0107bdeff68dcdb5ffcfdec4350",
+    "src/show.c": "59edfab8e9b5885d265d0debb829bd4b2aa5a7ddd6480689e1e41370504c3fa1",
+    "src/the.h": "080df775c7e739fdc02a26c645a0f91ab703a53f43560c23ea7591b460b8c197",
+    "src/thedriver.h": "84722b90c66f9430cf142b457b514cbfa95017291683c4d8eda3f395eabc7857",
+    "src/tools.h": "85e804498811119fc0f425333481e8fc4feb3d205f9ce1edaef534219df92d99",
+    "src/tools.c": "158e11561d7a3e761c7e85cce5b6c842dfb24c855a2b314fe34988fed12facfd",
+    "src/toolhost.h": "125f277e26c9fae9e1076499d40faad1651c917f6c0e6472fefd57a9237f9e7f",
+    "src/toolhost.c": "30f6025a359c76b5a4f12d59aa5100ded331a5044e2bcdbf217552fb9e6aa16c",
+    "src/util.c": "f0e9d6b58d5861cb89d303d646c3eb3275832fd11306a9f7a9883a87bfe2437c",
+    "profiles/default-profile.json": "e649d4823caf766b9958978c83efd24986d949151817030ca4eb6c3d00a57e12",
+    "profile.the": "7ef00eec22ac614365a021b144647aaad685c5cfebc5f4d4e6251f9b308c9383",
+    "profile_regina.the": "d9ccebdb42a462155db0e1d148fa63c5a3e7a68989a73bfc6cee5b6bab1a9a6d",
+    "tests/test_curses_alignment.py": "d928890506896cbf8dd7dd6bb119fbc2c028c8ea784c7da2db335459b19632e4",
+    "tests/test_workbench_curses.py": "678b5360fdccb3daaedd3c2962214ac8e596b08cb9c23b8876aa0f6b57ae751e",
+    "tests/test_tool_console_curses.py": "57fac8b7e1dff1a7855a9b2b4b60df06ea2cfb07bdf08e8b9c5783d524ded64b",
+    "tests/test_curses_workbench_sizes.py": "db48626a4bfc294f590b1e6e71ce7ed3e0c30c79f833a24a182a9c86ec6ad903",
+    "tests/test_workbench_native_tools_curses.py": "ecd7b369f9e69d6875f7d1480e557a0bb8b43d1162e8e4359ecd487da942243b",
+    "build/gtk-focus-review/the": "b2e9ce309428dc2b5666f40ea298bbd49e9c2dce7acba3cd2f70917c75fdf76d",
+    "build/gtk-focus-review/the_driver_curses.so": "9bd5c38afcee64456f9b7ef0cbdf58114ebc3cc186892c32e8d292055ff927d1",
+    "build/gtk-focus-review/the_driver_llm.so": "672460e202d244a310bfac4b5ce0eb682948d9a17aa4e3bd50527557aa19d637",
+    "build/gtk-focus-review/the_driver_gtk.so": "d5c549cbd00a27831d9bf47b8a4864e64dbb1081ef8658b2c1dea6d25d1fb4f4"
+  },
+  "runtime_cohort": {
+    "CREXXSAA_LIBRARY": {
+      "path": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin/libcrexxsaa.dylib",
+      "sha256": "83ee3d9beac64547d023e5475e91d63da1fb3d60a373c60f2858a4ceb51ac30d"
+    },
+    "CREXX_RXC_EXECUTABLE": {
+      "path": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin/rxc",
+      "sha256": "a9b871c9e0f242a1d2bfbd5b3ade33d85246f2697bef3f8953e40d4d6190870d"
+    },
+    "CREXX_RXAS_EXECUTABLE": {
+      "path": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin/rxas",
+      "sha256": "851647ed51bec8d337d0428ba6c6db3723f36a47fca25108c27792889d06760e"
+    },
+    "CREXX_LIBRARY_RXBIN": {
+      "path": "/Users/adrian/CLionProjects/CREXX/cmake-build-debug/bin/library.rxbin",
+      "sha256": "f4ccad5f4f3837a18a1868c033fa8ec4f7804031661813cccbb03cd64182805b"
+    }
+  },
+  "driver_abi": 4,
+  "command": "PYTHONPATH=/Users/adrian/CLionProjects/THE/build/recovery-test-python/lib/python3.14/site-packages ctest --test-dir build/gtk-focus-review -R \"^test_(workbench_curses|tool_console_curses|curses_workbench_sizes|workbench_native_tools_curses|curses_alignment)$\" --output-on-failure",
+  "results": [
+    {
+      "test": "test_workbench_curses",
+      "result": "Pass",
+      "seconds": 87.07,
+      "scope": "CREXX and Regina; custom F10/menu, chooser, pending bytes/save, prefix/command carets and compact resize"
+    },
+    {
+      "test": "test_tool_console_curses",
+      "result": "Failed fixture assertion",
+      "seconds": 76.51,
+      "classification": "Final 15-row command-caret assertion expected old y=13; frozen candidate correctly uses y=12 under accepted AFTERCMDLINE geometry. Assertion corrected to screen.lines-3; not rerun by coordinator instruction; awaiting consolidated 121-test run."
+    },
+    {
+      "test": "test_curses_workbench_sizes",
+      "result": "Failed fixture assertion",
+      "seconds": 66.91,
+      "classification": "At 117x30 after LOG/generation/reader/draft checks, F6 correctly toggles saved command origin to file. Old fixture expected command. Corrected fixture asserts file, then explicitly Esc for following command-draft checks; corrected remainder and 80x24 await consolidated 121-test run."
+    },
+    {
+      "test": "test_curses_alignment",
+      "result": "Pass",
+      "seconds": 80.25,
+      "scope": "140x40 and 80x24; Text, compiled prerequisite/Build/Run, profile Build/Apply/Edit/startup identity, separate lanes, keyboard/mouse target hide/reopen with no sibling, Unicode PULL draft/caret, insufficient-space Tools recovery, unchanged fixture bytes"
+    },
+    {
+      "test": "test_workbench_native_tools_curses",
+      "result": "Pass",
+      "seconds": 14.35,
+      "scope": "Explicit native TOOL menu action, captured source/argv, output, unchanged bytes, return from Program input to custom profile quit"
+    }
+  ],
+  "overall_ctest_exit": 8,
+  "overall_qualification": "Changed two-size journeys pass; focused cohort remains Partial due two corrected fixture assertions not rerun. Independent UI gate and final clean 121-test CTest remain coordinator-owned.",
+  "executed_fixtures_sha256": {
+    "executed-fixtures/test_curses_alignment.py": "d928890506896cbf8dd7dd6bb119fbc2c028c8ea784c7da2db335459b19632e4",
+    "executed-fixtures/test_curses_workbench_sizes.py": "fda9720ed0be6cb7e7ff5d1a9ae9975121209b4dffcbce9945271c64aca19b58",
+    "executed-fixtures/test_tool_console_curses.py": "ef9b4c15d69dc0026b912097b1ab440c87c1a2469c5358c556823db70fe35fc6",
+    "executed-fixtures/test_workbench_curses.py": "678b5360fdccb3daaedd3c2962214ac8e596b08cb9c23b8876aa0f6b57ae751e",
+    "executed-fixtures/test_workbench_native_tools_curses.py": "ecd7b369f9e69d6875f7d1480e557a0bb8b43d1162e8e4359ecd487da942243b"
+  },
+  "executed_fixture_note": "Two failed script inputs reconstructed from their exact one-block assertion corrections; other executed scripts equal the final test inputs. Raw failures remain in focused-ctest.log.",
+  "log_sha256": "58421e469089983eda42f8602fa325f6149b4a42d5ea4a54d9f2009c9f47cfa5",
+  "earlier_checks": "Both-engine Curses presentation and default_profile_curses passed earlier in the implementation session, before final focus/repaint cleanup; they are not asserted as exact frozen-candidate checks here.",
+  "publication": "No commit, stage, push, release, operator Terminal or personal fixture changes performed."
+}

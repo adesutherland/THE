@@ -27,7 +27,8 @@ typedef enum
    THE_WORKBENCH_EDITOR = 0,
    THE_WORKBENCH_CONSOLE,
    THE_WORKBENCH_MENU,
-   THE_WORKBENCH_RUN
+   THE_WORKBENCH_RUN,
+   THE_WORKBENCH_TOOLS = THE_WORKBENCH_RUN /* legacy numeric value; ABI unchanged */
 } TheWorkbenchControl;
 
 struct view_details;

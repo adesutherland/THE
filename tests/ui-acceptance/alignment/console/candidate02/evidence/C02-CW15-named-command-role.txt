@@ -1,0 +1,40 @@
+ MENU (F10) |  Console |  Tools & Profiles | Welcome.txt|Reader.rexx                         | Program console | F10: Menu                  
+CRXTHE                                                    1:56pm  [ ] U+0             CR INS | Tools Stop Clear Hide Editor                 
+/private/tmp/the-align<>ce/Colours.profile.the Line=0      Col=1    Size=25    Alt=0,0       | Stopped                                      
+======>                                                                                      | Source: Reader.rexx | PgUp/PgDn              
+        |...+....1....+....2....+....3....+....4....+....5....+....6....+....7.]..+....8....+|Retained row 31 stable passage                
+0000000 *** Top of File ***                                                                  |Retained row 32 stable passage                
+0000001 options levelb                                                                       |Retained row 33 stable passage                
+0000002 address THE                                                                          |Retained row 34 stable passage                
+0000003 'set reserved -2 off';                                                               |Retained row 35 stable passage                
+0000004 'set reserved -10 black on white BLACK λ界';                                         |Retained row 36 stable passage                
+0000005 'set footer COLOUR0 -10 AFTERCMDLINE';                                               |Retained row 37 stable passage                
+0000006 'set reserved -9 blue on black BLUE λ界';                                            |Retained row 38 stable passage                
+0000007 'set footer COLOUR1 -9 AFTERCMDLINE';                                                |Retained row 39 stable passage                
+0000008 'set reserved -8 green on black GREEN λ界';                                          |Retained row 40 stable passage                
+0000009 'set footer COLOUR2 -8 AFTERCMDLINE';                                                |Retained row 41 stable passage                
+0000010 'set reserved -7 cyan on black CYAN λ界';                                            |Retained row 42 stable passage                
+0000011 'set footer COLOUR3 -7 AFTERCMDLINE';                                                |Retained row 43 stable passage                
+0000012 'set reserved -6 red on black RED λ界';                                              |Retained row 44 stable passage                
+0000013 'set footer COLOUR4 -6 AFTERCMDLINE';                                                |Retained row 45 stable passage                
+0000014 'set reserved -5 magenta on black MAGENTA λ界';                                      |Retained row 46 stable passage                
+0000015 'set footer COLOUR5 -5 AFTERCMDLINE';                                                |Retained row 47 stable passage                
+0000016 'set reserved -4 yellow on black YELLOW λ界';                                        |Retained row 48 stable passage                
+0000017 'set footer COLOUR6 -4 AFTERCMDLINE';                                                |Retained row 49 stable passage                
+0000018 'set reserved -3 white on black WHITE λ界';                                          |Retained row 50 stable passage                
+0000019 'set footer COLOUR7 -3 AFTERCMDLINE';                                                |Retained row 51 stable passage                
+0000020 'set statusline top';                                                                |Retained row 52 stable passage                
+0000021 'set cmdline top';                                                                   |Retained row 53 stable passage                
+0000022 'set msgline on -9 1';                                                               |Retained row 54 stable passage                
+0000023 'set color command red on cyan';                                                     |Retained row 55 stable passage                
+0000024 'set color consolebody yellow on blue';                                              |Retained row 56 stable passage                
+0000025 return 0                                                                             |Retained row 57 stable passage                
+                                                                                             |Retained row 58 stable passage                
+BLACK λ界                                                                                    |Retained row 59 stable passage                
+BLUE λ界                                                                                     |Retained row 60 stable passage                
+GREEN λ界                                                                                    |Retained row 61 stable passage                
+CYAN λ界                                                                                     |Retained row 62 stable passage                
+RED λ界                                                                                      |Retained row 63 stable passage                
+MAGENTA λ界                                                                                  |Retained row 64 stable passage                
+YELLOW λ界                                                                                   |Retained row 65 stable passage                
+WHITE λ界                                                                                    |Input closed>                  Tab: controls  

@@ -121,19 +121,20 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
         process.send_signal(signal.SIGWINCH)
 
     def menu(label):
+        label = {'Run file': 'Tools: Run', 'Stop program': 'Tools: Stop current task'}.get(label, label)
         os.write(master, b'\x1b[21~')
-        wait(lambda: contains('Open or create file'), 'F10 opens native menu')
-        # Read the labels actually displayed, so delimiter mistakes cannot
-        # silently shift a visible action onto a different numeric dispatch.
-        positions = []
-        for expected in menu_labels:
-            matches = [row for row, line in enumerate(screen.display)
-                       if 'Workbench: ' + expected in line]
-            assert len(matches) == 1, (expected, screen.display)
-            positions.append(matches[0])
-        assert positions == list(range(positions[0], positions[0] + len(menu_labels))), screen.display
-        selected = positions[menu_labels.index(label)] - 2
-        os.write(master, b'\x1b[B' * selected + b'\r')
+        wait(lambda: contains('File: Open'), 'F10 opens native menu')
+        os.write(master, b'\x1b[H')
+        wait(lambda: 'File: New' in screen.display[screen.cursor.y], 'first menu entry')
+        for _ in range(160):
+            line = screen.display[screen.cursor.y]
+            if label in line:
+                os.write(master, b'\r')
+                return
+            before = (screen.cursor.y, line)
+            os.write(master, b'\x1b[B')
+            wait(lambda: (screen.cursor.y, screen.display[screen.cursor.y]) != before, 'menu navigation', 3)
+        raise AssertionError('Missing menu action: ' + label)
 
     def click_at(row, col):
         # Real xterm mouse press/release, decoded by curses.
@@ -151,13 +152,15 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
         wait(lambda: 'Program console |' in screen.display[0][96:], 'wide right dock')
         assert any('say' in row[:95] for row in screen.display), screen.display
         assert 'Run Stop Clear Hide Editor' in screen.display[1][96:], screen.display
-        assert 'F10 Menu' in screen.display[-4][:95], screen.display
-        assert not screen.display[-3][:95].strip(), screen.display
-        assert '======>' in screen.display[-2][:95], screen.display
+        assert 'F10 Menu' in screen.display[-2][:95], screen.display
+        assert not screen.display[-4][:95].strip(), screen.display
+        assert '======>' in screen.display[-3][:95], screen.display
         assert 'CRXTHE' in screen.display[-1][:95], screen.display
         assert 'Program input>' in screen.display[-1][96:], screen.display
+        os.write(master, b'\x1b')
+        wait(lambda: screen.display[screen.cursor.y].startswith('======>'), 'leave Program input before profile shortcut')
         os.write(master, b'\x02')
-        wait(lambda: 'RESPONSE_PROBE' in screen.display[-3][:95],
+        wait(lambda: 'RESPONSE_PROBE' in screen.display[-4][:95],
              'editor response appears above command line')
         wait(lambda: any(pane(row).startswith('NO-NL') for row in range(4, screen.lines - 1)),
              'output without a final newline')
@@ -216,7 +219,9 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
         os.write(master, b'\x1b')
         wait(lambda: contains('F10: Menu'), 'return editor before mouse focus')
         click_at(0, 15)
-        wait(lambda: contains('Esc Cmd'), 'persistent launcher focuses input')
+        wait(lambda: not contains('Program console |'), 'active launcher hides Program')
+        click_at(0, 15)
+        wait(lambda: contains('Esc Cmd'), 'persistent launcher restores input')
         os.write(master, 'Zoë😀x'.encode() + b'\x7f')
         wait(lambda: 'Zoë😀' in screen.display[-1] and 'Zoë😀x' not in screen.display[-1],
              'Mac Backspace edits Unicode input')
@@ -234,6 +239,8 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
         wait(lambda: contains('F10: Menu') and
              screen.display[screen.cursor.y].startswith('======>'),
              'launcher Escape follows editor command shortcut')
+        click_at(0, 15)
+        wait(lambda: not contains('Program console |'), 'launcher hides pending Program input')
         click_at(0, 15)
         wait(lambda: contains('Esc Cmd') and 'sec' in screen.display[-1],
              'Console launcher retains pending Program input')
@@ -308,7 +315,7 @@ with tempfile.TemporaryDirectory(prefix='THE console PTY ') as directory:
         resize(15, 60)
         wait(lambda: not contains('Program console |'), 'small terminal hides console')
         os.write(master, b'\x1b')
-        wait(lambda: screen.cursor.y == 13, 'hidden console returns input to editor')
+        wait(lambda: screen.cursor.y == screen.lines - 3, 'hidden console returns input to editor')
         os.write(master, b'msg COMPACT_EDITOR\r')
         wait(lambda: contains('COMPACT_EDITOR'), 'editor responds after compact resize')
         os.write(master, b'\x1b[20~')

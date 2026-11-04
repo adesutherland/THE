@@ -83,14 +83,14 @@ for engine in ['CREXX', 'REGINA']:
 
         def command(text):
             send(b'\x1b')
-            wait(lambda: screen.cursor.y == rows - 2, 'command focus')
+            wait(lambda: screen.cursor.y == rows - 3, 'command focus')
             send(b'\x15')
-            wait(lambda: not screen.display[rows - 2][8:].strip(), 'clear command')
+            wait(lambda: not screen.display[rows - 3][8:].strip(), 'clear command')
             send(text.encode() + b'\r')
-            wait(lambda: not screen.display[rows - 2][8:].strip(), 'submitted command: ' + text)
+            wait(lambda: not screen.display[rows - 3][8:].strip(), 'submitted command: ' + text)
 
         def response(token):
-            wait(lambda: token in screen.display[rows - 3], 'adjacent response: ' + token)
+            wait(lambda: token in screen.display[rows - 4], 'adjacent response: ' + token)
 
         def saved_bytes_match(expected):
             try:
@@ -100,16 +100,16 @@ for engine in ['CREXX', 'REGINA']:
                 return False
 
         try:
-            wait(lambda: 'F10 Menu' in screen.display[rows - 4]
-                 and 'PROFILE_READY' in screen.display[rows - 3], 'guided footer')
+            wait(lambda: 'F10 Menu' in screen.display[rows - 2]
+                 and 'PROFILE_READY' in screen.display[rows - 4], 'guided footer')
             assert 'MENU (F10)' in screen.display[0][:14], screen.display
             assert 'Console' in screen.display[0][14:25], screen.display
-            assert 'Run file' in screen.display[0][25:37], screen.display
+            assert 'Tools & Profiles' in screen.display[0][25:45], screen.display
             click_at(0, 2)
-            wait(lambda: any('Open or create file' in row for row in screen.display),
+            wait(lambda: any('File: Open' in row for row in screen.display),
                  'top-left mouse menu opens below its button')
             send(b'\x1b')
-            wait(lambda: 'Open or create file' not in '\n'.join(screen.display),
+            wait(lambda: 'File: Open' not in '\n'.join(screen.display),
                  'mouse menu cancels')
             # Definitions do not execute; poisoned labels remain visible data.
             assert not any('NATIVE_MENU_INVOKED' in row for row in screen.display)
@@ -122,7 +122,7 @@ for engine in ['CREXX', 'REGINA']:
             command('define f10 msg CUSTOM_F10_BINDING')
             send(b'\x1b[21~')
             response('CUSTOM_F10_BINDING')
-            assert not any('Open or create file' in row for row in screen.display)
+            assert not any('File: Open' in row for row in screen.display)
             command('define f10 macro workbenchmenu' + ('_regina' if engine == 'REGINA' else ''))
             command('workbench begin owner native.live')
             command('workbench menu put native.live label "Live / label" order 15')
@@ -139,8 +139,8 @@ for engine in ['CREXX', 'REGINA']:
             command('workbench commit')
             # Keyboard-only path filtering and cancellation leave the caller intact.
             send(b'CHOOSER_PENDING')
-            wait(lambda: 'CHOOSER_PENDING' in screen.display[rows - 2], 'chooser command draft')
-            chooser_draft = screen.display[rows - 2]
+            wait(lambda: 'CHOOSER_PENDING' in screen.display[rows - 3], 'chooser command draft')
+            chooser_draft = screen.display[rows - 3]
             chooser_caret = (screen.cursor.x, screen.cursor.y)
             chooser_tabs = screen.display[0]
             send(b'\x1b[21~\x1b[H\x1b[B\r')
@@ -149,7 +149,7 @@ for engine in ['CREXX', 'REGINA']:
             wait(lambda: any('other path Ω.txt' in row for row in screen.display), 'filtered Unicode filename')
             send(b'\t\x1b')
             wait(lambda: not any('Choose path' in row for row in screen.display), 'cancel path chooser')
-            assert screen.display[rows - 2] == chooser_draft, screen.display
+            assert screen.display[rows - 3] == chooser_draft, screen.display
             assert (screen.cursor.x, screen.cursor.y) == chooser_caret, screen.cursor
             assert screen.display[0] == chooser_tabs, screen.display
             assert source.read_bytes() == b'alpha\nbeta\ngamma\ndelta\n'
@@ -171,10 +171,10 @@ for engine in ['CREXX', 'REGINA']:
             send(b' ')
             command('msg FIRST_RESPONSE')
             response('FIRST_RESPONSE')
-            assert screen.cursor.y == rows - 2, screen.cursor
+            assert screen.cursor.y == rows - 3, screen.cursor
             send(b'UNSUBMITTED')
-            wait(lambda: 'UNSUBMITTED' in screen.display[rows - 2], 'editor command draft')
-            draft = screen.display[rows - 2]
+            wait(lambda: 'UNSUBMITTED' in screen.display[rows - 3], 'editor command draft')
+            draft = screen.display[rows - 3]
             send(b'\x1b[Z')
             wait(lambda: (screen.cursor.x, screen.cursor.y) == (15, 0), 'Shift-Tab focuses Console')
             assert screen.buffer[0][15].bg != screen.buffer[0][1].bg, screen.display
@@ -184,9 +184,9 @@ for engine in ['CREXX', 'REGINA']:
                 send(keys)
                 wait(lambda: (screen.cursor.x, screen.cursor.y) == (x, 0), 'chrome traversal')
             send(b'\x1b')
-            wait(lambda: screen.cursor.y == rows - 2,
+            wait(lambda: screen.cursor.y == rows - 3,
                  'chrome Escape follows profile command shortcut')
-            assert screen.display[rows - 2] == draft, screen.display
+            assert screen.display[rows - 3] == draft, screen.display
             send(b'\x15')
             send(b'\x1b[17~')  # F6: return to file
             wait(lambda: screen.cursor.y < rows - 4, 'file focus')
@@ -203,15 +203,15 @@ for engine in ['CREXX', 'REGINA']:
             send(b'\x1b[17~')  # F6: return to file for the pending edit.
             wait(lambda: (screen.cursor.x, screen.cursor.y) == caret,
                  'F6 restores pending editor caret')
-            click_at(rows - 7, 17)  # Hide in the bottom-docked toolbar.
+            click_at(rows - 7, screen.display[rows - 7].index('Hide'))
             wait(lambda: not any('Program console |' in row for row in screen.display)
                  and (screen.cursor.x, screen.cursor.y) == caret, 'Hide preserves pending editor record')
             assert source.read_text() == 'alpha\nbeta\ngamma\ndelta\n', source.read_text()
             send(b'\x1b[Z\x1b[Z\r')
-            wait(lambda: any('Open or create file' in row for row in screen.display),
+            wait(lambda: any('File: Open' in row for row in screen.display),
                  'Shift-Tab reaches and activates Menu')
             send(b'\x1b')
-            wait(lambda: not any('Open or create file' in row for row in screen.display)
+            wait(lambda: not any('File: Open' in row for row in screen.display)
                  and (screen.cursor.x, screen.cursor.y) == (1, 0),
                  'chrome Menu cancel restores the invoking control')
             send(b'\x1b')
@@ -221,9 +221,9 @@ for engine in ['CREXX', 'REGINA']:
             wait(lambda: (screen.cursor.x, screen.cursor.y) == caret,
                  'F6 returns to pending editor caret after top Menu')
             send(b'\x1b[21~')  # F10
-            wait(lambda: any('Open or create file' in row for row in screen.display), 'Menu')
+            wait(lambda: any('File: Open' in row for row in screen.display), 'Menu')
             send(b'\x1b')
-            wait(lambda: not any('Open or create file' in row for row in screen.display)
+            wait(lambda: not any('File: Open' in row for row in screen.display)
                  and (screen.cursor.x, screen.cursor.y) == caret, 'Menu cancel restores caret')
             send(b'Q\x13')
             expected_saved = b'ZQalpha\nbeta\ngamma\ndelta\n'
@@ -235,37 +235,37 @@ for engine in ['CREXX', 'REGINA']:
             wait(lambda: 0 < screen.cursor.x < 8, 'prefix caret')
             prefix_caret = (screen.cursor.x, screen.cursor.y)
             send(b'\x1b[21~')
-            wait(lambda: any('Open or create file' in row for row in screen.display), 'prefix Menu')
+            wait(lambda: any('File: Open' in row for row in screen.display), 'prefix Menu')
             send(b'\x1b')
-            wait(lambda: not any('Open or create file' in row for row in screen.display)
+            wait(lambda: not any('File: Open' in row for row in screen.display)
                  and (screen.cursor.x, screen.cursor.y) == prefix_caret, 'Menu cancel restores exact prefix caret')
             send(b'\x1b[21~')
-            wait(lambda: any('Open or create file' in row for row in screen.display), 'Menu reopened')
+            wait(lambda: any('File: Open' in row for row in screen.display), 'Menu reopened')
             find_row = next(y for y, line in enumerate(screen.display) if 'Find...' in line)
             click_at(find_row, screen.display[find_row].index('Find...') + 1)
-            wait(lambda: 'locate /' in screen.display[rows - 2], 'Menu Find opens command')
+            wait(lambda: 'locate /' in screen.display[rows - 3], 'Menu Find opens command')
             send(b'\x15')  # Clear the prepared command before a new command.
             command('set msgline on 3 1')
             command('msg CUSTOM_RESPONSE')
             wait(lambda: any('CUSTOM_RESPONSE' in row for row in screen.display[:rows - 4]),
                  'custom message position')
-            command('set msgline on -2 1')
+            command('set msgline on -3 1')
             for index, (height, width) in enumerate([(16, 60), (16, 32), (15, 40), (24, 80)]):
                 if index == 0:
                     send(b'\x1b[21~')
-                    wait(lambda: 'Open or create file' in '\n'.join(screen.display),
+                    wait(lambda: 'File: Open' in '\n'.join(screen.display),
                          'menu open before resize')
                 rows, cols = height, width
                 fcntl.ioctl(master, termios.TIOCSWINSZ,
                             struct.pack('HHHH', rows, cols, 0, 0))
                 screen.resize(rows, cols)
                 process.send_signal(signal.SIGWINCH)
-                wait(lambda: screen.display[rows - 2].startswith('======>')
-                     and 'F10 Menu' in screen.display[rows - 4], 'resize footer')
-                assert 'Open or create file' not in '\n'.join(screen.display), screen.display
+                wait(lambda: screen.display[rows - 3].startswith('======>')
+                     and 'F10 Menu' in screen.display[rows - 2], 'resize footer')
+                assert 'File: Open' not in '\n'.join(screen.display), screen.display
                 command('msg COMPACT_RESPONSE')
                 response('COMPACT_RESPONSE')
-                assert 'F10 Menu' in screen.display[rows - 4], screen.display
+                assert 'F10 Menu' in screen.display[rows - 2], screen.display
                 assert any('ZQalpha' in row for row in screen.display[:rows - 4]), screen.display
             send(b'\x1b[20~')  # F9: bounded test quit
             wait(lambda: process.poll() is not None, 'quit after resize', timeout=10)

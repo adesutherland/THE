@@ -1,0 +1,343 @@
+{
+  "format_version": 1,
+  "platform": "console_macos_real_pty",
+  "candidate_id": "console-candidate01",
+  "gate_status": "changes_required",
+  "remaining_changed_mandatory_defect_count": 2,
+  "candidate": {
+    "git_head": "0149c6d9c2bc80937b501b8df9bf2821dafd59c1",
+    "dirty_source": true,
+    "files_sha256": {
+      "build/gtk-focus-review/the": "b2e9ce309428dc2b5666f40ea298bbd49e9c2dce7acba3cd2f70917c75fdf76d",
+      "build/gtk-focus-review/the_driver_curses.so": "9bd5c38afcee64456f9b7ef0cbdf58114ebc3cc186892c32e8d292055ff927d1",
+      "src/drivers/curses/cursesdriver.c": "9dcfda006679d57d27219a69582d3fcfe642f0107bdeff68dcdb5ffcfdec4350",
+      "src/show.c": "59edfab8e9b5885d265d0debb829bd4b2aa5a7ddd6480689e1e41370504c3fa1",
+      "src/the.h": "080df775c7e739fdc02a26c645a0f91ab703a53f43560c23ea7591b460b8c197",
+      "src/thedriver.h": "84722b90c66f9430cf142b457b514cbfa95017291683c4d8eda3f395eabc7857"
+    },
+    "verified_receipt": "candidate01-inputs.json",
+    "runtime": "candidate01/runtime-lsof.txt",
+    "tool_cohort": "configured43807b Debug SDK/native-tools-gtk-aligned ABI4",
+    "verification": "Six production binary/module/source hashes independently match handoff; lsof confirms production curses module and matching libcrexxsaa. Frozen during review."
+  },
+  "review": {
+    "reviewer": "design_conformance_review",
+    "tool": "real PTY with pyte cell/attribute capture; supported CUA attempted Terminal and explicitly rejected app access",
+    "observer_mode": "Informed independent review, no first-user study claim",
+    "operator_preserved": true,
+    "clipboard": "Untouched; no Copy/Cut/pasteboard reads",
+    "cleanup": "Owned PTY child83252 terminated after completed jobs; SIGTERM did not exit within3s so cleanup used SIGKILL. ps confirmed absent. No operator Terminal/window/settings touched."
+  },
+  "accepted_scope": {
+    "baseline_findings": [
+      "G01",
+      "G13",
+      "G14",
+      "G15",
+      "G16"
+    ],
+    "additional_affected_findings": [
+      "AC01",
+      "AC02"
+    ],
+    "boundary": "Targeted changed mandatory checkpoints only; full29 scripts remain Partial/NotRun"
+  },
+  "samples": [
+    {
+      "id": "C-W",
+      "columns": 140,
+      "rows": 40,
+      "right_pane_columns": 46,
+      "layout": "right dock"
+    },
+    {
+      "id": "C-N",
+      "columns": 80,
+      "rows": 24,
+      "auxiliary_pane_columns": 80,
+      "layout": "bottom dock"
+    }
+  ],
+  "axes": {
+    "functional": {
+      "verdict": "ChangesRequired",
+      "summary": "Build/run/input/profile/menu/toggle routes work. Requested logical named colours are wrong in physical ANSI mapping (AC02)."
+    },
+    "design_fidelity": {
+      "verdict": "ChangesRequired",
+      "summary": "Shared role/menu/pane/footer hierarchy is implemented; reader cues and profile named-colour authority remain open."
+    },
+    "aesthetics": {
+      "verdict": "ChangesRequired",
+      "summary": "Cell hierarchy, dividers, ordinary/selected/disabled contrast and control fit are comfortable at both grids. Profile-colour intent fails AC02. Physical font/DPI/glyph rendering remains NotRun."
+    },
+    "discoverability": {
+      "verdict": "ChangesRequired",
+      "summary": "Contextual Build prerequisite, grouped menus, profile workflow and visible pane controls work. Back-scrolled/new output and End latest discovery are missing (AC01)."
+    }
+  },
+  "open_product_findings": [
+    {
+      "id": "AC01",
+      "severity": "medium",
+      "status": "Open",
+      "requirement_ids": [
+        "R14",
+        "R13",
+        "R05"
+      ],
+      "scenario_ids": [
+        "S19",
+        "S18",
+        "S29"
+      ],
+      "axes": [
+        "discoverability",
+        "design_fidelity"
+      ],
+      "expected": "While reading earlier output, indicate unseen new output and expose the terminal return-to-latest key without forcing the user to infer it.",
+      "observed": "PgUp retained earlier output and a PULL draft. On submission/completion the greeting appended, while the viewport correctly remained earlier. Both wide and compact headers/controls show no New output cue or End: Latest hint. Actual End reaches the input echo and Hello, Ada\ud83d\ude00; functionality works but its route is undisclosed.",
+      "evidence": [
+        "candidate01/evidence/C01-CW11-reader-earlier.json",
+        "candidate01/evidence/C01-CN06-restored-draft.json",
+        "candidate01/evidence/C01-CN07-completed.json",
+        "candidate01/evidence/C01-CW20-retained-program-before-latest.json",
+        "candidate01/evidence/C01-CW21-end-latest.json"
+      ],
+      "closure": "Visible truthful Earlier/New output and End: Latest hints for the affected Program/Build readers. Preserve job identity/history resets, draft, reader state and focused target; show fitting controls/hints at140x40/80x24."
+    },
+    {
+      "id": "AC02",
+      "severity": "medium",
+      "status": "Open",
+      "requirement_ids": [
+        "R11",
+        "R18"
+      ],
+      "scenario_ids": [
+        "S15",
+        "S29"
+      ],
+      "axes": [
+        "functional",
+        "design_fidelity",
+        "aesthetics"
+      ],
+      "expected": "Logical profile named colours retain their meaning through the terminal driver. white on blue and yellow on black must map through platform curses COLOR_* values.",
+      "observed": "The applied source explicitly declares white on blue NATIVEONE and yellow on black NATIVETWO \u03bb\u754c. The real ANSI stream emits SGR37;41 (white on red) then36;40 (cyan on black), with no OSC remapping for basic colours. Pyte cell attributes agree.",
+      "evidence": [
+        "candidate01/fixtures/Review.profile.the",
+        "candidate01/evidence/C01-CW18-associations.json",
+        "candidate01/named-colour-ansi-evidence.json",
+        "candidate01/raw.ansi"
+      ],
+      "source_confirmation": "Coordinator independently confirmed logical Blue=1/Yellow=6 passed verbatim to ncurses, whose COLOR_BLUE=4/COLOR_YELLOW=3. This is a curses boundary defect; core/profile colour numbering must remain unchanged.",
+      "closure": "Translate logical basic colours through platform COLOR_* constants, preserving hex/index/theme roles. Recheck actual bands plus selected/disabled/ordinary controls and editor contrast."
+    }
+  ],
+  "checkpoints": [
+    {
+      "id": "C01-C01",
+      "verdict": "Pass",
+      "requirements": [
+        "R01",
+        "R05",
+        "R11",
+        "R18"
+      ],
+      "cases": [
+        "S01",
+        "S05",
+        "S29"
+      ],
+      "baseline_findings": [
+        "G01",
+        "G15"
+      ],
+      "observed": "Plain Text startup is immediately usable, with MENU, Console and Tools & Profiles but no generic Run. F10 groups File/Edit/View/Tools/Help and gives Arrows/Tab/Enter/Escape instructions. Stock bottom rows are quiet response, THE command, key guide, status.",
+      "evidence": [
+        "candidate01/evidence/C01-CW01-text.json",
+        "candidate01/evidence/C01-CW02-menu.json",
+        "candidate01/evidence/C01-CW03-menu-cancel.json"
+      ]
+    },
+    {
+      "id": "C01-C02",
+      "verdict": "Pass",
+      "requirements": [
+        "R06",
+        "R05",
+        "R09"
+      ],
+      "cases": [
+        "S07",
+        "S05"
+      ],
+      "baseline_findings": [
+        "G13",
+        "G16"
+      ],
+      "observed": "Fresh Squares.crexx exposes Build source and Run. The selected unavailable Run explains Build this cREXX source before running it. Build completes status0 in Tools/Build results; Run independently completes in Program with Console squares:25. Source disk bytes remain unchanged.",
+      "evidence": [
+        "candidate01/evidence/C01-CW05-build-prerequisite.json",
+        "candidate01/evidence/C01-CW06-build-results.json",
+        "candidate01/evidence/C01-CW07-compiled-program.json"
+      ]
+    },
+    {
+      "id": "C01-C03",
+      "verdict": "Pass",
+      "requirements": [
+        "R03",
+        "R08",
+        "R14"
+      ],
+      "cases": [
+        "S18",
+        "S19"
+      ],
+      "baseline_findings": [
+        "G14"
+      ],
+      "observed": "65-row Classic job waits for PULL. Wide unsent retained draft and earlier row1 survive keyboard Console hide/show and Tools cross-switch. Active Tools hides to editor with no latent Program. A clean Ada\ud83d\ude00 compact draft retains exact cell caret20,23 through hide/show, then submits/completes. The literal unsupported mouse-packet trial is excluded, and no output-selection success is claimed.",
+      "evidence": [
+        "candidate01/evidence/C01-CW10-draft.json",
+        "candidate01/evidence/C01-CW11-reader-earlier.json",
+        "candidate01/evidence/C01-CW12-keyboard-hidden.json",
+        "candidate01/evidence/C01-CW13-keyboard-restored.json",
+        "candidate01/evidence/C01-CW14-tools-switch.json",
+        "candidate01/evidence/C01-CW15-tools-hidden.json",
+        "candidate01/evidence/C01-CW16-program-restored.json",
+        "candidate01/evidence/C01-CN04-clean-draft.json",
+        "candidate01/evidence/C01-CN05-hidden.json",
+        "candidate01/evidence/C01-CN06-restored-draft.json",
+        "candidate01/evidence/C01-CN07-completed.json"
+      ]
+    },
+    {
+      "id": "C01-C04",
+      "verdict": "Pass",
+      "requirements": [
+        "R09",
+        "R06",
+        "R03",
+        "R18"
+      ],
+      "cases": [
+        "S12",
+        "S05",
+        "S29"
+      ],
+      "baseline_findings": [
+        "G13"
+      ],
+      "observed": "Build profile/Apply profile are real keyboard-menu routes at80x24. Profiles identifies Review.profile.the, applied startup selection saved, editable source and ready Review.profile.rxbin; Tools lists declared file associations and visible Edit-profile link; Build results is independent. Six Tools controls fit45columns. Edit profile returns to the source.",
+      "evidence": [
+        "candidate01/evidence/C01-CN09-profile-build.json",
+        "candidate01/evidence/C01-CN10-profile-applied.json",
+        "candidate01/evidence/C01-CN11-profiles.json",
+        "candidate01/evidence/C01-CN12-associations.json",
+        "candidate01/evidence/C01-CW18-associations.json",
+        "candidate01/evidence/C01-CW22-edit-profile-route.json"
+      ]
+    },
+    {
+      "id": "C01-C05",
+      "verdict": "Partial",
+      "requirements": [
+        "R11",
+        "R13",
+        "R18"
+      ],
+      "cases": [
+        "S15",
+        "S29"
+      ],
+      "baseline_findings": [
+        "G01"
+      ],
+      "observed": "Profile-owned TOP command/status, two named footer bands including \u03bb\u754c, explicit noncolliding message row, zero guides/command/statusOFF and Apply recovery render at both terminal sizes. Named-colour mapping is wrong (AC02); no pixel/theme conformity claim.",
+      "evidence": [
+        "candidate01/evidence/C01-CN10-profile-applied.json",
+        "candidate01/evidence/C01-CW18-associations.json",
+        "candidate01/evidence/C01-CW19-zero-off.json",
+        "candidate01/evidence/C01-CW23-layout-recovered.json"
+      ]
+    },
+    {
+      "id": "C01-C06",
+      "verdict": "ChangesRequired",
+      "requirements": [
+        "R14",
+        "R13",
+        "R05"
+      ],
+      "cases": [
+        "S19",
+        "S29"
+      ],
+      "baseline_findings": [],
+      "observed": "Back-scrolled viewport is preserved; End returns to latest and displays correct Ada\ud83d\ude00 echo/greeting. Earlier/unread/Latest cues are absent (AC01).",
+      "evidence": [
+        "candidate01/evidence/C01-CN07-completed.json",
+        "candidate01/evidence/C01-CW20-retained-program-before-latest.json",
+        "candidate01/evidence/C01-CW21-end-latest.json"
+      ]
+    }
+  ],
+  "supplemental_evidence": {
+    "focused_regressions": "regressions/candidate01/README.md",
+    "qualification": "Exact implementer log records3passes and2failed fixture assertions, exit8; corrected assertions await coordinator full suite. Not converted into a pass."
+  },
+  "aesthetic_measurements": {
+    "basis": "Actual terminal cells/attributes; no graphical padding/pixel golden",
+    "wide_controls": "Program Run Stop Clear Hide Editor occupies26cells; profile-role Tools Stop Clear Hide Editor occupies28cells, both fit46-column pane. Profiles Tools Build Edit Hide Editor fits37cells plus leading cell.",
+    "compact_controls": "All Program and Tools controls fit80-column bottom pane; labelled input remains visible on row23.",
+    "hierarchy": "One-cell separating divider, coloured heading, control row, state/context, body and input/status. Default theme head f0f4f9 on24405e; body d3d3d3 on1d1d1d; selected e5f6ff on254e77.",
+    "limits": "Raw ANSI contains actual ncurses stream. Pyte does not emulate all DEC ACS/incremental repaint details; letter box-drawing or stale incremental fragments are projection limits, not asserted product defects. JSON/text/HTML are cell projections, not native screenshots."
+  },
+  "full_catalogue_execution": false,
+  "case_coverage": {
+    "S01": "Partial; Text startup, no Run, stock footer shell",
+    "S02": "NotRun",
+    "S03": "NotRun",
+    "S04": "NotRun",
+    "S05": "Partial; real F10/arrow/Enter/Escape and Shift-Tab routes; broad key override composition not replayed",
+    "S06": "NotRun",
+    "S07": "Partial; fresh cREXX prerequisite, actual Build status0 then Run result25; no all-language or LevelG replay",
+    "S08": "NotRun",
+    "S09": "NotRun",
+    "S10": "NotRun",
+    "S11": "NotRun",
+    "S12": "Partial; actual Build profile/Apply/Edit source, active/source/build/startup summary; restart/import/failure variants not replayed",
+    "S13": "NotRun",
+    "S14": "NotRun",
+    "S15": "Partial; stock/footer, custom two Unicode bands/TOP/OFF/reapply; AC02 named colours fail; broad composition/pointer not replayed",
+    "S16": "NotRun",
+    "S17": "Partial; real140x40 and80x24 PTY; physical Terminal rendering unavailable",
+    "S18": "Partial; keyboard Program/Tools target toggles, latent sibling hidden, retained running job/draft/viewport; native output selection NotRun",
+    "S19": "Partial; retained earlier reader and End latest work, AC01 unread/Latest discovery fails; hidden append/newjob/Clear to be rechecked in repair",
+    "S20": "NotRun",
+    "S21": "NotRun",
+    "S22": "NotRun",
+    "S23": "NotRun",
+    "S24": "NotRun",
+    "S25": "NotRun",
+    "S26": "NotRun",
+    "S27": "NotRun",
+    "S28": "NotRun",
+    "S29": "Partial; actual cells/attributes/width fit judged; physical font/DPI/glyph rendering NotRun; AC02 requested colours wrong"
+  },
+  "baseline_work_not_closed": [
+    "D02 general Redo",
+    "D03 full source transfer/Save as",
+    "Broader R10 profile composition"
+  ],
+  "limitations": [
+    "Native Terminal forbidden by supported CUA. Physical font/rendering, terminal-emulator selection/copy and native output selection are NotRun.",
+    "No renderer pixel conformance: shared terminal adaptation is assessed without an approved terminal mock.",
+    "Fresh nativeOpen/source-save/dirty/caret semantic assertions, all languages/LevelG/bundle distributions, Settings/About and full29 scripts are not independently replayed here. Supplemental focused receipts are distinct.",
+    "No core semantics inferred from curses cells. Four original saved fixture hashes remain unchanged; custom profile was intentionally authored before opening.",
+    "Unsupported SGR mouse trial and misfocused final stock-response attempt are retained under preflight and excluded from accepted checkpoint evidence."
+  ]
+}

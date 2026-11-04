@@ -81,6 +81,8 @@ with tempfile.TemporaryDirectory(prefix='THE native menu ') as temporary:
         wait(lambda: 'NATIVE_TOOL_MENU_FINISHED' in '\n'.join(screen.display), 'program completion')
         assert json.loads(marker.read_text()) == ['menu argument']
         assert source.read_bytes() == original
+        os.write(master, b'\x1b')
+        wait(lambda: screen.display[screen.cursor.y].startswith('======>'), 'return from Program input before profile quit binding')
         os.write(master, b'\x1b[20~')
         wait(lambda: process.poll() is not None, 'quit after native menu')
         assert process.returncode == 0
