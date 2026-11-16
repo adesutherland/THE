@@ -19,14 +19,25 @@ export async function editingClipboardSmoke({ send, snapshot, evaluate, command,
     assert.equal(await evaluate("[...document.querySelectorAll('.logical-selection')].every(node=>getComputedStyle(node).pointerEvents==='none' && getComputedStyle(node).backgroundColor!=='rgba(0, 0, 0, 0)' && node.getBoundingClientRect().width>0)"), true, "selection overlay is visible without owning native input");
   };
   const paste = async (value) => {
-    const priorRevision = (await snapshot()).source.revision;
+    // The plain Wasm build and a newly blank buffer can omit snapshot.source.
+    // The tools message carries the selected-file revision in both builds.
+    const priorFile = await evaluate("window.__tools?.currentFile");
+    assert.equal(priorFile?.path, path, "paste targets the selected file");
+    const expectedLines = value.split("\n").length;
     const count = await evaluate("window.__messages.filter(m=>m.type==='clipboard'&&m.operation==='paste').length");
     await evaluate(`(() => {const input=document.querySelector('.input-sink');input.focus();const data=new DataTransfer();data.setData('text/plain',${JSON.stringify(value)});input.dispatchEvent(new ClipboardEvent('paste',{bubbles:true,cancelable:true,clipboardData:data}));})()`);
     await waitFor(() => evaluate(`window.__messages.filter(m=>m.type==='clipboard'&&m.operation==='paste').length>${count}`), "atomic paste result");
     const result = await evaluate("window.__messages.filter(m=>m.type==='clipboard'&&m.operation==='paste').at(-1)");
     assert.equal(result.rc, 0, JSON.stringify(result));
     try {
-      await waitFor(async () => (await snapshot()).source.revision !== priorRevision, "paste semantic snapshot after receipt");
+      await waitFor(async () => {
+        const view = await snapshot();
+        const file = await evaluate("window.__tools?.currentFile");
+        return view.buffer.path === path && view.buffer.dirty === 1
+          && view.buffer.lines === expectedLines && file?.path === path
+          && file.revision > priorFile.revision
+          && (priorFile.sourceId === 0 ? file.sourceId > 0 : file.sourceId === priorFile.sourceId);
+      }, "paste semantic snapshot and source revision after receipt");
       await waitFor(() => evaluate("document.querySelectorAll('.logical-selection').length===0"), "Paste clears authoritative selection highlight");
     } catch (error) {
       await send({ type: "snapshot" });
