@@ -23,7 +23,7 @@ def run(*args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--build-dir', required=True, type=Path)
-    parser.add_argument('--version', required=True, help='Candidate version, e.g. 0.10.dev')
+    parser.add_argument('--version', required=True, help='Candidate version, e.g. 0.10.1')
     parser.add_argument('--installer', action='store_true')
     args = parser.parse_args()
     if not re.fullmatch(r'(?:\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?|\d+\.\d+\.dev)', args.version):

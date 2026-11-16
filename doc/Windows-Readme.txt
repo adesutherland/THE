@@ -1,7 +1,7 @@
-CRXTHE 0.10.dev - Windows installation and first use
+CRXTHE 0.10.1 - Windows installation and first use
 Based on Mark Hessling's THE 4.0; this fork is maintained separately.
 
-These instructions describe the CRXTHE 0.10.dev package layout and controls.
+These instructions describe the CRXTHE 0.10.1 package layout and controls.
 Check the installed version and manifest when using an older package; its
 profiles and navigation can differ. Source documentation and release status
 are separate.
@@ -70,7 +70,7 @@ still select an older installation. In a new PowerShell window check:
 
 For the default install folder, this always selects the installed launcher:
   & "$env:LOCALAPPDATA\Programs\THE-cREXX\bin\crxthe.cmd" --version
-It should identify CRXTHE 0.10.dev. For a custom folder, adjust that path.
+It should identify CRXTHE 0.10.1. For a custom folder, adjust that path.
 
 Open a new terminal after installation. Already-running terminals and IDEs
 can retain their old PATH. Do not run the-env.ps1 or set developer paths for
@@ -106,9 +106,10 @@ shell, remove the engine choice and choose the bundled runtime explicitly:
 
 OPTIONAL: ooRexx MACROS
 
-An ooRexx macro engine is available only in builds configured with its optional
-bridge. The standard CRXTHE package does not install ooRexx. With a matching
-Windows x64 ooRexx installed, select its DLL for this PowerShell session:
+The standard CRXTHE 0.10.1 installer includes the optional ooRexx macro bridge,
+with cREXX still selected by default. Install the Windows x64 ooRexx runtime
+separately; CRXTHE does not install it. No SDK headers or editor rebuild are
+needed. Select its DLLs for this PowerShell session:
   $ooRexxBin = 'C:\path\to\ooRexx\bin'
   $env:PATH = "$ooRexxBin;$env:PATH"
   $env:THE_REXX_INTERPRETER = 'OOREXX'

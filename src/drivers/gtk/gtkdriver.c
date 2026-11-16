@@ -3523,7 +3523,7 @@ static void show_about(void)
 {
    const char *authors[] = {"Mark Hessling — original THE", "CRXTHE contributors — independent fork", NULL};
    char *details = g_strdup_printf("Independent C99 fork of THE 4.0.\nGTK %u.%u.%u · native workbench · %s\nCore editing and profiles retain editor command authority.\nDependencies retain their own licences; see installed share/doc/the.\nSee LICENSE-NOTICE.md for the retained curses-driver licence notice.", gtk_get_major_version(), gtk_get_minor_version(), gtk_get_micro_version(), the_tools_backend_available() ? "native tool bundle configured" : "native tool bundle unavailable");
-   gtk_show_about_dialog(GTK_WINDOW(ui.window), "program-name", "CRXTHE", "version", the_version ? (const char *)the_version : "0.10.dev", "comments", details,
+   gtk_show_about_dialog(GTK_WINDOW(ui.window), "program-name", "CRXTHE", "version", the_version ? (const char *)the_version : "0.10.1", "comments", details,
       "authors", authors, "license-type", GTK_LICENSE_GPL_2_0, "license", "CRXTHE is licensed under GNU GPL version 2 or later. Original THE attribution is retained. Dependencies retain their own licence terms.", "wrap-license", TRUE,
       "website", "https://github.com/adesutherland/THE", "website-label", "CRXTHE source and issue tracker", NULL);
    g_free(details);

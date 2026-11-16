@@ -11,20 +11,26 @@ throughout signing. The private bundled cREXX installation stays separate
 from any standalone cREXX installation. Bundled cREXX remains the default;
 installers offer an installed-runtime preference with automatic bundled fallback.
 
-The recovered `build-release.yml` builds and verifies both platform packages,
-creates a draft, signs/notarizes macOS, verifies final assets and publishes
-when an authorized version tag is pushed. Development builds remain
-`0.10.dev`; prepare a matching numeric release version before tagging.
+The `build-release.yml` workflow builds and verifies both platform packages,
+creates a draft, gates Windows signing, signs/notarizes macOS and publishes
+when an authorized version tag is pushed. Publication requires a valid Windows
+Authenticode signature and trusted timestamp, followed by installed-package
+checks. The workflow waits up to 30 minutes for the local SimplySign draft
+replacement before macOS signing starts, so each signing helper can pin the
+other platform's final assets. The final publication checks the same Windows
+installer hash. An unsigned installer leaves the release unpublished; after
+signing it, rerun a timed-out signing gate. Development builds use an explicit
+`.dev` label; prepare a matching numeric release version before tagging.
 Private draft signing requires `--allow-draft`; the signing helpers retain
 draft status. Draft lookup uses its pinned GitHub release ID.
 
 ## Windows
 
 ```sh
-release_tag=vX.Y.Z  # replace with the explicitly selected published tag
-python3 scripts/sign-windows-release.py --tag "$release_tag" --dry-run
+release_tag=vX.Y.Z  # replace with the explicitly authorized release tag
+python3 scripts/sign-windows-release.py --tag "$release_tag" --allow-draft --dry-run
 python3 scripts/sign-windows-release.py --tag "$release_tag" \
-  --signer ../CREXX/scripts/sign-windows-file.sh --upload
+  --allow-draft --signer ../CREXX/scripts/sign-windows-file.sh --upload
 ```
 
 The helper signs the existing outer NSIS installer, verifies its signature and

@@ -4,6 +4,9 @@ These guides describe the implementation in this source tree. Check an
 installed package's version and manifest before applying them to an older
 release. CRXTHE is an independent fork based on Mark Hessling's THE 4.0.
 
+See the [0.10.1 release notes](release-notes/0.10.1.md) for changes and
+qualification limits.
+
 ## Using the editor
 
 - [First launch and editing keys](first-launch.md)

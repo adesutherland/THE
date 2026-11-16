@@ -1,10 +1,10 @@
                        CRXTHE Quick Reference
-                           Version 0.10.dev
+                           Version 0.10.1
 
   Independent fork based on Mark Hessling's THE 4.0.
   CRXTHE maintenance: github.com/adesutherland/THE/issues
 
-  First launch (cREXX or Regina default profile):
+  First launch (cREXX, Regina or ooRexx default profile):
     Tab         Insert spaces to the next eight-column tab stop
     Ctrl-S      Save without leaving the editor
     Ctrl-O      Prepare EDIT on the command line; enter a filename

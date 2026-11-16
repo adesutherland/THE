@@ -1,6 +1,6 @@
-# CRXTHE 0.10.dev
+# CRXTHE 0.10.1
 
-**CRXTHE** is an independently maintained fork based on Mark Hessling's THE 4.0, with cREXX/Regina macros, Unicode editing and separate console, LLM and browser frontends.
+**CRXTHE** is an independently maintained fork based on Mark Hessling's THE 4.0, with cREXX macros, optional Regina/ooRexx engines, Unicode editing and separate console, LLM and browser frontends.
 
 Please report CRXTHE defects to [this fork's issue tracker](https://github.com/adesutherland/THE/issues). The original THE attribution and license are retained; this fork's changes are maintained here.
 
@@ -29,8 +29,9 @@ current defects and workarounds; the [roadmap](doc/roadmap.md) lists planned wor
 and outstanding qualification. These documents describe this source tree;
 installed packages retain the behavior of their own version.
 
-For signing existing experimental prereleases and native installer QA, see
-[release signing](doc/release-signing.md).
+For native installer packaging, signing and QA, see
+[release signing](doc/release-signing.md). Release changes and qualification
+limits are listed in the [0.10.1 notes](doc/release-notes/0.10.1.md).
 
 ## Architecture
 For developers and contributors, a high-level overview of the editor's runtime,
@@ -46,8 +47,10 @@ should start with the [Syntax Highlighting User Guide](doc/syntax-highlighting.m
 
 ## Building and Installing
 
-The fork supports optional runtime-loaded Regina macros alongside the
-default cREXX engine. See [interpreter setup](doc/rexx-interpreters.md) and [prebuilt packaging](doc/packaging.md).
+The standard 0.10.1 installers include the optional Regina and ooRexx macro
+bridges alongside the default cREXX engine. Install either optional runtime
+separately before selecting it. See [interpreter setup](doc/rexx-interpreters.md)
+and [prebuilt packaging](doc/packaging.md).
 Shmuel's prefix macro package, all its ports and compatibility patches are held
 in a [separate private kit](doc/private-compatibility.md). They are excluded from
 new CRXTHE packages.
@@ -152,15 +155,14 @@ when THE needs a reproducible DSLSH version.
 
 ## First launch
 
-The matched cREXX and Regina default profiles provide a top column ruler,
-line numbers, distinct prefix/pending colors, insert-mode typing, Enter to
+The cREXX default and shared Classic profiles for Regina and ooRexx provide
+a top column ruler, line numbers, distinct prefix/pending colors, insert-mode typing, Enter to
 split a line, Shift-arrow selection and visible key hints. See the
 [first-launch guide](doc/first-launch.md).
 
 Use `crxthe file.txt` in a packaged installation (`crxthe.cmd` on Windows).
 The `the` launcher and `THE_*` configuration names remain compatible aliases.
-The version is **CRXTHE 0.10.dev**, a development build towards 0.10.0,
-independently numbered from upstream THE 4.0.
+The version is **CRXTHE 0.10.1**, independently numbered from upstream THE 4.0.
 Earlier 4.0 prereleases retain their own identity and behavior.
 
 ## Credits and licence

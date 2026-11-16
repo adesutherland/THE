@@ -1,6 +1,6 @@
 # Roadmap
 
-The source tree is a `0.10.dev` development build towards version 0.10.0.
+The current version is `0.10.1`.
 This page contains outstanding work, not a release promise. Implemented
 behavior belongs in the [user and developer guides](README.md); defects and
 workarounds belong in [known issues](known-issues.md).

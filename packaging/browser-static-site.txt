@@ -1,4 +1,4 @@
-CRXTHE browser site -- 0.10.dev review candidate
+CRXTHE browser site -- 0.10.1 experimental preview
 
 Unzip the archive directly at the root of one static HTTPS origin. For a local
 check, serve this directory with:

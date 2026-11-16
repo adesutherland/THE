@@ -6,8 +6,7 @@ is implemented by a C session model (`toolhost.c`), editor integration
 modes use the same Program console UI. The terminal driver docks the
 **Program console** on the right when there is room for at least 72 editor
 columns, a separator and 44 console columns (117 columns total); otherwise it
-appears below the editing area. This is a development feature
-in `0.10.dev`.
+appears below the editing area in `0.10.1`.
 
 ## Run and interact
 

@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.10)
 
-project(THE VERSION 0.10.0 LANGUAGES C)
+project(THE VERSION 0.10.1 LANGUAGES C)
 
 set(THE_PRODUCT_NAME "CRXTHE")
-# Keep numeric project metadata for tools; identify source builds explicitly.
-set(THE_VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.dev")
-set(THE_VERSION_DATE "27-Oct-2026")
+# Keep project, runtime and package versions aligned for this release.
+set(THE_VERSION "${PROJECT_VERSION}")
+set(THE_VERSION_DATE "16-Nov-2026")
 
 option(THE_BUILD_WASM "Build the standalone browser WebAssembly editor" OFF)
 option(THE_BUILD_WASM_VM "Build the standalone browser cREXX VM host" OFF)

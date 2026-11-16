@@ -1,4 +1,4 @@
-# First launch in CRXTHE 0.10.dev
+# First launch in CRXTHE 0.10.1
 
 CRXTHE is an independently maintained fork based on Mark Hessling's THE 4.0.
 Its version number describes this fork. Report CRXTHE defects to
@@ -9,9 +9,9 @@ The existing `the` launcher and `THE_*` configuration names remain compatible.
 A personal profile takes precedence over the shipped default; use
 `-p profile.the` or `-p profile_regina.the` to try the stock profile explicitly.
 
-The cREXX and Regina defaults share one maintained layout/theme definition:
-`profiles/default-profile.json`. `scripts/generate-default-profiles.py`
-produces the executable profiles for the two languages and their small
+The cREXX default and shared Classic profile for Regina and ooRexx use one
+maintained layout/theme definition: `profiles/default-profile.json`.
+`scripts/generate-default-profiles.py` produces the executable profiles for the two languages and their small
 command-prompt helpers. Users should customize a personal profile rather than
 edit generated shipped files. The restricted browser profiles use the same
 layout commands while the frontend supplies its visual theme, retaining the browser's command and workspace policy.

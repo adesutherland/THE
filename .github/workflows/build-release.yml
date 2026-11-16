@@ -95,8 +95,60 @@ jobs:
           if '-' in version: command+=['--prerelease']
           subprocess.run(command,check=True)
           PY
-  sign-macos:
+  sign-windows:
     needs: draft
+    runs-on: windows-2025
+    timeout-minutes: 35
+    permissions:
+      contents: write
+    outputs:
+      installer_sha256: ${{ steps.signature.outputs.installer_sha256 }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Wait for the SimplySign replacement and test the signed installer
+        id: signature
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $stem = "CRXTHE-$($env:RELEASE_TAG.Substring(1))-windows-x86_64"
+          $root = Join-Path $env:RUNNER_TEMP 'signed-windows-release'
+          New-Item -ItemType Directory -Force $root | Out-Null
+          $installer = Join-Path $root "$stem-setup.exe"
+          $checksums = Join-Path $root "$stem-SHA256SUMS.txt"
+          $deadline = (Get-Date).AddMinutes(30)
+          while ($true) {
+            $info = gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --json isDraft,tagName,assets | ConvertFrom-Json
+            if ($LASTEXITCODE -ne 0 -or -not $info.isDraft -or $info.tagName -ne $env:RELEASE_TAG) { throw 'Expected the exact draft release' }
+            $names = @($info.assets.name)
+            $complete = $names.Count -eq 6 -and @($names | Where-Object { $_ -match '\.(backup|sign)-' }).Count -eq 0
+            if ($complete) {
+              Remove-Item -LiteralPath $installer, $checksums -Force -ErrorAction SilentlyContinue
+              gh release download $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --dir $root --clobber --pattern "$stem-setup.exe" --pattern "$stem-SHA256SUMS.txt"
+            }
+            if ($complete -and $LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath $installer) -and (Test-Path -LiteralPath $checksums)) {
+              $signature = Get-AuthenticodeSignature -LiteralPath $installer
+              $sha = (Get-FileHash -Algorithm SHA256 -LiteralPath $installer).Hash.ToLowerInvariant()
+              $entry = @(Get-Content $checksums | Where-Object { $_ -match "^[0-9a-f]{64}  $([regex]::Escape($stem))-setup\.exe$" })
+              if ($signature.Status -eq 'Valid' -and $null -ne $signature.TimeStamperCertificate -and $entry.Count -eq 1 -and $entry[0].StartsWith("$sha  ")) { break }
+              if ($signature.Status -notin @('Valid', 'NotSigned')) { throw "Invalid Windows installer signature: $($signature.Status)" }
+            }
+            if ((Get-Date) -ge $deadline) { throw 'Timed out waiting for a valid SimplySign installer replacement and matching checksums; release remains a draft.' }
+            Write-Output 'Waiting for the local SimplySign installer replacement.'
+            Start-Sleep -Seconds 15
+          }
+          ./scripts/test-signed-windows-installer.ps1 -Installer $installer
+          $final = gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --json isDraft,tagName,assets | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or -not $final.isDraft -or $final.tagName -ne $env:RELEASE_TAG -or @($final.assets).Count -ne 6 -or @($final.assets.name | Where-Object { $_ -match '\.(backup|sign)-' }).Count -ne 0) { throw 'Draft assets changed during signed installer qualification' }
+          $finalInstaller = @($final.assets | Where-Object { $_.name -eq "$stem-setup.exe" })
+          if ($finalInstaller.Count -ne 1 -or $finalInstaller[0].digest -ne "sha256:$sha") { throw 'Draft installer changed during signed installation qualification' }
+          "installer_sha256=$sha" >> $env:GITHUB_OUTPUT
+  sign-macos:
+    needs: sign-windows
     runs-on: macos-15
     timeout-minutes: 75
     permissions:
@@ -130,7 +182,7 @@ jobs:
             build/sign-macos/**/receipt.json
           if-no-files-found: ignore
   publish:
-    needs: [metadata, sign-macos]
+    needs: [metadata, sign-windows, sign-macos]
     runs-on: windows-2025
     permissions:
       contents: write
@@ -142,6 +194,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.ref_name }}
+          WINDOWS_INSTALLER_SHA256: ${{ needs.sign-windows.outputs.installer_sha256 }}
         shell: bash
         run: |
           python - <<'PY'
@@ -153,6 +206,8 @@ jobs:
           assert len(release.original['assets'])==6
           root=Path('release-final'); root.mkdir()
           for asset in release.original['assets']: release.download(asset,root/asset['name'])
+          installer=root/('CRXTHE-'+os.environ['RELEASE_TAG'][1:]+'-windows-x86_64-setup.exe')
+          assert hashlib.sha256(installer.read_bytes()).hexdigest()==os.environ['WINDOWS_INSTALLER_SHA256'], 'Windows installer changed after signed-installation qualification'
           for sums in root.glob('*SHA256SUMS.txt'):
               for line in sums.read_text().splitlines():
                   sha,name=line.split(maxsplit=1)
@@ -166,19 +221,17 @@ jobs:
           release.check()
           Path('release-notes.md').write_text(release.original['body'],encoding='utf-8')
           PY
-      - name: Verify Windows signing state and test a signed installer
+      - name: Recheck the qualified Windows installer's signature
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $installer = @(Get-ChildItem 'release-final/*-setup.exe')
           if ($installer.Count -ne 1) { throw 'Expected one Windows installer' }
           $signature = Get-AuthenticodeSignature -LiteralPath $installer[0].FullName
-          if ($signature.Status -eq 'Valid') {
-            ./scripts/test-signed-windows-installer.ps1 -Installer $installer[0].FullName
-            $state = 'Windows installer: Authenticode signature, trusted timestamp and signed-installation checks passed.'
-          } elseif ($signature.Status -eq 'NotSigned') {
-            $state = 'Windows installer: unsigned. As in cREXX-RAG, local SimplySign signing and replacement are a separate maintainer pass.'
-          } else { throw "Invalid installer signature: $($signature.Status)" }
+          if ($signature.Status -ne 'Valid' -or $null -eq $signature.TimeStamperCertificate) {
+            throw "Publication requires the valid timestamped Windows installer: $($signature.Status)."
+          }
+          $state = 'Windows installer: Authenticode signature, trusted timestamp and signed-installation checks passed.'
           Add-Content -Path release-notes.md -Value "`n`n$state"
       - name: Publish the verified release
         shell: bash

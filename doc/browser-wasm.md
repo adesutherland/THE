@@ -1,6 +1,6 @@
 # Browser WebAssembly preview
 
-The `0.10.dev` editor preview runs the C editor in a dedicated browser Worker,
+The `0.10.1` editor preview runs the C editor in a dedicated browser Worker,
 using the same Preact UI and semantic input/snapshot protocol as the native
 web driver. It needs static HTTP hosting, with no native editor server or
 WebSocket. Editing, commands, prefixes, selection, Unicode layout, the file

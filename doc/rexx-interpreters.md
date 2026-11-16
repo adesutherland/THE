@@ -1,13 +1,13 @@
 # Macro interpreters and prebuilt packages
 
-CRXTHE 0.10.dev is an independent fork based on Mark Hessling's THE 4.0. Its changes are not fixes for
-upstream THE. cREXX is the default macro interpreter; Regina and ooRexx are optional.
+CRXTHE 0.10.1 is an independent fork based on Mark Hessling's THE 4.0. Its
+changes are not fixes for upstream THE. cREXX is the default macro interpreter; Regina and ooRexx are optional.
 Select one interpreter before starting THE. Switching interpreters requires
 restarting the editor; macros are not automatically translated between dialects.
 
 The bundled package supplies cREXX's shared runtime, compiler, assembler,
-runner, matching `library.rxbin` and compiler exit module privately. It does not change an existing
-cREXX installation. The installers offer bundled cREXX (default) or an
+runner, matching `library.rxbin`, compiler exit module and diagnostic message
+catalogues privately. It does not change an existing cREXX installation. The installers offer bundled cREXX (default) or an
 installed cREXX when compatible. The bundle is always retained for automatic
 fallback. Launch `bin/crxthe` (`bin/crxthe.cmd` on Windows); its paths are
 relative to the package, so a portable archive can be moved or unpacked into a
@@ -95,10 +95,11 @@ or set `THE_REXX_INTERPRETER=CREXX`.
 
 ## Optional ooRexx macro engine
 
-Install ooRexx yourself for the same CPU architecture as THE. The current
-CRXTHE package does not include it. A build must have been configured with
-`THE_ENABLE_OOREXX=ON` and matching ooRexx headers. Then select it before
-starting the editor and provide the full path to its shared library:
+The standard CRXTHE 0.10.1 installers compile the optional ooRexx macro bridge.
+The ooRexx runtime is installed separately, for the same CPU architecture as
+THE; it is not included in those packages. Installer users need no SDK headers
+or rebuild. cREXX remains the default. Select ooRexx before starting the editor
+and provide the full path to its shared library:
 
 ```sh
 export THE_REXX_INTERPRETER=OOREXX

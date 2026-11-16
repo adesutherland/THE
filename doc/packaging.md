@@ -13,41 +13,43 @@ The bundled install contains CRXTHE, its curses and LLM drivers, profiles,
 help, generic macro/panel examples and a private matching cREXX tool set.
 Every Shmuel prefix-macro implementation, adaptation, port and patch is
 excluded; see [private compatibility](private-compatibility.md).
-Regina is optional, selected at runtime, and never bundled. See
-[interpreter setup](rexx-interpreters.md).
+The standard 0.10.1 installers compile the optional Regina and ooRexx macro
+bridges. Both runtimes are installed separately and selected at startup;
+cREXX remains the default. See [interpreter setup](rexx-interpreters.md).
 
 The optional browser driver is enabled with `USE_WEB_DRIVER=ON`. Run
 `the --driver web file` to open its local URL. Shared forms and their limits
 are described in [panels](panels.md).
 
 Build maintainers need CMake, the normal THE dependencies, cREXX ABI 3+
-headers/shared runtime/tools, and Regina's `rexxsaa.h` for optional Regina
-support. Users of the resulting installers need none of those build tools.
+headers/shared runtime/tools, Regina's `rexxsaa.h`, and matching ooRexx SDK
+headers for the optional bridges. Users of the resulting installers need none
+of those build tools or headers.
 
 ```sh
 cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release \
   -DTHE_REXX_INTERPRETER=CREXX -DTHE_BUNDLE_CREXX=ON \
-  -DREGINA_INCLUDE_DIR=/path/to/regina/include
+  -DREGINA_INCLUDE_DIR=/path/to/regina/include \
+  -DTHE_ENABLE_OOREXX=ON -DOOREXX_INCLUDE_DIR=/path/to/oorexx/include
 cmake --build build-release --parallel
 ctest --test-dir build-release --output-on-failure
 python3 scripts/package-release.py --build-dir build-release \
-  --version 0.10.dev --installer
+  --version 0.10.1 --installer
 ```
 
-The version above is a local candidate label, not a release declaration.
-Package names begin `CRXTHE-0.10.dev-...`. Development installers use numeric
-`0.10.0` OS metadata while retaining `0.10.dev` in their display name and
-manifest. The display version and manifest identify the independently
-maintained fork and its THE 4.0 ancestry. The stable `the` launcher,
+The example stages a 0.10.1 payload; publication follows the authorized
+source/tag workflow above. Package names begin `CRXTHE-0.10.1-...`; numeric OS
+metadata, display version and manifest all use `0.10.1`. The display version
+and manifest identify the independently maintained fork and its THE 4.0 ancestry. The stable `the` launcher,
 install/cache directories, registry/package identifiers and `THE_*`
 configuration keys are retained for compatibility; `crxthe` is the public
-launcher alias. Upgrade behavior still needs the next candidate's native
-installer QA.
+launcher alias. Native upgrade and manual acceptance checks remain separate
+from source qualification.
 
 `CREXXSAA_RUNTIME_LIBRARY`, `CREXX_RXC_EXECUTABLE`, `CREXX_RXAS_EXECUTABLE`,
-`CREXX_RXVM_EXECUTABLE`, `CREXX_DRIVER_EXECUTABLE`, `CREXX_LIBRARY_RXBIN` and
-`CREXX_LICENSE_FILE` can override dependency discovery. Keep them from one
-qualified cREXX distribution. On Windows, supply the actual DLL for
+`CREXX_RXVM_EXECUTABLE`, `CREXX_DRIVER_EXECUTABLE`, `CREXX_LIBRARY_RXBIN`,
+`CREXX_MESSAGES_DIR` and `CREXX_LICENSE_FILE` can override dependency discovery.
+Keep them from one qualified cREXX distribution. On Windows, supply the actual DLL for
 `CREXXSAA_RUNTIME_LIBRARY`, not its import library. Include any non-system DLL
 dependencies of that cREXX build in its private runtime directory before
 packaging. Do not mix CPU architectures.
