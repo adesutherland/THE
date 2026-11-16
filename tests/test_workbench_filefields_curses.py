@@ -71,6 +71,14 @@ for engine in ("CREXX", "REGINA"):
         def text():
             return "\n".join(screen.display)
 
+        def saved_text_is(expected):
+            # SAVE can briefly move the old file aside before writing its
+            # replacement. Keep polling until the exact saved text is ready.
+            try:
+                return source.read_text() == expected
+            except FileNotFoundError:
+                return False
+
         def command(value):
             send(b"\x15" + value.encode() + b"\r")
             # Wait for a separate response command, so a fast command cannot
@@ -127,7 +135,7 @@ for engine in ("CREXX", "REGINA"):
             wait(lambda: screen.display[screen.cursor.y].startswith("======>"), "Return before Save")
             send(b"save\r")
             expected = original.replace("Guest     ", "界ést     ", 1)
-            wait(lambda: source.read_text() == expected, "saved applied bytes")
+            wait(lambda: saved_text_is(expected), "saved applied bytes")
             send(b"workbench panel focus p.fields\r")
             wait(lambda: screen.cursor.y < rows - 2 and "File fields:" in text(), "refocus after save")
             # Reload is explicit after an editor command invalidates a capture.
