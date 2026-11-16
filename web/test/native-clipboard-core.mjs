@@ -45,6 +45,9 @@ try{
     socket.send(json);
     return until(()=>messages.find(message=>message.type==='clipboard'&&message.requestId===requestId),'clipboard '+operation);
   }
+  const eolId=++serial;
+  socket.send(JSON.stringify({id:eolId,type:'command',command:'set eolout lf'}));
+  await until(()=>messages.find(message=>message.type==='ack'&&message.id===eolId),'set LF output');
   const id=++serial;
   socket.send(JSON.stringify({id,type:'command',command:'cursor goto 1 1'}));
   await until(()=>messages.find(message=>message.screen_rows&&message.focus?.line===1),'file caret');

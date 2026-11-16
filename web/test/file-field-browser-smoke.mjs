@@ -74,8 +74,10 @@ try {
       this.addEventListener('message',event=>{const value=JSON.parse(event.data);window.__messages.push(value);if(value.screen_rows)window.__snapshots.push(value);});}
       send(data){window.__sent.push(JSON.parse(data));return super.send(data);}};
   ` });
+  await cdp("Emulation.setDeviceMetricsOverride", { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
   await cdp("Page.navigate", { url });
   await until(() => evaluate("document.querySelector('.connection')?.textContent.trim()==='online' && window.__snapshots.length>0"), "online editor");
+  await command("set eolout lf");
   for (const text of ["workbench begin owner user.fields", "workbench panel put user.fields.pane kind fields buffer active markup ctlchar access staged", "workbench panel place user.fields.pane right fallback below,tab mincols 10", "workbench commit"]) await command(text);
   await until(() => evaluate("!!document.querySelector('.named-file-fields-toggle')"), "file-field declaration");
   await evaluate("document.querySelector('#the-command').focus();document.querySelector('.named-file-fields-toggle').click()");

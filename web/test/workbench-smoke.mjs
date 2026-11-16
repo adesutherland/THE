@@ -5,7 +5,7 @@ import { spawn } from "node:child_process";
 import { createServer } from "node:http";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { extname, join, resolve } from "node:path";
+import { extname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import WebSocket, { WebSocketServer } from "ws";
 import "./form-coordinator-smoke.mjs";
 import "./edit-actions-smoke.mjs";
@@ -166,7 +166,9 @@ const server = createServer(async (request, response) => {
   try {
     const pathname = new URL(request.url, "http://localhost").pathname;
     const filename = resolve(assets, "." + (pathname === "/" ? "/index.html" : pathname));
-    if (!filename.startsWith(assets + "/")) throw new Error("outside assets");
+    const assetPath = relative(assets, filename);
+    if (!assetPath || assetPath === ".." || assetPath.startsWith(".." + sep) || isAbsolute(assetPath))
+      throw new Error("outside assets");
     const body = await readFile(filename);
     response.setHeader("Content-Type", ({ ".html": "text/html", ".js": "text/javascript", ".css": "text/css" })[extname(filename)] || "application/octet-stream");
     response.end(body);

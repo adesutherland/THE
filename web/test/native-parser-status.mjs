@@ -47,6 +47,7 @@ try {
   socket.on('message',data=>{const message=JSON.parse(data);if(message.screen_rows)snapshot=message;});
   await new Promise((resolve,reject)=>{socket.once('open',resolve);socket.once('error',reject);});
   await until(()=>snapshot?.buffer.path.endsWith('sample.crexx'),'initial native snapshot');
+  send({type:'command',command:'set eolout lf'});
   send({type:'command',command:'cursor goto 1 1'});
   send({type:'command',command:"replace say 'unterminated"});
   await until(()=>snapshot?.buffer.dirty && snapshot.diagnostics?.some(d=>d.severity==='ERROR'),'native real quote diagnostic');

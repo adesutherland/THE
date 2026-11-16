@@ -38,8 +38,9 @@ qualification belong in the [roadmap](doc/roadmap.md).
 CMake discovers a matching cREXX SDK from configured paths, sibling build
 outputs or an installation. Debug and Release builds should select matching
 SDK outputs; review the CMake cache when changing cohorts. Clear stale
-`CREXXSAA_LIBRARY`, `CREXX_RXC_EXECUTABLE`, `CREXX_RXAS_EXECUTABLE` and
-`CREXX_LIBRARY_RXBIN` entries if they pin an unintended build.
+`CREXXSAA_LIBRARY`, `CREXX_RXC_EXECUTABLE`, `CREXX_RXAS_EXECUTABLE`,
+`CREXX_LIBRARY_RXBIN` and `CREXX_MESSAGES_DIR` entries if they pin an unintended
+build. Bundled compiler message catalogues must match the selected compiler.
 
 Use available build parallelism, then run the affected CTest selection and
 complete candidate suite. Do not rebuild over running tests. Native installer,

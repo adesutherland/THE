@@ -14,7 +14,7 @@ binary = Path(sys.argv[1]).resolve()
 with tempfile.TemporaryDirectory(prefix='CRXTHE status line ') as temporary:
     root = Path(temporary)
     sample = root / 'sample.txt'
-    sample.write_text('alpha\n', encoding='utf-8')
+    sample.write_bytes(b'alpha\n')
     commands = [
         'capabilities',
         'look full compact',

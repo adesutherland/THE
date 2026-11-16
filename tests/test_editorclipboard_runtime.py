@@ -22,6 +22,7 @@ class Session:
                      THE_CREXX_CACHE_DIR=str(root / 'cache'), THE_TOOL_CONFIG_DIR=str(root / 'tools')),
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             text=True, encoding='utf-8')
+        self.command('set eolout lf')
         self.command('set interface cua')
         self.command('define c-z sos undo')
         self.command('workbench begin owner public.clipboard')

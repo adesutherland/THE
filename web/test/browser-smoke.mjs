@@ -98,6 +98,18 @@ async function domKey(key, code, ctrlKey = false, shiftKey = false) {
   await evaluate(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key: ${JSON.stringify(key)}, code: ${JSON.stringify(code)}, ctrlKey: ${ctrlKey}, shiftKey: ${shiftKey}, bubbles: true, cancelable: true}))`);
 }
 
+async function closeApplicationMenu() {
+  if (!await evaluate("!!document.querySelector('.menu-popover')")) return;
+  await domKey('Escape', 'Escape');
+  await waitFor(() => evaluate("!document.querySelector('.menu-popover')"), "application menu closed before choosing an input origin");
+}
+
+async function openLogsMenu() {
+  await domKey('F10', 'F10');
+  await waitFor(() => evaluate("!!document.querySelector('[data-group-id=\"user.logs\"]')"), "Logs menu group");
+  await evaluate("document.querySelector('[data-group-id=\"user.logs\"]').click()");
+}
+
 async function openWorkspaceFile(name) {
   await evaluate("document.querySelector('[aria-label=\"Open\"]').click()");
   await waitFor(
@@ -166,6 +178,8 @@ try {
   await command("Page.enable");
   await command("Page.addScriptToEvaluateOnNewDocument", { source: `
     window.__theSockets = [];
+    window.__theInputs = [];
+    window.__snapshotCount = 0;
     window.__workbenchResults = [];
     window.__workbenchMessages = [];
     window.__workbenchSession = '';
@@ -183,7 +197,7 @@ try {
               window.__workbenchSession = value.workbenchSession;
               window.__workbenchNext = value.workbenchNextRequest;
             }
-            if (value.screen_rows) window.__snapshot = value;
+            if (value.screen_rows) { window.__snapshot = value; window.__snapshotCount++; }
             if (value.type === 'workbench' && value.operation === 'result') {
               window.__workbenchResults.push(value);
               const sequence = Number(value.requestId?.split('.').at(-1));
@@ -193,6 +207,7 @@ try {
           } catch {}
         });
       }
+      send(data) { window.__theInputs.push(JSON.parse(data)); return super.send(data); }
     };
   ` });
   await command("Page.navigate", { url: pageUrl });
@@ -257,11 +272,23 @@ try {
   await waitFor(() => evaluate("document.activeElement?.getAttribute('aria-label') === 'Editor input' && !!document.querySelector('.line-content .logical-cursor') && !document.querySelector('.prefix-cursor')"), "F6 back to file editing");
   await domKey('F6','F6');
   await waitFor(() => evaluate("document.activeElement?.getAttribute('aria-label') === 'THE command'"), "F6 back to command field");
-  await evaluate("new Promise(resolve => {const input=document.querySelector('.command-form input');input.value='cursor goto 1 1';input.dispatchEvent(new Event('input',{bubbles:true}));setTimeout(()=>{input.form.requestSubmit();resolve(true)},0)})");
-  await waitFor(() => evaluate("!!document.querySelector('.line-content .logical-cursor')"), "command execution returns to file editing");
-  async function navigationCommand(text) {
-    await evaluate(`new Promise(resolve => {const input=document.querySelector('.command-form input');input.value=${JSON.stringify(text)};input.dispatchEvent(new Event('input',{bubbles:true}));setTimeout(()=>{input.form.requestSubmit();resolve(true)},0)})`);
+  async function submitCommand(text) {
+    const before = await evaluate("window.__snapshotCount");
+    await evaluate(`new Promise(resolve => {const input=document.querySelector('.command-form input');input.focus();input.value=${JSON.stringify(text)};input.dispatchEvent(new Event('input',{bubbles:true}));setTimeout(()=>{input.form.requestSubmit();resolve(true)},0)})`);
+    await waitFor(() => evaluate(`window.__snapshotCount>${before} && document.querySelector('#the-command')?.value===''`), `${text}: command admitted and input cleared`);
   }
+  async function navigationCommand(text) {
+    const target = /^cursor goto (\d+) (\d+)$/.exec(text);
+    if (!target) throw new Error(`navigationCommand requires CURSOR GOTO: ${text}`);
+    await submitCommand(text);
+    const coreTarget = `window.__snapshot?.focus.zone==='filearea' && window.__snapshot.focus.line===${Number(target[1])} && window.__snapshot.focus.cell===${Number(target[2]) - 1}`;
+    // Submitting keeps the command loop ready. F6 separately admits a file hit.
+    await waitFor(() => evaluate(`document.activeElement?.id==='the-command' && document.querySelector('#the-command').value==='' && ${coreTarget}`), `${text}: admitted command retains empty command input`);
+    const returning = await evaluate("({snapshot:window.__snapshotCount,input:window.__theInputs.length,line:window.__snapshot.focus.line,cell:window.__snapshot.focus.cell})");
+    await domKey('F6','F6');
+    await waitFor(() => evaluate(`window.__snapshotCount>${returning.snapshot} && window.__theInputs.slice(${returning.input}).some(message=>message.type==='hit' && message.target==='filearea' && message.line===${returning.line} && message.cell===${returning.cell}) && document.activeElement?.getAttribute('aria-label')==='Editor input' && window.__snapshot?.focus.zone==='filearea' && window.__snapshot.focus.line===${returning.line} && window.__snapshot.focus.cell===${returning.cell} && !!document.querySelector('.line-content .logical-cursor') && !document.querySelector('.prefix-cursor')`), `${text}: F6 admits file focus and restores the logical cursor`);
+  }
+  await navigationCommand('cursor goto 1 1');
   await navigationCommand('cursor goto 3 1');
   await waitFor(() => evaluate("document.querySelector('.status-line')?.dataset.focusZone==='filearea' && document.querySelector('.status-line')?.dataset.focusLine==='3'"), "third record for left navigation");
   await domKey('ArrowLeft','ArrowLeft');
@@ -459,7 +486,7 @@ try {
     await openWorkspaceFile('console.rexx');
     await evaluate("document.querySelector('.pane-switcher .run-rexx').click()");
     await waitFor(()=>evaluate("document.querySelector('.console-output').textContent.includes('native graphical proof')"),'native program console',30000);
-    await navigationCommand('set color consolebody #123456 on #234567');
+    await submitCommand('set color consolebody #123456 on #234567');
     await waitFor(()=>evaluate("getComputedStyle(document.querySelector('.console-output')).color==='rgb(18, 52, 86)' && getComputedStyle(document.querySelector('.console-output')).backgroundColor==='rgb(35, 69, 103)'"),'SET COLOR recolours running native browser console');
     await selectBuffer('sample.txt');
     await waitFor(()=>evaluate("getComputedStyle(document.querySelector('.console-output')).color!=='rgb(18, 52, 86)'"),'file switch changes running console colours');
@@ -477,11 +504,11 @@ try {
   // Its command and macro action kinds remain subject to core policy.
   const beforeWorkbench = await evaluate("({draft:document.querySelector('#the-command').value,dirty:document.querySelector('.status-line').dataset.bufferDirty,zone:document.querySelector('.status-line').dataset.focusZone,line:document.querySelector('.status-line').dataset.focusLine,cell:document.querySelector('.status-line').dataset.focusCell})");
   const poisonedLabel = 'Check / <img src=x onerror="window.poisoned=true">';
-  await navigationCommand('workbench begin owner user.web');
-  await navigationCommand('workbench action put user.save label "Safe Save" builtin file.save');
-  await navigationCommand('workbench menu put user.tools label "Tools" order 50');
-  await navigationCommand(`workbench item put user.tools user.saveitem label "${poisonedLabel.replaceAll('"', '""')}" action user.save`);
-  await navigationCommand('workbench commit');
+  await submitCommand('workbench begin owner user.web');
+  await submitCommand('workbench action put user.save label "Safe Save" builtin file.save');
+  await submitCommand('workbench menu put user.tools label "Tools" order 50');
+  await submitCommand(`workbench item put user.tools user.saveitem label "${poisonedLabel.replaceAll('"', '""')}" action user.save`);
+  await submitCommand('workbench commit');
   await evaluate("document.querySelector('.menu-trigger').click()");
   await waitFor(() => evaluate("!!document.querySelector('[data-group-id=\"user.tools\"]')"), "profile menu group");
   await evaluate("document.querySelector('[data-group-id=\"user.tools\"]').click()");
@@ -491,10 +518,10 @@ try {
   const oldGeneration = +(await evaluate("document.querySelector('[data-menu-id=\"user.tools\"] button').dataset.generation"));
   await evaluate("document.querySelector('[data-menu-id=\"user.tools\"] button').click()");
   await waitFor(() => evaluate("window.__workbenchResults.some(result => result.code === 'ok' && result.state === 'complete')"), "shared menu action result");
-  await navigationCommand('workbench begin owner user.web');
-  await navigationCommand('workbench action put user.save label "Replaced Save" builtin file.save');
-  await navigationCommand('workbench item put user.tools user.saveitem label "Replaced Save" action user.save');
-  await navigationCommand('workbench commit');
+  await submitCommand('workbench begin owner user.web');
+  await submitCommand('workbench action put user.save label "Replaced Save" builtin file.save');
+  await submitCommand('workbench item put user.tools user.saveitem label "Replaced Save" action user.save');
+  await submitCommand('workbench commit');
   await evaluate("document.querySelector('.menu-trigger').click()");
   await waitFor(() => evaluate("!!document.querySelector('[data-group-id=\"user.tools\"]')"), "profile menu group");
   await evaluate("document.querySelector('[data-group-id=\"user.tools\"]').click()");
@@ -507,11 +534,11 @@ try {
   const nulRequest = await evaluate("window.__nextWorkbenchId()");
   await evaluate(`window.__theSockets[0].send(JSON.stringify({type:'workbench',version:1,operation:'invoke',requestId:${JSON.stringify(nulRequest)},action:'user.save\\u0000hidden',expectGeneration:${newGeneration}}))`);
   await waitFor(() => evaluate(`window.__workbenchResults.some(result => result.requestId === ${JSON.stringify(nulRequest)} && result.code === 'invalid-operand')`), "native JSON NUL refusal");
-  await navigationCommand('workbench begin owner user.web');
-  await navigationCommand('workbench item remove user.tools user.saveitem');
-  await navigationCommand('workbench action remove user.save');
-  await navigationCommand('workbench menu remove user.tools');
-  await navigationCommand('workbench commit');
+  await submitCommand('workbench begin owner user.web');
+  await submitCommand('workbench item remove user.tools user.saveitem');
+  await submitCommand('workbench action remove user.save');
+  await submitCommand('workbench menu remove user.tools');
+  await submitCommand('workbench commit');
   await waitFor(() => evaluate("!document.querySelector('[data-menu-id=\"user.tools\"]')"), "removed shared menu");
   await evaluate("document.querySelector('.menu-trigger').click()");
   if (JSON.stringify(await evaluate("({draft:document.querySelector('#the-command').value,dirty:document.querySelector('.status-line').dataset.bufferDirty,zone:document.querySelector('.status-line').dataset.focusZone,line:document.querySelector('.status-line').dataset.focusLine,cell:document.querySelector('.status-line').dataset.focusCell})")) !== JSON.stringify(beforeWorkbench))
@@ -529,14 +556,14 @@ try {
   await evaluate(`window.__theSockets[0].send(JSON.stringify({type:'workbench',version:1,operation:'invoke',requestId:${JSON.stringify(replayId)},action:'the.edit.undo',expectGeneration:${saveGeneration}}))`);
   await waitFor(() => evaluate(`window.__workbenchResults.some(result => result.requestId === ${JSON.stringify(replayId)} && result.code === 'request-id-conflict')`), "request ID payload conflict");
   console.log("PASS native browser shared workbench: add, invoke, replace, stale generation, poisoned label and remove");
-  await navigationCommand('workbench begin owner user.logs');
-  await navigationCommand('workbench panel put user.output kind log model user.outputlog');
-  await navigationCommand('workbench panel place user.output right fallback below,tab mincols 10');
-  await navigationCommand('workbench route put user.stdout from tool:classic-rexx/stdout to log:user.outputlog');
-  await navigationCommand('workbench action put user.show label "Show output" panel user.output op show');
-  await navigationCommand('workbench menu put user.logs label "Logs" order 50');
-  await navigationCommand('workbench item put user.logs user.showitem label "Show output" action user.show');
-  await navigationCommand('workbench commit');
+  await submitCommand('workbench begin owner user.logs');
+  await submitCommand('workbench panel put user.output kind log model user.outputlog');
+  await submitCommand('workbench panel place user.output right fallback below,tab mincols 10');
+  await submitCommand('workbench route put user.stdout from tool:classic-rexx/stdout to log:user.outputlog');
+  await submitCommand('workbench action put user.show label "Show output" panel user.output op show');
+  await submitCommand('workbench menu put user.logs label "Logs" order 50');
+  await submitCommand('workbench item put user.logs user.showitem label "Show output" action user.show');
+  await submitCommand('workbench commit');
   await waitFor(() => evaluate("!!document.querySelector('.named-log-toggle[data-panel-id=\"user.output\"]')"), 'native LOG catalog publication');
   const logRunnerAvailable = await evaluate("!!document.querySelector('.pane-switcher .run-rexx:not(:disabled)')");
   if (logRunnerAvailable) {
@@ -544,23 +571,25 @@ try {
     await evaluate("document.querySelector('.pane-switcher .run-rexx').click()");
     await waitFor(() => evaluate("document.querySelector('.console-output')?.textContent.includes('native graphical proof')"), 'native routed program stdout', 30000);
     await waitFor(() => evaluate("!!document.querySelector('#rexx-input:not(:disabled)')?.getClientRects().length"), 'active Program input before native PANEL SHOW');
+    await closeApplicationMenu();
     await evaluate("document.querySelector('#rexx-input').focus()");
     await command('Input.insertText', {text: 'pending program input'});
     await evaluate("document.querySelector('#rexx-input').setSelectionRange(2,8)");
-    await domKey('F10', 'F10');
+    await openLogsMenu();
     await waitFor(() => evaluate("!!document.querySelector('[data-item-id=\"user.showitem\"]')"), 'native PANEL SHOW menu item');
     await evaluate("document.querySelector('[data-item-id=\"user.showitem\"]').click()");
     await waitFor(() => evaluate("!!document.querySelector('.named-log-pane[data-panel-id=\"user.output\"]')?.getClientRects().length && document.activeElement?.id==='rexx-input'"), 'native SHOW displays LOG and retains Program focus');
     if (!await evaluate("document.querySelector('#rexx-input').value==='pending program input' && document.querySelector('#rexx-input').selectionStart===2 && document.querySelector('#rexx-input').selectionEnd===8 && window.__workbenchMessages.some(m=>m.operation==='panel-state'&&m.panels?.some(p=>p.id==='user.output'&&p.visible&&!p.focused))"))
       throw Error('native PANEL SHOW lost Program draft/selection or focused core pane');
-    await navigationCommand('workbench panel hide user.output');
+    await submitCommand('workbench panel hide user.output');
     await waitFor(() => evaluate("window.__workbenchMessages.at(-1)?.operation==='panel-state' && window.__workbenchMessages.at(-1).panels.some(p=>p.id==='user.output'&&!p.visible)"), 'native LOG hidden before command SHOW');
   }
+  await closeApplicationMenu();
   await evaluate("document.querySelector('#the-command').focus()");
   await command('Input.insertText', {text: 'pending command'});
   const pendingCommandDraft = await evaluate("document.querySelector('#the-command').value");
   if (!pendingCommandDraft.includes('pending command')) throw Error('native command draft was not entered');
-  await domKey('F10', 'F10');
+  await openLogsMenu();
   await waitFor(() => evaluate("!!document.querySelector('[data-item-id=\"user.showitem\"]')"), 'command PANEL SHOW menu item');
   await evaluate("document.querySelector('[data-item-id=\"user.showitem\"]').click()");
   await waitFor(() => evaluate("!!document.querySelector('.named-log-pane[data-panel-id=\"user.output\"]')?.getClientRects().length && document.activeElement?.id==='the-command'"), 'native SHOW displays LOG and retains command focus');
@@ -585,10 +614,10 @@ try {
     await waitFor(() => evaluate("!!document.querySelector('.named-log-output')"), 'native LOG pane without runner');
     console.log('PASS native browser LOG pane: route catalog and panel UI (Classic runner unavailable)');
   }
-  await navigationCommand('workbench begin owner user.documents');
-  await navigationCommand('workbench panel put user.reference kind document buffer active access readonly');
-  await navigationCommand('workbench panel place user.reference right fallback below,tab mincols 10');
-  await navigationCommand('workbench commit');
+  await submitCommand('workbench begin owner user.documents');
+  await submitCommand('workbench panel put user.reference kind document buffer active access readonly');
+  await submitCommand('workbench panel place user.reference right fallback below,tab mincols 10');
+  await submitCommand('workbench commit');
   await waitFor(() => evaluate("!!document.querySelector('.named-document-toggle[data-panel-id=\"user.reference\"]')"), 'native DOCUMENT catalog publication');
   await evaluate("document.querySelector('#the-command').focus();document.querySelector('.named-document-toggle').click()");
   await waitFor(() => evaluate("document.querySelector('.named-document-output')?.textContent.includes('Zalpha beta gamma')"), 'native DOCUMENT copied bytes');
@@ -618,12 +647,12 @@ try {
   await evaluate(`window.__theSockets[0].send(JSON.stringify({type:'workbench',version:1,operation:'document.list',panel:'user.reference',expectGeneration:${JSON.stringify(copiedDocument.panelGeneration)},expectRevision:${JSON.stringify(copiedDocument.documentRevision)},line:1,offset:0,records:8,bytes:8192}))`);
   await waitFor(() => evaluate(`window.__workbenchResults.slice(${staleDocumentResults}).some(result=>result.code==='stale-revision')`), 'native stale DOCUMENT revision refusal');
   console.log('PASS native browser DOCUMENT: bounded raw/display copy, read-only input, RETURN, immutable binding and stale revision');
-  await navigationCommand('workbench begin owner user.forms');
-  await navigationCommand('workbench form put user.person');
-  await navigationCommand('workbench field put user.person name label "Name" value "Guest" access edit maxcells 40');
-  await navigationCommand('workbench field put user.person locked label "Protected" value "safe <img>" access readonly maxcells 40');
-  await navigationCommand('workbench panel put user.personpane kind fields form user.person');
-  await navigationCommand('workbench commit');
+  await submitCommand('workbench begin owner user.forms');
+  await submitCommand('workbench form put user.person');
+  await submitCommand('workbench field put user.person name label "Name" value "Guest" access edit maxcells 40');
+  await submitCommand('workbench field put user.person locked label "Protected" value "safe <img>" access readonly maxcells 40');
+  await submitCommand('workbench panel put user.personpane kind fields form user.person');
+  await submitCommand('workbench commit');
   await waitFor(() => evaluate("!!document.querySelector('.named-form-toggle')"), 'native FORM catalog');
   const formEditorBefore = await evaluate("JSON.stringify({buffer:window.__snapshot.buffer,focus:window.__snapshot.focus,history:window.__snapshot.history})");
   await evaluate("document.querySelector('#the-command').focus();document.querySelector('.named-form-toggle').click()");

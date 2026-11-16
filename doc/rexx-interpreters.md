@@ -110,10 +110,18 @@ the myfile.rexx
 In Windows PowerShell, after installing a matching Windows x64 ooRexx:
 
 ```powershell
+$ooRexxBin = 'C:\path\to\ooRexx\bin'
+$env:PATH = "$ooRexxBin;$env:PATH"
 $env:THE_REXX_INTERPRETER = 'OOREXX'
-$env:THE_OOREXX_LIBRARY = 'C:\path\to\ooRexx\rexx.dll'
+$env:THE_OOREXX_LIBRARY = "$ooRexxBin\rexx.dll"
+$env:THE_OOREXX_API_LIBRARY = "$ooRexxBin\rexxapi.dll"
 & "$env:LOCALAPPDATA\Programs\THE-cREXX\bin\crxthe.cmd" myfile.rexx
 ```
+
+The selected ooRexx `bin` directory must be on this process's `PATH`, so its
+runtime support files and `rxapi.exe` are found. The PowerShell assignment
+above affects only that shell and its children; it does not change Windows
+user or system environment settings.
 
 The selected `rexx` library and its companion `rexxapi` library must load in
 the current process. By default THE looks beside `THE_OOREXX_LIBRARY` and then

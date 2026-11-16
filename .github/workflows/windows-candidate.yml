@@ -99,6 +99,10 @@ jobs:
           $runtime = @(Get-ChildItem build-parser -Recurse -Filter '*crexxsaa.dll')
           if ($runtime.Count -ne 1) { throw 'Expected exactly one rebuilt cREXX host runtime' }
           Copy-Item $runtime[0].FullName "$crexx/bin/crexxsaa.dll" -Force
+          New-Item -ItemType Directory -Force "$crexx/bin/messages" | Out-Null
+          foreach ($language in @('en_US','en_GB','de_DE','nl_NL')) {
+            Copy-Item ".ci-deps/crexx/messages/diagnostics.$language.msg" "$crexx/bin/messages/diagnostics.$language.msg" -Force -ErrorAction Stop
+          }
           foreach ($dll in @('libgcc_s_seh-1.dll','libwinpthread-1.dll','libstdc++-6.dll','libcrypto-3-x64.dll','libssl-3-x64.dll')) {
             Copy-Item "$env:THE_CI_UCRT/bin/$dll" "$crexx/bin/" -ErrorAction Stop
           }

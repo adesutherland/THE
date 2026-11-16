@@ -8,21 +8,21 @@ import sys
 import tempfile
 
 binary = Path(sys.argv[1]).resolve()
-with tempfile.TemporaryDirectory(prefix="THE LLM forms ") as directory:
+with tempfile.TemporaryDirectory(prefix="THE LLM forms ") as directory, tempfile.TemporaryFile() as stderr_capture:
     root = Path(directory)
     sample = root / "source.txt"
     original = b"alpha\nbeta\n"
     sample.write_bytes(original)
     env = dict(os.environ, THE_HOME_DIR=str(binary.parent / "release"), THE_DRIVER_PATH=str(binary.parent))
     process = subprocess.Popen([str(binary), "--driver", "llm", "-n", str(sample)],
-        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8", env=env)
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=stderr_capture, text=True, encoding="utf-8", env=env)
 
     def send(text):
         process.stdin.write(text + "\n")
         process.stdin.flush()
         while True:
             line = process.stdout.readline()
-            assert line, (text, process.poll(), process.stderr.read())
+            assert line, (text, process.poll())
             if line.startswith("{"):
                 return json.loads(line)
 
@@ -90,9 +90,22 @@ with tempfile.TemporaryDirectory(prefix="THE LLM forms ") as directory:
         assert sample.read_bytes() == original
         send("quit")
         process.wait(timeout=10)
-        assert process.returncode == 0, process.stderr.read()
+        assert process.returncode == 0, process.returncode
     finally:
-        if process.poll() is None:
-            process.kill()
-            process.wait(timeout=5)
+        failed = sys.exc_info()[0] is not None
+        try:
+            if process.poll() is None:
+                process.kill()
+                process.wait(timeout=5)
+        finally:
+            # Query output may exceed a Windows pipe's capacity. Preserve the
+            # captured diagnostics after the editor stops, including failures.
+            if failed or sys.exc_info()[0] is not None or process.returncode:
+                stderr_capture.seek(0)
+                sys.stderr.write(stderr_capture.read().decode("utf-8", errors="replace"))
+            for stream in (process.stdin, process.stdout):
+                try:
+                    stream.close()
+                except OSError:
+                    pass
 print("typed LLM forms: SET/Submit/Cancel, Unicode, protection, bounds, stale tokens and editor preservation passed")

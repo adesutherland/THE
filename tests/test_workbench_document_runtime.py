@@ -9,7 +9,7 @@ import tempfile
 
 binary = Path(sys.argv[1]).resolve()
 engine = sys.argv[2] if len(sys.argv) > 2 else 'CREXX'
-with tempfile.TemporaryDirectory(prefix='THE document ') as directory:
+with tempfile.TemporaryDirectory(prefix='THE document ') as directory, tempfile.TemporaryFile() as stderr_capture:
     root = Path(directory)
     sample, anchor = root / 'sample.txt', root / 'anchor.txt'
     original = b'alpha\nbeta\n'
@@ -18,7 +18,7 @@ with tempfile.TemporaryDirectory(prefix='THE document ') as directory:
     env = dict(os.environ, THE_REXX_INTERPRETER=engine,
                THE_CREXX_CACHE_DIR=str(root / 'cache'), THE_TOOL_CONFIG_DIR=str(root / 'tools'))
     process = subprocess.Popen([str(binary), '--driver', 'llm', '-n', str(sample)],
-                               stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                               stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=stderr_capture,
                                text=True, encoding='utf-8', env=env)
 
     def send(command):
@@ -26,7 +26,7 @@ with tempfile.TemporaryDirectory(prefix='THE document ') as directory:
         process.stdin.flush()
         while True:
             line = process.stdout.readline()
-            assert line, (command, process.poll(), process.stderr.read())
+            assert line, (command, process.poll())
             if line.startswith('{'):
                 return json.loads(line)
 
@@ -140,14 +140,27 @@ with tempfile.TemporaryDirectory(prefix='THE document ') as directory:
         command('workbench abort')
         send('quit')
         process.wait(timeout=10)
-        assert process.returncode == 0, process.stderr.read()
+        assert process.returncode == 0, process.returncode
     finally:
-        if process.poll() is None:
-            try:
-                process.stdin.write('quit\n')
-                process.stdin.flush()
-                process.wait(timeout=2)
-            except (BrokenPipeError, subprocess.TimeoutExpired):
-                process.kill()
-                process.wait(timeout=5)
+        failed = sys.exc_info()[0] is not None
+        try:
+            if process.poll() is None:
+                try:
+                    process.stdin.write('quit\n')
+                    process.stdin.flush()
+                    process.wait(timeout=2)
+                except (OSError, subprocess.TimeoutExpired):
+                    process.kill()
+                    process.wait(timeout=5)
+        finally:
+            # Query messages can exceed a Windows pipe's capacity. Capture to
+            # disk during the dialogue, then preserve diagnostics on failure.
+            if failed or sys.exc_info()[0] is not None or process.returncode:
+                stderr_capture.seek(0)
+                sys.stderr.write(stderr_capture.read().decode('utf-8', errors='replace'))
+            for stream in (process.stdin, process.stdout):
+                try:
+                    stream.close()
+                except OSError:
+                    pass
 print('workbench DOCUMENT real-editor checks passed:', engine)

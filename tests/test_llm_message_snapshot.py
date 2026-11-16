@@ -14,7 +14,7 @@ binary = Path(sys.argv[1]).resolve()
 with tempfile.TemporaryDirectory(prefix='CRXTHE message snapshot ') as temporary:
     root = Path(temporary)
     sample = root / 'sample.txt'
-    sample.write_text('alpha\n', encoding='utf-8')
+    sample.write_bytes(b'alpha\n')
     commands = [
         'look full compact',
         'command query number',

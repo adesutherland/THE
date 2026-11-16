@@ -19,7 +19,7 @@ with tempfile.TemporaryDirectory(prefix='THE workbench boundaries ') as temporar
     def run(commands):
         sample.write_bytes(original)
         result = subprocess.run([str(binary), '--driver', 'llm', '-n', str(sample)],
-                                input='command cursor goto 2 3\nlook full compact\n' + commands +
+                                input='command set eolout lf\ncommand cursor goto 2 3\nlook full compact\n' + commands +
                                       '\nlook full compact\nquit\n',
                                 cwd=root, text=True, encoding='utf-8', capture_output=True,
                                 env=env, timeout=30)

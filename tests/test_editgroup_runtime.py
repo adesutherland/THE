@@ -21,6 +21,7 @@ class Session:
         self.process = subprocess.Popen([str(binary), '--driver', 'llm', '-n', str(self.sample)],
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             text=True, encoding='utf-8', cwd=root, env=self.env)
+        self.command('set eolout lf')
 
     def send(self, text):
         self.process.stdin.write(text + '\n')

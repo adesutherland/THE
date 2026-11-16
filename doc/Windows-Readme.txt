@@ -109,10 +109,16 @@ OPTIONAL: ooRexx MACROS
 An ooRexx macro engine is available only in builds configured with its optional
 bridge. The standard CRXTHE package does not install ooRexx. With a matching
 Windows x64 ooRexx installed, select its DLL for this PowerShell session:
+  $ooRexxBin = 'C:\path\to\ooRexx\bin'
+  $env:PATH = "$ooRexxBin;$env:PATH"
   $env:THE_REXX_INTERPRETER = 'OOREXX'
-  $env:THE_OOREXX_LIBRARY = 'C:\path\to\ooRexx\rexx.dll'
-  $env:THE_OOREXX_API_LIBRARY = 'C:\path\to\ooRexx\rexxapi.dll'
+  $env:THE_OOREXX_LIBRARY = "$ooRexxBin\rexx.dll"
+  $env:THE_OOREXX_API_LIBRARY = "$ooRexxBin\rexxapi.dll"
   & "$env:LOCALAPPDATA\Programs\THE-cREXX\bin\crxthe.cmd" notes.txt
+
+The selected ooRexx bin directory must be on PATH for its support files and
+rxapi.exe. These settings affect only this PowerShell session and its child
+processes; they do not change saved Windows user/system environment variables.
 
 CRXTHE uses its Classic Rexx default profile for ooRexx. If the optional bridge
 or selected DLL is unavailable, CRXTHE reports the error and disables macros;

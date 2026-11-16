@@ -23,7 +23,8 @@ with tempfile.TemporaryDirectory(prefix='THE workbench ') as temporary:
             sample.write_bytes(original)
         argv = [str(binary), '--driver', 'llm']
         argv += ['-p', str(profile)] if profile else ['-n']
-        result = subprocess.run(argv + [str(sample)], input=commands + '\nquit\n',
+        result = subprocess.run(argv + [str(sample)],
+                                input='command set eolout lf\n' + commands + '\nquit\n',
                                 text=True, encoding='utf-8', capture_output=True,
                                 env=env, timeout=45)
         assert result.returncode == 0, (result.returncode, result.stderr)

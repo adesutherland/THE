@@ -35,6 +35,8 @@ for relative, expected in manifest['files_sha256'].items():
     assert hashlib.sha256((prefix / relative).read_bytes()).hexdigest() == expected, relative
 assert manifest['regina_bundled'] is False
 assert not any('regina.dll' in name.lower() for name in manifest['files_sha256'])
+bundled_crexx = prefix / 'libexec/the/crexx'
+assert (bundled_crexx / 'messages/diagnostics.en_US.msg').is_file(), 'Bundled compiler messages missing'
 
 
 def check_installed_web(command, env):
@@ -101,6 +103,18 @@ with tempfile.TemporaryDirectory(prefix='THE package smoke ') as tmp:
             env['THE_REGINA_LIBRARY'] = str(args.regina.resolve())
         else:
             env['THE_REGINA_LIBRARY'] = str(Path(tmp) / 'absent-regina')
+        if engine == 'CREXX':
+            # Exercise the relocated compiler itself, outside its SDK/source
+            # tree, with the same isolated environment as the installed editor.
+            diagnostic_source = Path(tmp) / 'catalogue-quote.rexx'
+            diagnostic_source.write_text("options levelc\nsay 'unterminated\n", encoding='utf-8')
+            compiler = bundled_crexx / ('rxc.exe' if os.name == 'nt' else 'rxc')
+            diagnostic = subprocess.run(
+                [str(compiler), '--diagnostic-locale', 'en_US', str(diagnostic_source)],
+                cwd=tmp, env=env, text=True, encoding='utf-8', capture_output=True, timeout=30)
+            explanation = diagnostic.stdout + diagnostic.stderr
+            assert diagnostic.returncode != 0 and 'RXC-LC-6.2' in explanation and 'Unmatched single quote' in explanation, (
+                diagnostic.returncode, explanation)
         macro = Path(tmp) / 'package-macro.the'
         macro.write_text(('options levelb\n' if engine == 'CREXX' else '') +
                          "address THE\n'emsg PACKAGE_MACRO_OK';\n")

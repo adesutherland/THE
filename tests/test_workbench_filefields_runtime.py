@@ -20,17 +20,22 @@ class Session:
         self.sample = root / 'fields.txt'
         self.sample.write_bytes(original)
         arguments = [str(binary), '--driver', 'llm'] + (['-p', str(profile)] if profile else ['-n']) + [str(self.sample)]
-        self.process = subprocess.Popen(arguments,
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-            encoding='utf-8', cwd=root, env=dict(os.environ, THE_REXX_INTERPRETER=engine,
-                THE_CREXX_CACHE_DIR=str(root / 'cache'), THE_TOOL_CONFIG_DIR=str(root / 'tools')))
+        self.stderr_capture = tempfile.TemporaryFile()
+        try:
+            self.process = subprocess.Popen(arguments,
+                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=self.stderr_capture, text=True,
+                encoding='utf-8', cwd=root, env=dict(os.environ, THE_REXX_INTERPRETER=engine,
+                    THE_CREXX_CACHE_DIR=str(root / 'cache'), THE_TOOL_CONFIG_DIR=str(root / 'tools')))
+        except BaseException:
+            self.stderr_capture.close()
+            raise
 
     def send(self, text):
         self.process.stdin.write(text + '\n')
         self.process.stdin.flush()
         while True:
             line = self.process.stdout.readline()
-            assert line, (text, self.process.poll(), self.process.stderr.read())
+            assert line, (text, self.process.poll())
             if line.startswith('{'):
                 return json.loads(line)
 
@@ -68,10 +73,31 @@ class Session:
         return [bytes.fromhex(record['bytesHex']).decode() for record in page['records']]
 
     def close(self):
-        if self.process.poll() is None:
-            self.send('quit')
-            self.process.wait(timeout=10)
-        assert self.process.returncode == 0, self.process.stderr.read()
+        failed = sys.exc_info()[0] is not None
+        try:
+            if self.process.poll() is None:
+                try:
+                    self.process.stdin.write('quit\n')
+                    self.process.stdin.flush()
+                    self.process.wait(timeout=2 if failed else 10)
+                except (OSError, subprocess.TimeoutExpired):
+                    self.process.kill()
+                    self.process.wait(timeout=5)
+                    if not failed:
+                        raise
+            if not failed:
+                assert self.process.returncode == 0, self.process.returncode
+        finally:
+            # Read only after the editor stops, avoiding both pipe backpressure
+            # and seeking the inherited file descriptor while it is writing.
+            if failed or sys.exc_info()[0] is not None or self.process.returncode:
+                self.stderr_capture.seek(0)
+                sys.stderr.write(self.stderr_capture.read().decode('utf-8', errors='replace'))
+            for stream in (self.process.stdin, self.process.stdout, self.stderr_capture):
+                try:
+                    stream.close()
+                except OSError:
+                    pass
 
 
 with tempfile.TemporaryDirectory(prefix='THE file fields ') as directory:

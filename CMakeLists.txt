@@ -917,6 +917,20 @@ if(THE_BUNDLE_CREXX)
     if(NOT THE_USE_REGINA)
         message(FATAL_ERROR "Bundled releases require Regina headers for optional runtime support")
     endif()
+    # Diagnostic catalogues must come from the selected compiler/runtime SDK.
+    # Never fill a bundled payload from an unrelated source tree or system SDK.
+    get_filename_component(THE_CREXX_RXC_REAL "${CREXX_RXC_EXECUTABLE}" REALPATH)
+    get_filename_component(THE_CREXX_RXC_DIR "${THE_CREXX_RXC_REAL}" DIRECTORY)
+    find_path(CREXX_MESSAGES_DIR NAMES diagnostics.en_US.msg
+        HINTS "${THE_CREXX_RXC_DIR}/messages" "${CREXX_IMPORT_DIR}/messages"
+        NO_DEFAULT_PATH)
+    if(NOT EXISTS "${CREXX_MESSAGES_DIR}/diagnostics.en_US.msg")
+        message(FATAL_ERROR
+            "Bundled releases require diagnostics.en_US.msg from the selected cREXX SDK. "
+            "Set CREXX_MESSAGES_DIR to that SDK's matching messages directory.")
+    endif()
+    file(GLOB THE_CREXX_MESSAGE_CATALOGUES CONFIGURE_DEPENDS "${CREXX_MESSAGES_DIR}/*.msg")
+    message(STATUS "Bundled cREXX message catalogues: ${CREXX_MESSAGES_DIR}")
     find_program(CREXX_RXVM_EXECUTABLE NAMES rxvm HINTS "${CREXX_IMPORT_DIR}" REQUIRED)
     find_file(CREXX_RXCEXITS_RXBIN NAMES rxcexits.rxbin HINTS "${CREXX_IMPORT_DIR}" REQUIRED)
     find_file(CREXX_LICENSE_FILE NAMES LICENSE HINTS
@@ -952,6 +966,7 @@ if(THE_BUNDLE_CREXX)
         RENAME "rxvm${CMAKE_EXECUTABLE_SUFFIX}")
     install(FILES "${CREXXSAA_RUNTIME_LIBRARY}" "${CREXX_LIBRARY_RXBIN}" "${CREXX_RXCEXITS_RXBIN}"
         DESTINATION libexec/the/crexx)
+    install(FILES ${THE_CREXX_MESSAGE_CATALOGUES} DESTINATION libexec/the/crexx/messages)
     if(WIN32)
         # Keep the qualified SDK's runtime cohort beside its private tools.
         file(GLOB THE_CREXX_COMPANION_DLLS "${CREXX_IMPORT_DIR}/*.dll")
@@ -2019,3 +2034,18 @@ if(THE_USE_CREXX)
         ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}"
     )
 endif()
+
+# C unit fixtures use assert() both for checks and for setup. Keep assertions
+# active in every top-level test executable, including Release configurations;
+# product targets retain their normal NDEBUG and optimization settings.
+get_property(THE_TOP_LEVEL_TARGETS DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+foreach(THE_TEST_TARGET IN LISTS THE_TOP_LEVEL_TARGETS)
+    get_target_property(THE_TEST_TARGET_TYPE ${THE_TEST_TARGET} TYPE)
+    if(THE_TEST_TARGET MATCHES "^test_" AND THE_TEST_TARGET_TYPE STREQUAL "EXECUTABLE")
+        if(MSVC OR CMAKE_C_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+            target_compile_options(${THE_TEST_TARGET} PRIVATE /UNDEBUG)
+        else()
+            target_compile_options(${THE_TEST_TARGET} PRIVATE -UNDEBUG)
+        endif()
+    endif()
+endforeach()

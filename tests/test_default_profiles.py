@@ -21,7 +21,12 @@ with tempfile.TemporaryDirectory(prefix='CRXTHE first launch ') as temporary:
         env['THE_CREXX_CACHE_DIR'] = str(root/'macro-cache')
     if os.name == 'nt':
         system=Path(env.get('SystemRoot') or env['SYSTEMROOT'])
-        env['PATH']=str(system/'System32')+os.pathsep+str(system)
+        path_dirs=[str(system/'System32'),str(system)]
+        if engine == 'OOREXX':
+            oorexx_library=Path(env.get('THE_OOREXX_LIBRARY',''))
+            assert oorexx_library.is_absolute() and oorexx_library.is_file(), oorexx_library
+            path_dirs.insert(0,str(oorexx_library.parent))
+        env['PATH']=os.pathsep.join(path_dirs)
     else:
         env['PATH']='/usr/bin:/bin'
 
