@@ -401,8 +401,16 @@ static int frontend_policy_path_is_open(const char *path)
          length = snprintf(candidate, sizeof(candidate), "%s",
                             (char *)file->actualfname);
       else continue;
-      if (length >= 0 && (size_t)length < sizeof(candidate)
-      && strcmp(candidate, path) == 0) return 1;
+      if (length < 0 || (size_t)length >= sizeof(candidate)) continue;
+#if defined(_WIN32)
+      /* Canonical policy paths use '/', while the editor ring uses '\\'. */
+      {
+         char *separator;
+         for (separator = candidate; *separator; separator++)
+            if (*separator == '\\') *separator = '/';
+      }
+#endif
+      if (strcmp(candidate, path) == 0) return 1;
    }
    return 0;
 }

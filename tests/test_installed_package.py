@@ -93,6 +93,8 @@ with tempfile.TemporaryDirectory(prefix='THE package smoke ') as tmp:
         env = {k: v for k, v in os.environ.items() if not k.startswith(('THE_', 'CREXX'))}
         env['THE_REXX_INTERPRETER'] = engine
         env['HOME'] = tmp
+        if os.name == 'nt':
+            env['LOCALAPPDATA'] = str(Path(tmp) / 'localappdata')
         env['TERM'] = ''
         if os.name == 'nt':
             system = Path(env.get('SystemRoot') or env['SYSTEMROOT'])

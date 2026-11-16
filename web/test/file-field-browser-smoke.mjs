@@ -13,7 +13,7 @@ const sample = join(directory, "fields.txt"), profile = join(directory, "profile
 const source = Array.from({ length: 12 }, (_, index) => `!pName ${index + 1}: !uGuest   !p END ${"protected ".repeat(15)}`).join("\n") + "\n";
 await writeFile(sample, source);
 const stock = new URL(`../../web-profile${process.env.THE_REXX_INTERPRETER === "REGINA" ? "-regina" : ""}.the`, import.meta.url);
-await writeFile(profile, await readFile(stock, "utf8") + "\n'set ctlchar ! escape';\n'set ctlchar p protect white';\n'set ctlchar u noprotect green';\n'set filectlchar on';\n");
+await writeFile(profile, await readFile(stock, "utf8") + "\n'set eolout lf';\n'set ctlchar ! escape';\n'set ctlchar p protect white';\n'set ctlchar u noprotect green';\n'set filectlchar on';\n");
 let errors = "", output = "";
 const server = spawn(binary, ["--driver", "web", "-p", profile, sample], { env: { ...process.env,
   THE_HOME_DIR: process.env.THE_HOME_DIR || join(dirname(binary), "release"), THE_REXX_INTERPRETER: process.env.THE_REXX_INTERPRETER || "CREXX",
@@ -77,7 +77,6 @@ try {
   await cdp("Emulation.setDeviceMetricsOverride", { width: 1280, height: 800, deviceScaleFactor: 1, mobile: false });
   await cdp("Page.navigate", { url });
   await until(() => evaluate("document.querySelector('.connection')?.textContent.trim()==='online' && window.__snapshots.length>0"), "online editor");
-  await command("set eolout lf");
   for (const text of ["workbench begin owner user.fields", "workbench panel put user.fields.pane kind fields buffer active markup ctlchar access staged", "workbench panel place user.fields.pane right fallback below,tab mincols 10", "workbench commit"]) await command(text);
   await until(() => evaluate("!!document.querySelector('.named-file-fields-toggle')"), "file-field declaration");
   await evaluate("document.querySelector('#the-command').focus();document.querySelector('.named-file-fields-toggle').click()");

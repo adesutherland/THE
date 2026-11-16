@@ -60,7 +60,7 @@ class Session:
         return result
 
     def setup(self):
-        for command in ['set linend off', 'set ctlchar ! escape', 'set ctlchar p protect white',
+        for command in ['set eolout lf', 'set linend off', 'set ctlchar ! escape', 'set ctlchar p protect white',
                         'set ctlchar u noprotect green', 'set filectlchar on']:
             self.command(command)
         self.command('workbench begin owner public.fields')

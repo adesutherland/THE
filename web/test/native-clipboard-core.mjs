@@ -10,7 +10,7 @@ import WebSocket from 'ws';
 const [binary,assets]=process.argv.slice(2).map(value=>resolve(value));
 const directory=await mkdtemp(join(tmpdir(),'the-native-clipboard-'));
 const source=join(directory,'sample.txt');
-const original='alpha\nbeta\n';
+const original=Buffer.from(['alpha','beta',''].join(process.platform==='win32'?'\r\n':'\n'));
 await writeFile(source,original);
 const server=spawn(binary,['--driver','web','-n',source],{cwd:directory,
   env:{...process.env,THE_REXX_INTERPRETER:'NONE',THE_WEB_ROOT:assets,
@@ -45,9 +45,6 @@ try{
     socket.send(json);
     return until(()=>messages.find(message=>message.type==='clipboard'&&message.requestId===requestId),'clipboard '+operation);
   }
-  const eolId=++serial;
-  socket.send(JSON.stringify({id:eolId,type:'command',command:'set eolout lf'}));
-  await until(()=>messages.find(message=>message.type==='ack'&&message.id===eolId),'set LF output');
   const id=++serial;
   socket.send(JSON.stringify({id,type:'command',command:'cursor goto 1 1'}));
   await until(()=>messages.find(message=>message.screen_rows&&message.focus?.line===1),'file caret');
@@ -59,7 +56,7 @@ try{
   assert.equal((await clipboard('cut',{token:copied.token})).rc,0);
   assert.equal((await clipboard('undo')).rc,0);
   await action('file.save');
-  await until(async()=>await readFile(source,'utf8')===original,'Undo exact saved bytes');
+  await until(async()=>(await readFile(source)).equals(original),'Undo exact saved bytes');
   const captured=await clipboard('capture');
   assert.equal(captured.rc,0);
   const large=Array.from({length:1300},(_,i)=>`${i}: 界Ω ${'x'.repeat(90)}`).join('\n');
@@ -84,7 +81,7 @@ try{
   await clipboard('capture');
   assert.equal((await clipboard('cut',{token:stale.token})).code,'stale-revision');
   await action('file.save');
-  await until(async()=>await readFile(source,'utf8')===original,'refused requests preserve exact bytes');
+  await until(async()=>(await readFile(source)).equals(original),'refused requests preserve exact bytes');
   socket.send(JSON.stringify({type:'action',action:'file.close',id:++serial}));
   await until(()=>server.exitCode!==null,'native web close');
   assert.equal(server.exitCode,0,errors);
