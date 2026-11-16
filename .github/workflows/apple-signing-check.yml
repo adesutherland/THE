@@ -8,12 +8,17 @@ on:
         type: choice
         options: [macos-15, macos-15-intel]
         default: macos-15
+      account_diagnostics:
+        description: Read-only notarization account check with credential-free HTTP diagnostics
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
 jobs:
   check:
+    if: ${{ !inputs.account_diagnostics }}
     uses: adesutherland/z-pdos/.github/workflows/apple-signing-check.yml@4ab3e1d95264dde1bb46aff933d0699dc08ca211
     with:
       runner: ${{ inputs.runner }}
@@ -28,3 +33,43 @@ jobs:
       APPLE_ID: ${{ secrets.APPLE_ID }}
       APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+  account:
+    if: ${{ inputs.account_diagnostics && github.ref == 'refs/heads/main' }}
+    runs-on: ${{ inputs.runner }}
+    timeout-minutes: 5
+    steps:
+      - name: Read notarization account status without disclosing credentials or submission history
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          python3 - <<'PY'
+          import os,re,subprocess,sys
+          try:
+              result=subprocess.run(['xcrun','notarytool','history',
+                  '--apple-id',os.environ['APPLE_ID'],
+                  '--password',os.environ['APPLE_APP_SPECIFIC_PASSWORD'],
+                  '--team-id',os.environ['APPLE_TEAM_ID'],'--output-format','json'],
+                  capture_output=True,text=True,timeout=90)
+          except subprocess.TimeoutExpired:
+              sys.exit('Apple notarization account request timed out.')
+          except OSError:
+              sys.exit('Unable to start the Apple notarization account check.')
+          if result.returncode==0:
+              print('PASS: Apple allowed read-only notarization history access; history withheld.')
+              sys.exit(0)
+          # Never print the command, raw output, history or environment values.
+          response=(result.stdout+'\n'+result.stderr).lower()
+          codes=sorted(set(re.findall(r'http(?:\s+status\s+code)?\s*:\s*(\d{3})',response)))
+          print('Apple notarization account check failed; HTTP status: '+(', '.join(codes) or 'unavailable'))
+          if 'agreement' in response and ('missing' in response or 'expired' in response):
+              print('Apple reports a required agreement is missing or expired.')
+          elif '401' in codes or 'invalid credentials' in response or 'unable to authenticate' in response:
+              print('Apple rejected the notarization account credentials.')
+          elif '403' in codes:
+              print('Apple refused access for this account and team.')
+          else:
+              print('No recognized account failure category; raw diagnostics withheld.')
+          sys.exit(1)
+          PY
