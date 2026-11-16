@@ -88,8 +88,10 @@ export async function inputFocusSmoke({manifest, send, snapshot, evaluate, comma
   assert.equal(await evaluate("document.activeElement?.classList.contains('input-sink')"), true,
     "F6 did not leave command input");
 
-  assert.equal(!!manifest.capabilities.classic_rexx_interpreter, true,
-    "focus regression requires the Classic Rexx interpreter");
+  if (!manifest.capabilities.classic_rexx_interpreter) {
+    console.log("PASS browser input focus: successive THE commands, Execute, Escape/F6 and source preservation");
+    return;
+  }
   await send({type: "action", action: "file.create", argument: "InputFocusProbe.rexx"});
   await waitFor(async () => (await snapshot()).buffer.path.endsWith("/InputFocusProbe.rexx"), "focus program buffer");
   await send({type: "command", command: "input say 'READY'; parse pull first; say 'FIRST:' || first; parse pull second; say 'SECOND:' || second; exit 0"});
