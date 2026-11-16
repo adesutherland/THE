@@ -336,8 +336,8 @@ let nextId = 0;
 const pending = new Map();
 const exceptions = [];
 const sleep = (ms) => new Promise((accept) => setTimeout(accept, ms));
-async function wait(check, label) {
-  const deadline = Date.now() + 10000;
+async function wait(check, label, timeout = 10000) {
+  const deadline = Date.now() + timeout;
   while (Date.now() < deadline) { const result = await check(); if (result) return result; await sleep(30); }
   throw new Error("Timed out: " + label);
 }
@@ -465,7 +465,11 @@ async function settingsLayoutSmoke() {
 }
 
 try {
-  const port = await wait(async () => { try { return +(await readFile(join(profile, "DevToolsActivePort"), "utf8")).split("\n")[0]; } catch { return false; } }, "Chrome port");
+  const port = await wait(async () => {
+    if (chrome.exitCode !== null) throw new Error(`Chrome exited with ${chrome.exitCode}`);
+    try { return +(await readFile(join(profile, "DevToolsActivePort"), "utf8")).split("\n")[0]; }
+    catch (error) { if (error.code === "ENOENT") return false; throw error; }
+  }, "Chrome port", 30000);
   const target = await (await fetch(`http://127.0.0.1:${port}/json/new?about:blank`, { method: "PUT" })).json();
   socket = new WebSocket(target.webSocketDebuggerUrl);
   await new Promise((accept) => socket.once("open", accept));
