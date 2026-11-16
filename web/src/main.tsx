@@ -1379,7 +1379,7 @@ function App() {
             {openMenu === "about" ? <>
               <button type="button" onClick={() => setOpenMenu("application")}>← Back to Menu</button>
               <section aria-labelledby="about-title">
-                <h2 id="about-title">CRXTHE 0.10.1</h2>
+                <h2 id="about-title">CRXTHE 0.10.dev</h2>
                 <p>A programmable editor based on THE, with line prefixes, editor commands and Rexx macros.</p>
                 <p>Use the THE command field for editor commands. The Program console has separate input and output for the program you run.</p>
                 <p>Help describes editor commands. Key definitions shows the active profile’s bindings.</p>

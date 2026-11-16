@@ -78,6 +78,11 @@ $Id: thedefs.h,v 1.22 2022/10/23 21:57:53 mark Exp $
 # define PDCURSES_MOUSE_ENABLED 1
 #endif
 
+/* Native Windows builds select the PDCurses wincon backend. */
+#if defined(WIN32) && defined(USE_PDCURSES)
+# define PDCURSES_MOUSE_ENABLED 1
+#endif
+
 #if defined(USE_VTCURSES)
 # define CAN_RESIZE 1
 #endif

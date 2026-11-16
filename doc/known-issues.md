@@ -42,6 +42,7 @@ do not close these design gaps.
 
 | Surface | Current limitation | Current route |
 | --- | --- | --- |
+| Windows console mouse in 0.10.1 | The native Windows PDCurses build omitted mouse support. In a Windows test, the initial console mode was `0xC8` (`ENABLE_MOUSE_INPUT` off, QuickEdit on), and clicking did not move the cursor. `SET MOUSE ON` cannot restore support compiled out of the build. | Use keyboard navigation in 0.10.1. A source fix candidate is under qualification; no patched release is available yet. |
 | Terminal Program console | At 80×24 the bottom dock can show only three output rows at once. | Focus the Program console and use PageUp/PageDown or Home/End for scrollback; expand the terminal for more visible output. |
 | Terminal file opening | Open/create prepares an `EDIT` command but has no file picker or path completion. | Type a path at the prompt, or use `DIRECTORY` to inspect files. |
 | GTK desktop | The unpackaged macOS executable appears as `the` in the system menu bar. App-bundle identity and native installer checks are separate from the GTK workflow. | Use the native Open/New chooser; build and profile actions are available in the contextual action row. |

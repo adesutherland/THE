@@ -1,8 +1,11 @@
-# CRXTHE 0.10.1
+# CRXTHE 0.10.dev
 
 **CRXTHE** is an independently maintained fork based on Mark Hessling's THE 4.0, with cREXX macros, optional Regina/ooRexx engines, Unicode editing and separate console, LLM and browser frontends.
 
 Please report CRXTHE defects to [this fork's issue tracker](https://github.com/adesutherland/THE/issues). The original THE attribution and license are retained; this fork's changes are maintained here.
+
+This source tree builds as `0.10.dev`. The latest published release is
+[CRXTHE 0.10.1](https://github.com/adesutherland/THE/releases/tag/v0.10.1).
 
 Windows users: start with [installation and first use](doc/Windows-Readme.txt).
 Prebuilt installers include cREXX; build tools are for source development only.
@@ -162,7 +165,7 @@ split a line, Shift-arrow selection and visible key hints. See the
 
 Use `crxthe file.txt` in a packaged installation (`crxthe.cmd` on Windows).
 The `the` launcher and `THE_*` configuration names remain compatible aliases.
-The version is **CRXTHE 0.10.1**, independently numbered from upstream THE 4.0.
+The current source version is **CRXTHE 0.10.dev**, independently numbered from upstream THE 4.0.
 Earlier 4.0 prereleases retain their own identity and behavior.
 
 ## Credits and licence

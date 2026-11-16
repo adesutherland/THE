@@ -3,8 +3,8 @@ cmake_minimum_required(VERSION 3.10)
 project(THE VERSION 0.10.1 LANGUAGES C)
 
 set(THE_PRODUCT_NAME "CRXTHE")
-# Keep project, runtime and package versions aligned for this release.
-set(THE_VERSION "${PROJECT_VERSION}")
+# Keep numeric project metadata for tools; identify source builds explicitly.
+set(THE_VERSION "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.dev")
 set(THE_VERSION_DATE "16-Nov-2026")
 
 option(THE_BUILD_WASM "Build the standalone browser WebAssembly editor" OFF)
@@ -232,6 +232,8 @@ set(HAVE_CURS_SET 1)
 set(HAVE_RAW 1)
 set(HAVE_CBREAK 1)
 if(WIN32)
+    # The supported native Windows curses backend is wincon PDCurses.
+    set(USE_PDCURSES 1)
     # PDCurses must restore its saved input mode after a shell command.
     # cmd.exe can leave the shared console in cooked mode, consuming Ctrl-S.
     set(HAVE_DEF_PROG_MODE 1)
@@ -1309,6 +1311,16 @@ if(WIN32 AND THE_PYTHON_EXECUTABLE)
             add_test(NAME test_windows_console_repaint_${profile_engine} COMMAND ${THE_PYTHON_EXECUTABLE}
                 ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_windows_console_repaint.py $<TARGET_FILE:the> ${profile_engine})
             set_tests_properties(test_windows_console_repaint_${profile_engine} PROPERTIES TIMEOUT 150
+                RESOURCE_LOCK the_native_console ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+        endif()
+    endforeach()
+    foreach(mouse_engine CREXX REGINA OOREXX)
+        if((mouse_engine STREQUAL "CREXX" AND THE_USE_CREXX) OR
+           (mouse_engine STREQUAL "REGINA" AND THE_USE_REGINA AND REGINA_LIBRARY) OR
+           (mouse_engine STREQUAL "OOREXX" AND THE_USE_OOREXX AND OOREXX_LIBRARY AND OOREXX_API_LIBRARY))
+            add_test(NAME test_windows_console_mouse_${mouse_engine} COMMAND ${THE_PYTHON_EXECUTABLE}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_windows_console_mouse.py $<TARGET_FILE:the> ${mouse_engine})
+            set_tests_properties(test_windows_console_mouse_${mouse_engine} PROPERTIES TIMEOUT 120
                 RESOURCE_LOCK the_native_console ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
         endif()
     endforeach()

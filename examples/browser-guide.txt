@@ -1,4 +1,4 @@
-Browser examples (0.10.1 preview)
+Browser examples (0.10.dev preview)
 ========================================
 
 Click Files, then select a bundled example. Its Run action appears above the

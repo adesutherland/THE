@@ -3700,7 +3700,7 @@ static int curses_driver_read_pdc_mouse_button(int *button, int *action,
    mouse_trace_message("pdc-raw",
                        "x=%d y=%d changed=%d moved=%d",
                        MOUSE_X_POS, MOUSE_Y_POS, A_BUTTON_CHANGED,
-                       MOUSE_MOVED);
+                       (Mouse_status.changes & PDC_MOUSE_MOVED));
    if (A_BUTTON_CHANGED)
    {
       if (BUTTON_CHANGED(1))
@@ -3727,7 +3727,7 @@ static int curses_driver_read_pdc_mouse_button(int *button, int *action,
          *modifier = CURSES_DRIVER_MOUSE_MODIFIER_ALT;
       else
          *modifier = CURSES_DRIVER_MOUSE_MODIFIER_NONE;
-      if (MOUSE_MOVED)
+      if (Mouse_status.changes & PDC_MOUSE_MOVED)
          *action = CURSES_DRIVER_MOUSE_BUTTON_MOVED;
       else
          *action = BUTTON_STATUS(*button) & BUTTON_ACTION_MASK;

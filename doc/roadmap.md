@@ -1,6 +1,6 @@
 # Roadmap
 
-The current version is `0.10.1`.
+The current source version is `0.10.dev`; the latest published release is `0.10.1`.
 This page contains outstanding work, not a release promise. Implemented
 behavior belongs in the [user and developer guides](README.md); defects and
 workarounds belong in [known issues](known-issues.md).
