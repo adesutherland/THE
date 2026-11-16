@@ -46,11 +46,22 @@ async function change(value) {
   await cdp("Input.insertText", { text: value });
   await until(() => evaluate(`document.querySelector(${JSON.stringify(input)})?.value.trimEnd()===${JSON.stringify(value)} && !document.querySelector(${JSON.stringify(input)}).disabled`), `field value ${value}`);
 }
-async function click(index) {
+async function click(index, operation) {
   // A field SET may have updated the input while the coordinator is still
-  // loading the next page. Wait for the action itself to be admitted.
-  await until(() => evaluate(`(() => {const button=document.querySelector('.file-field-controls button:nth-child(${index})');return !!button&&!button.disabled})()`), `file-field control ${index} ready`);
-  await evaluate(`document.querySelector('.file-field-controls button:nth-child(${index})').click()`);
+  // loading the next page. Check and click in one task, then never replay it.
+  let from = -1, sent;
+  await until(async () => {
+    const clicked = await evaluate(`(() => {const button=document.querySelector('.file-field-controls button:nth-child(${index})');if(!button||button.disabled)return -1;const from=window.__sent.length;button.click();return from})()`);
+    if (clicked < 0) return false;
+    from = clicked; return true;
+  }, `file-field control ${index} ready and clicked once`);
+  await until(async () => {
+    sent = await evaluate(`window.__sent.slice(${from}).find(message=>message.operation===${JSON.stringify(operation)})`);
+    return !!sent;
+  }, `${operation} request sent after click`);
+  assert.equal(await evaluate(`window.__sent.slice(${from}).filter(message=>message.operation===${JSON.stringify(operation)}).length`), 1, `${operation} must be sent once`);
+  assert.equal(typeof sent.requestId, "string");
+  return sent.requestId;
 }
 try {
   await until(() => /THE web UI: (\S+)/.test(output), "native web URL", 30000);
@@ -96,30 +107,30 @@ try {
   await until(() => evaluate(`document.querySelector('${input}').value.trimEnd()==='Gest' && document.querySelector('${input}').selectionStart===1`), "core Backspace shifts and pads");
   await change("界😀");
   assert.equal(await readFile(sample, "utf8"), source, "staging never writes source");
-  await click(1);
-  await until(() => evaluate("window.__messages.some(m=>m.operation==='result' && m.group && m.group!=='0' && m.code==='ok') && !document.querySelector('.file-field-editable input').disabled"), "atomic Apply receipt");
+  const applyRequest = await click(1, "filefield.apply");
+  await until(() => evaluate(`window.__messages.some(m=>m.operation==='result' && m.requestId===${JSON.stringify(applyRequest)} && m.group && m.group!=='0' && m.code==='ok') && !document.querySelector('.file-field-editable input').disabled`), "atomic Apply receipt");
   assert.equal(await readFile(sample, "utf8"), source, "Apply leaves Save explicit");
   assert.equal(await evaluate("window.__snapshots.at(-1).buffer.dirty"), 1);
   await change("draft");
-  await click(2);
+  await click(2, "filefield.cancel");
   await until(() => evaluate("document.querySelector('.file-field-status').textContent.includes('Projection closed')"), "Cancel releases projection");
   assert.equal(await evaluate(`document.querySelector('${input}').value.trimEnd()`), "界😀");
-  await click(4);
+  await click(4, "filefield.reload");
   await until(() => evaluate(`!document.querySelector('${input}').disabled && document.querySelector('${input}').value.trimEnd()==='界😀'`), "Reload recaptures applied buffer");
   await change("stale");
   await command("cursor goto 1 1");
-  await click(1);
+  await click(1, "filefield.apply");
   await until(() => evaluate("document.querySelector('.file-field-status').textContent.includes('stale-revision')"), "conservative write token rejects stale Apply");
   assert.equal(await evaluate(`document.querySelector('${input}').value.trimEnd()`), "stale", "stale draft remains visible");
   assert.equal(await readFile(sample, "utf8"), source);
-  await click(4);
+  await click(4, "filefield.reload");
   await until(() => evaluate(`!document.querySelector('${input}').disabled && document.querySelector('${input}').value.trimEnd()==='界😀'`), "explicit Reload discards stale draft");
   for (const [width, placement] of [[1280, "right"], [768, "below"], [390, "tab"]]) {
     await cdp("Emulation.setDeviceMetricsOverride", { width, height: 800, deviceScaleFactor: 1, mobile: false });
     await until(() => evaluate(`window.__sent.some(m=>m.operation==='panel.layout'&&m.placement==='${placement}')`), `${placement} layout`);
     assert.equal(await evaluate("(() => {const n=document.querySelector('.file-field-grid');return n.scrollWidth>n.clientWidth&&document.documentElement.scrollWidth<=innerWidth})()"), true);
   }
-  await click(3);
+  await click(3, "panel.return");
   await until(() => evaluate("document.activeElement?.id==='the-command'"), "Return restores command origin");
   await evaluate("window.__socket.send(JSON.stringify({type:'action',action:'file.save'}))");
   const expected = source.replace("!uGuest   !p", "!u界😀    !p");
