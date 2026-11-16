@@ -104,6 +104,22 @@ shell, remove the engine choice and choose the bundled runtime explicitly:
   Remove-Item Env:THE_REXX_INTERPRETER -ErrorAction SilentlyContinue
   $env:THE_CREXX_RUNTIME = 'BUNDLED'
 
+OPTIONAL: ooRexx MACROS
+
+An ooRexx macro engine is available only in builds configured with its optional
+bridge. The standard CRXTHE package does not install ooRexx. With a matching
+Windows x64 ooRexx installed, select its DLL for this PowerShell session:
+  $env:THE_REXX_INTERPRETER = 'OOREXX'
+  $env:THE_OOREXX_LIBRARY = 'C:\path\to\ooRexx\rexx.dll'
+  $env:THE_OOREXX_API_LIBRARY = 'C:\path\to\ooRexx\rexxapi.dll'
+  & "$env:LOCALAPPDATA\Programs\THE-cREXX\bin\crxthe.cmd" notes.txt
+
+CRXTHE uses its Classic Rexx default profile for ooRexx. If the optional bridge
+or selected DLL is unavailable, CRXTHE reports the error and disables macros;
+it does not use another interpreter. Remove the ooRexx variables to return to
+the bundled cREXX default. This macro engine is separate from a Workbench "Run
+with ooRexx" tool, which requires an explicitly configured ooRexx executable.
+
 ADVANCED / PORTABLE / REMOVAL
 
 The portable ZIP must be fully extracted. Run its bin\crxthe.cmd; it has no

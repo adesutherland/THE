@@ -13,7 +13,15 @@
 void *the_macro_library_open(const char *path,char *error,size_t size)
 {
 #ifdef _WIN32
-   void *library=(void *)LoadLibraryA(path);
+   /* A full runtime path also locates its companion DLLs in that directory.
+    * Preserve normal loader search semantics for names and relative paths. */
+   int absolute=(isalpha((unsigned char)path[0]) && path[1]==':'
+      && (path[2]=='/' || path[2]=='\\'))
+      || ((path[0]=='/' || path[0]=='\\')
+      && (path[1]=='/' || path[1]=='\\'));
+   void *library=absolute
+      ? (void *)LoadLibraryExA(path,NULL,LOAD_WITH_ALTERED_SEARCH_PATH)
+      : (void *)LoadLibraryA(path);
    if (!library)
       snprintf(error,size,"%s (Windows loader error %lu)",path,(unsigned long)GetLastError());
 #else
@@ -58,3 +66,5 @@ const char *the_macro_interpreter(void)
 
 int the_macro_uses_regina(void) { return strcmp(the_macro_interpreter(),"REGINA")==0; }
 int the_macro_uses_crexx(void) { return strcmp(the_macro_interpreter(),"CREXX")==0; }
+
+int the_macro_uses_oorexx(void) { return strcmp(the_macro_interpreter(),"OOREXX")==0; }

@@ -1,6 +1,7 @@
 #include "tools.h"
 #ifdef _WIN32
 #include <windows.h>
+#include <io.h>
 #else
 #include <unistd.h>
 #endif
@@ -8,6 +9,7 @@
 #include "llmsession.h"
 
 #include <ctype.h>
+#include <errno.h>
 #include <inttypes.h>
 #include <limits.h>
 #include <stdio.h>
@@ -75,6 +77,35 @@ static LlmDriverScreenView previous_view;
 static int previous_view_valid = 0;
 static LlmTransientSession transient_session;
 static unsigned long last_ack_message_serial = 0;
+static FILE *protocol_input = NULL;
+
+FILE *llm_session_protocol_input(void)
+{
+   int input_fd;
+   if (protocol_input != NULL) return protocol_input;
+
+   /* A startup profile can READ before the main protocol loop. Open once so
+    * its panel and the later loop retain the same buffered requests. ooRexx
+    * may change stdin's buffering as each interpreter starts or stops. */
+#ifdef _WIN32
+   input_fd = _dup(_fileno(stdin));
+   if (input_fd >= 0) protocol_input = _fdopen(input_fd, "r");
+#else
+   input_fd = dup(fileno(stdin));
+   if (input_fd >= 0) protocol_input = fdopen(input_fd, "r");
+#endif
+   if (protocol_input == NULL && input_fd >= 0)
+   {
+      int open_error=errno;
+#ifdef _WIN32
+      _close(input_fd);
+#else
+      close(input_fd);
+#endif
+      errno=open_error;
+   }
+   return protocol_input;
+}
 
 static const char *llm_popup_items[] =
 {
@@ -1621,6 +1652,11 @@ static void print_transient(char *args)
 int llm_session_run_protocol(void)
 {
    char line[4096];
+   if (llm_session_protocol_input() == NULL)
+   {
+      perror("THE: unable to open protocol input");
+      return 1;
+   }
 
    previous_view_valid = 0;
    last_ack_message_serial = last_message_serial;
@@ -1629,7 +1665,7 @@ int llm_session_run_protocol(void)
     * Actual record changes still invalidate through the editor-owner hooks. */
    (void)focus_command_body("filearea");
    llm_session_refresh();
-   while (fgets(line, sizeof(line), stdin) != NULL)
+   while (fgets(line, sizeof(line), protocol_input) != NULL)
    {
       char original[4096];
       char *command;
@@ -1638,7 +1674,7 @@ int llm_session_run_protocol(void)
       && (ascii_starts_ci(trim(line),"form ") || ascii_starts_ci(trim(line),"filefield ") || ascii_starts_ci(trim(line),"clipboard ")))
       {
          int byte;
-         while ((byte=fgetc(stdin))!=EOF && byte!='\n') {}
+         while ((byte=fgetc(protocol_input))!=EOF && byte!='\n') {}
          { int fields=ascii_starts_ci(trim(line),"filefield ");
            int clipboard=ascii_starts_ci(trim(line),"clipboard "); line[0]=0;
            if(fields) apply_filefields_protocol(line); else if(clipboard) apply_clipboard_protocol(line); else apply_form_protocol(line); }
@@ -1782,5 +1818,7 @@ int llm_session_run_protocol(void)
                                          : "command failed");
       }
    }
+   fclose(protocol_input);
+   protocol_input = NULL;
    return 0;
 }

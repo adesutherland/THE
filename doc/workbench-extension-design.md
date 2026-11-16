@@ -85,14 +85,15 @@ release qualification. Line references identify the relevant definitions.
 | Browser shares semantic snapshots, fields and tool state. Native-host requests use restricted command/action paths; Wasm has a separate Worker host and excludes Regina/native OS/parser processes. | [`websession.c:169–212,300–325`](../src/websession.c#L169), [`wasmdriver.c:201–213`](../src/drivers/wasm/wasmdriver.c#L201), [Wasm limits](browser-wasm.md#browser-webassembly-preview). | Browser-native and browser-Wasm are different hosts behind a similar UI; negotiate both UI and execution capabilities. |
 | LLM runs the real dispatcher, advertises `tools`/`toolwait` and workbench schema 1, and appends a published workbench summary to look/delta. Full action/menu/item pages use QUERY/EXTRACT. | [Implemented workbench guide](workbench-actions-menus.md), [LLM session adapter](../src/llm/llmsession.c). | Extend the normalized protocol coherently; agents discover IDs and state rather than scrape graphical controls. |
 | Unknown commands default to neither implied macro nor OS execution. `MACRO`, `OS`/`!`, and `SET SYNONYM` are explicit facilities; browser synonyms are constrained to safe editor commands. | [`commset1.c:5434–5504`](../src/commset1.c#L5434), [`commset2.c:3165–3209`](../src/commset2.c#L3165), [`frontendpolicy.c:515–597,600–677`](../src/frontendpolicy.c#L515). | Raw command actions obey normal dispatch and frontend policy; typed built-in actions preserve their intentional alias bypass. Neither path gains new authority. |
-| Active macro engines are cREXX, optional Regina, or NONE, selected at startup; ooRexx is not an active engine. | [`rexx.c:2149–2174`](../src/rexx.c#L2149), [interpreter guide](rexx-interpreters.md). | Treat a future ooRexx program adapter separately from any future in-process macro-engine integration. |
+| Macro engines are cREXX, optional Regina or ooRexx, and NONE, selected at startup. | [Interpreter guide](rexx-interpreters.md), [macro dispatcher](../src/rexx.c). | Keep macro-engine selection separate from native source-tool registration and invocation. |
 
 The architecture guide describes the intended common host boundaries. The
 actual registry currently has fewer fields than that direction requires; for
 example, per-tool dependency/cohort requirements and fine-grained host
 capabilities need representation rather than being inferred from `available`.
-ooRexx execution is a proposed adapter, not a claim that the current cREXX or
-Regina macro bridge already supplies an ooRexx program runner.
+The optional in-process ooRexx macro bridge is separate from the implemented
+native-process ooRexx source-tool adapter. Selecting a macro engine does not
+register or invoke a program runner.
 
 ## Required behavior
 

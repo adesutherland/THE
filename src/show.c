@@ -87,6 +87,7 @@
 #include "driverlayout.h"
 #include "parserdiagnostics.h"
 #include "reservedfooter.h"
+#include "macroruntime.h"
 #ifdef USE_UTF8
 # include "utflayout.h"
 # include "utfrepair.h"
@@ -1017,25 +1018,9 @@ static void show_add_utf8_codepoint(uint32_t ch, TheDriverAttr colour)
 # define END_LINE_OUTPUT()
 #endif
 
-#if defined(USE_REGINA)
-# define REXX_INT_CHAR         'R'
-#elif defined(USE_OREXX) || defined(USE_OOREXX)
-# define REXX_INT_CHAR         'O'
-#elif defined(USE_WINREXX)
-# define REXX_INT_CHAR         'W'
-#elif defined(USE_QUERCUS)
-# define REXX_INT_CHAR         'Q'
-#elif defined(USE_UNIREXX)
-# define REXX_INT_CHAR         'U'
-#elif defined(USE_REXX6000)
-# define REXX_INT_CHAR         '6'
-#elif defined(USE_REXXIMC)
-# define REXX_INT_CHAR         'I'
-#elif defined(USE_REXXTRANS)
-# define REXX_INT_CHAR         'T'
-#else
-# define REXX_INT_CHAR         ' '
-#endif
+#define REXX_INT_CHAR (the_macro_uses_crexx() ? 'C' : \
+                       the_macro_uses_oorexx() ? 'O' : \
+                       the_macro_uses_regina() ? 'R' : ' ')
 
 
 #ifdef DEBUG_SYNTAX_HIGHLIGHTING

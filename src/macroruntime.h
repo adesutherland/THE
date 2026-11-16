@@ -8,4 +8,5 @@ void the_macro_library_close(void *library);
 const char *the_macro_interpreter(void);
 int the_macro_uses_regina(void);
 int the_macro_uses_crexx(void);
+int the_macro_uses_oorexx(void);
 #endif

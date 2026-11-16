@@ -2,10 +2,14 @@
 #define THE_LLMSESSION_H
 
 #include <stddef.h>
+#include <stdio.h>
 
 #include "transientui.h"
 
 int llm_session_run_protocol(void);
+/* Lazily owned stream shared by startup/nested READ panels and the protocol
+ * loop. Returns NULL if duplicating/opening stdin fails. */
+FILE *llm_session_protocol_input(void);
 /* One narrow typed form line; emits its receipt, including modal refusal. */
 int llm_session_handle_form_input(char *line);
 int llm_session_begin_readv_continuation(const char *initial, int start_col,

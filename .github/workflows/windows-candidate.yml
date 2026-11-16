@@ -47,7 +47,7 @@ jobs:
           "THE_CI_UCRT=${{ steps.msys.outputs.msys2-location }}/ucrt64" >> $env:GITHUB_ENV
           "$env:ProgramFiles\CMake\bin" >> $env:GITHUB_PATH
           "${env:ProgramFiles(x86)}\NSIS" >> $env:GITHUB_PATH
-      - name: Fetch verified cREXX SDK and optional Regina
+      - name: Fetch verified cREXX, Regina and ooRexx SDKs
         shell: pwsh
         run: |
           $sdk = Join-Path $env:RUNNER_TEMP 'the-sdk'
@@ -59,11 +59,21 @@ jobs:
           }
           Fetch-Checked 'https://github.com/adesutherland/CREXX/releases/download/v1.0.0-beta.3/CREXX-v1.0.0-beta.3-windows-x64-signed.zip' "$sdk/crexx.zip" 'bb83bda9545c7506592a1d1c71d1f1110b6da65b7431255afd64722aaebab539'
           Fetch-Checked 'https://downloads.sourceforge.net/project/regina-rexx/regina-rexx/3.9.6/Regina396w64.zip' "$sdk/regina.zip" '10641652e250e18106abbdd46a8f16b58076b3b1a235efbdc0778c0e5c809a89'
+          Fetch-Checked 'https://downloads.sourceforge.net/project/oorexx/oorexx/5.2.0/portable/oorexx-5.2.0-13156.windows.x86_64-portable-release.zip' "$sdk/oorexx.zip" 'd7ea5b40f0f889d0b307bbc217fe9fb36bc3e3fd0688a829668ce681a350203e'
           Expand-Archive "$sdk/crexx.zip" "$sdk/crexx"
           Expand-Archive "$sdk/regina.zip" "$sdk/regina"
+          Expand-Archive "$sdk/oorexx.zip" "$sdk/oorexx"
+          $oorexx = "$sdk/oorexx/oorexx-5.2.0-13156.windows.x86_64-portable-release"
+          foreach ($item in @('include/rexx.h','bin/rexx.dll','bin/rexxapi.dll','bin/rexx.img','bin/rxapi.exe')) {
+            if (-not (Test-Path "$oorexx/$item")) { throw "Incomplete ooRexx SDK: $item" }
+          }
           New-Item -ItemType Directory "$sdk/include" | Out-Null
           Fetch-Checked 'https://raw.githubusercontent.com/adesutherland/CREXX/ae1607b8e145174422cee7f3e73fbcc37a65226c/interpreter/crexxsaa.h' "$sdk/include/crexxsaa.h" '500b61d094eca621fea8b8e6964cac75488539b8e73e3e520a72e72cae59f951'
           "THE_CI_SDK=$sdk" >> $env:GITHUB_ENV
+          "THE_CI_OOREXX=$oorexx" >> $env:GITHUB_ENV
+          "REXX_HOME=$oorexx" >> $env:GITHUB_ENV
+          "OOREXX_HOME=$oorexx" >> $env:GITHUB_ENV
+          "$oorexx/bin" >> $env:GITHUB_PATH
       - name: Build parser tools and corrected host runtime from matching cREXX source
         shell: pwsh
         run: |
@@ -94,7 +104,7 @@ jobs:
           }
           New-Item -ItemType Directory -Force "$crexx/licenses" | Out-Null
           Get-ChildItem "$env:THE_CI_UCRT/share/licenses" -Directory | Where-Object { $_.Name -match 'gcc|openssl|winpthread' } | Copy-Item -Destination "$crexx/licenses" -Recurse
-      - name: Build bundled THE with both runtime bridges
+      - name: Build bundled THE with optional macro bridges
         id: build
         shell: pwsh
         run: |
@@ -107,13 +117,18 @@ jobs:
             "-DCREXX_RXC_EXECUTABLE=$crexx/bin/rxc.exe" "-DCREXX_RXAS_EXECUTABLE=$crexx/bin/rxas.exe" `
             "-DCREXX_RXVM_EXECUTABLE=$crexx/bin/rxvm.exe" "-DCREXX_DRIVER_EXECUTABLE=$crexx/bin/crexx.exe" `
             "-DCREXX_LICENSE_FILE=$crexx/LICENSE" "-DREGINA_INCLUDE_DIR=$env:THE_CI_SDK/regina/include" `
-            "-DREGINA_LIBRARY=$env:THE_CI_SDK/regina/regina.dll"
+            "-DREGINA_LIBRARY=$env:THE_CI_SDK/regina/regina.dll" -DTHE_ENABLE_OOREXX=ON `
+            "-DOOREXX_HOME=$env:THE_CI_OOREXX" "-DOOREXX_INCLUDE_DIR=$env:THE_CI_OOREXX/include" `
+            "-DOOREXX_LIBRARY=$env:THE_CI_OOREXX/bin/rexx.dll" `
+            "-DOOREXX_API_LIBRARY=$env:THE_CI_OOREXX/bin/rexxapi.dll"
           if ($LASTEXITCODE -ne 0) { throw 'Configure failed' }
           cmake --build build-release --parallel 4
           if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
-      - name: Run editor and dual-engine regression tests
+      - name: Run editor and optional macro-engine regression tests
         shell: pwsh
         run: |
+          $ooTests = ctest --test-dir build-release -N -R '^test_(oorexx_macro_runtime|default_profile_OOREXX)$'
+          if ($LASTEXITCODE -ne 0 -or -not ($ooTests -match 'Total Tests: 2')) { throw 'ooRexx macro tests were not registered' }
           ctest --test-dir build-release --output-on-failure --parallel 2
           if ($LASTEXITCODE -ne 0) { throw 'Regression tests failed' }
       - name: Build archive and installer

@@ -35,7 +35,7 @@ with tempfile.TemporaryDirectory() as tmp:
     assert 'THE_REGINA_LIBRARY' in check('REGINA', False, THE_REGINA_LIBRARY=missing)
     assert 'Unable to load' not in check('NONE', False, THE_CREXX_LIBRARY=missing,
                                        THE_REGINA_LIBRARY=missing)
-    assert 'must be CREXX, REGINA or NONE' in check('INVALID', False)
+    assert 'must be CREXX, REGINA, OOREXX or NONE' in check('INVALID', False)
     # A loadable library with the wrong interface must be rejected before use.
     assert 'missing crexxsaa_create' in check('CREXX', False, THE_CREXX_LIBRARY=regina)
 print('Dual-engine runtime loader checks passed')

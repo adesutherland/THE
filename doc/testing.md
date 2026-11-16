@@ -24,7 +24,8 @@ use it instead of assuming a system library or sibling build is selected.
 
 | Contract | Regression route |
 | --- | --- |
-| Stock profiles, prompts, layout, navigation, Tab insertion and save | `test_default_profile_CREXX`, `test_default_profile_REGINA` |
+| Stock profiles, prompts, layout, navigation, Tab insertion and save | `test_default_profile_CREXX`, `test_default_profile_REGINA`; `test_default_profile_OOREXX` when the optional real library pair is configured |
+| Optional ooRexx macro hosting: real object syntax, addressed commands, EXTRACT and EDITV variables, editor function, queue, panel and startup-profile READ, nested and cached in-store macros, halt, save/reopen and loader isolation | `test_oorexx_macro_runtime` when an ooRexx SDK and runtime library pair are configured; its startup READ also checks Regina when available. This does not qualify the separate native source-tool runner |
 | Explicit footer names, custom reserved text, order, OFF, replacement and buffer inheritance | `test_named_footer`, `test_screenframe`, `test_llmdriver` |
 | Character deletion survives refresh, dirty tracking, save and reopen | `test_delete_persistence_CREXX`, `test_delete_persistence_REGINA` |
 | Real terminal Delete/Backspace, text input, Tab, Ctrl-S, Enter and focus restoration | `test_default_profile_curses`, `test_curses_text_entry` |

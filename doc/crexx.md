@@ -7,11 +7,12 @@ THE commands.
 
 ## Build discovery
 
-The build default is selected with `THE_REXX_INTERPRETER=CREXX|REGINA|NONE`.
+The build default is selected with `THE_REXX_INTERPRETER=CREXX|REGINA|OOREXX|NONE`.
 The older `USE_CREXX` option supplies the initial default when no explicit
 selection is given. The runtime environment variable `THE_REXX_INTERPRETER`
 selects one compiled bridge before THE starts. See
-[interpreter and package setup](rexx-interpreters.md) for optional Regina.
+[interpreter and package setup](rexx-interpreters.md) for optional Regina and
+ooRexx macro engines.
 
 At configure time THE looks for:
 
@@ -24,7 +25,7 @@ At configure time THE looks for:
 The search checks the sibling CREXX build directories first and then
 `$HOME/.local/bin` / `$HOME/.local/include`. If these pieces are missing, THE
 builds without the CREXX bridge. THE loads the selected shared library at
-runtime; the editor executable does not link against cREXX or Regina.
+runtime; the editor executable does not link against any macro interpreter.
 
 ## Runtime model
 

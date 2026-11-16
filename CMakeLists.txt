@@ -38,13 +38,15 @@ else()
     set(THE_DEFAULT_REXX_INTERPRETER NONE)
 endif()
 set(THE_REXX_INTERPRETER "${THE_DEFAULT_REXX_INTERPRETER}" CACHE STRING
-    "Macro interpreter: CREXX, REGINA, or NONE (USE_CREXX supplies the initial default)")
-set_property(CACHE THE_REXX_INTERPRETER PROPERTY STRINGS CREXX REGINA NONE)
+    "Macro interpreter: CREXX, REGINA, OOREXX, or NONE (USE_CREXX supplies the initial default)")
+set_property(CACHE THE_REXX_INTERPRETER PROPERTY STRINGS CREXX REGINA OOREXX NONE)
 string(TOUPPER "${THE_REXX_INTERPRETER}" THE_SELECTED_REXX_INTERPRETER)
-if(NOT THE_SELECTED_REXX_INTERPRETER MATCHES "^(CREXX|REGINA|NONE)$")
-    message(FATAL_ERROR "THE_REXX_INTERPRETER must be CREXX, REGINA, or NONE")
+if(NOT THE_SELECTED_REXX_INTERPRETER MATCHES "^(CREXX|REGINA|OOREXX|NONE)$")
+    message(FATAL_ERROR "THE_REXX_INTERPRETER must be CREXX, REGINA, OOREXX, or NONE")
 endif()
 option(THE_ENABLE_REGINA "Compile optional, runtime-loaded Regina support when headers are available" ON)
+option(THE_ENABLE_OOREXX "Compile optional, runtime-loaded ooRexx support when its SDK is available" ON)
+set(OOREXX_HOME "" CACHE PATH "ooRexx installation root (headers and optional test libraries)")
 option(THE_BUNDLE_CREXX "Install a relocatable editor with its own cREXX runtime and tools" OFF)
 option(THE_TEST_SHELL_TRACE "Trace top-level shell integration tests for CI diagnostics" OFF)
 option(USE_WEB_DRIVER "Build the native browser UI driver" OFF)
@@ -426,7 +428,40 @@ if(THE_ENABLE_REGINA OR THE_SELECTED_REXX_INTERPRETER STREQUAL "REGINA")
         message(STATUS "Regina support disabled; rexxsaa.h not found")
     endif()
 endif()
-if(NOT THE_USE_REGINA)
+# ooRexx's modern classic API has different types from Regina. Its adapter
+# is a separate translation unit and neither library is linked into THE.
+set(THE_USE_OOREXX FALSE)
+if(THE_ENABLE_OOREXX OR THE_SELECTED_REXX_INTERPRETER STREQUAL "OOREXX")
+    find_path(OOREXX_INCLUDE_DIR NAMES rexx.h
+        HINTS "${OOREXX_HOME}" "$ENV{OOREXX_HOME}" "$ENV{ProgramFiles}/ooRexx"
+        PATH_SUFFIXES include include/oorexx)
+    if(OOREXX_INCLUDE_DIR)
+        set(THE_USE_OOREXX TRUE)
+        find_file(OOREXX_LIBRARY NAMES rexx.dll librexx.dylib librexx.so
+            HINTS "${OOREXX_HOME}" "$ENV{OOREXX_HOME}" "${OOREXX_INCLUDE_DIR}/.."
+            PATH_SUFFIXES bin lib lib64)
+        find_file(OOREXX_API_LIBRARY NAMES rexxapi.dll librexxapi.dylib librexxapi.so
+            HINTS "${OOREXX_HOME}" "$ENV{OOREXX_HOME}" "${OOREXX_INCLUDE_DIR}/.."
+            PATH_SUFFIXES bin lib lib64)
+        if(WIN32)
+            set(THE_OOREXX_LIBRARY_NAME "rexx.dll")
+            set(THE_OOREXX_API_LIBRARY_NAME "rexxapi.dll")
+        elseif(APPLE)
+            set(THE_OOREXX_LIBRARY_NAME "librexx.dylib")
+            set(THE_OOREXX_API_LIBRARY_NAME "librexxapi.dylib")
+        else()
+            set(THE_OOREXX_LIBRARY_NAME "librexx.so")
+            set(THE_OOREXX_API_LIBRARY_NAME "librexxapi.so")
+        endif()
+        add_compile_definitions(THE_HAVE_OOREXX=1)
+        message(STATUS "Optional ooRexx support: ${OOREXX_INCLUDE_DIR} (no link dependency)")
+    elseif(THE_SELECTED_REXX_INTERPRETER STREQUAL "OOREXX")
+        message(FATAL_ERROR "ooRexx support requires its rexx.h SDK. Set OOREXX_INCLUDE_DIR or OOREXX_HOME.")
+    else()
+        message(STATUS "ooRexx support disabled; rexx.h not found")
+    endif()
+endif()
+if(NOT THE_USE_REGINA AND NOT THE_USE_OOREXX)
     add_compile_definitions(NOREXX=1)
 endif()
 
@@ -456,6 +491,15 @@ set(THE_NATIVE_TOOL_ROOT "" CACHE PATH "Prepared native RXBIN tool bundle")
 # --- Executable ---
 set(EXECUTABLE_NAME "the")
 add_executable(${EXECUTABLE_NAME} ${THE_SOURCES})
+if(THE_USE_OOREXX)
+    target_sources(${EXECUTABLE_NAME} PRIVATE src/oorexx.c)
+    # Only this source sees ooRexx headers; never include two interpreter SDKs
+    # in the same translation unit, especially on 64-bit Windows.
+    set_property(SOURCE src/oorexx.c APPEND PROPERTY INCLUDE_DIRECTORIES "${OOREXX_INCLUDE_DIR}")
+    set_property(SOURCE src/oorexx.c APPEND PROPERTY COMPILE_DEFINITIONS
+        THE_OOREXX_LIBRARY="${THE_OOREXX_LIBRARY_NAME}"
+        THE_OOREXX_API_LIBRARY="${THE_OOREXX_API_LIBRARY_NAME}")
+endif()
 target_compile_definitions(${EXECUTABLE_NAME} PRIVATE
     THE_DRIVER_MODULE_SUFFIX="${CMAKE_SHARED_MODULE_SUFFIX}"
     THE_DRIVER_INSTALL_DIR="${CMAKE_INSTALL_PREFIX}/lib/the/drivers"
@@ -1021,6 +1065,11 @@ set(THE_CTEST_RUNTIME_ENV
 if(THE_USE_REGINA AND REGINA_LIBRARY)
     list(APPEND THE_CTEST_RUNTIME_ENV "THE_REGINA_LIBRARY=${REGINA_LIBRARY}")
 endif()
+if(THE_USE_OOREXX AND OOREXX_LIBRARY AND OOREXX_API_LIBRARY)
+    list(APPEND THE_CTEST_RUNTIME_ENV
+        "THE_OOREXX_LIBRARY=${OOREXX_LIBRARY}"
+        "THE_OOREXX_API_LIBRARY=${OOREXX_API_LIBRARY}")
+endif()
 if(THE_USE_CREXX)
     list(APPEND THE_CTEST_RUNTIME_ENV
         "CREXX_BIN_DIR=${CREXX_IMPORT_DIR}"
@@ -1132,6 +1181,16 @@ if(THE_PYTHON_EXECUTABLE)
         set_tests_properties(test_editgroup_curses PROPERTIES TIMEOUT 60 SKIP_RETURN_CODE 77
             RESOURCE_LOCK the_pty_editor ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
     endif()
+endif()
+if(THE_USE_OOREXX AND OOREXX_LIBRARY AND OOREXX_API_LIBRARY AND THE_PYTHON_EXECUTABLE)
+    add_test(NAME test_oorexx_macro_runtime COMMAND ${THE_PYTHON_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_oorexx_macro_runtime.py $<TARGET_FILE:the>)
+    set_tests_properties(test_oorexx_macro_runtime PROPERTIES TIMEOUT 90 SKIP_RETURN_CODE 77
+        ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
+    add_test(NAME test_default_profile_OOREXX COMMAND ${THE_PYTHON_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/test_default_profiles.py $<TARGET_FILE:the> OOREXX)
+    set_tests_properties(test_default_profile_OOREXX PROPERTIES TIMEOUT 120
+        ENVIRONMENT "${THE_CTEST_RUNTIME_ENV}")
 endif()
 if(THE_USE_REGINA AND REGINA_LIBRARY AND THE_PYTHON_EXECUTABLE)
     if(NOT WIN32)

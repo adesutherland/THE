@@ -1,7 +1,7 @@
 # Macro interpreters and prebuilt packages
 
 CRXTHE 0.10.dev is an independent fork based on Mark Hessling's THE 4.0. Its changes are not fixes for
-upstream THE. cREXX is the default macro interpreter; Regina is optional.
+upstream THE. cREXX is the default macro interpreter; Regina and ooRexx are optional.
 Select one interpreter before starting THE. Switching interpreters requires
 restarting the editor; macros are not automatically translated between dialects.
 
@@ -26,7 +26,7 @@ With `INSTALLED`, `THE_CREXX_HOME` can specify the installation root or its
 `bin` directory. If that explicit location is unusable, THE falls back to its
 bundle rather than selecting a different installation. Portable ZIPs default
 to bundled cREXX and support the same environment settings. Runtime selection
-is separate from `THE_REXX_INTERPRETER`, which chooses CREXX, REGINA or NONE.
+is separate from `THE_REXX_INTERPRETER`, which chooses CREXX, REGINA, OOREXX or NONE.
 
 THE uses its own cREXX source cache by default, including when it selects an
 installed cREXX:
@@ -44,7 +44,8 @@ the relevant cached object automatically. Deleting THE's cache forces a
 recompile; the selected cREXX installation stays the same.
 
 THE loads only the selected engine at runtime. The build uses `crexxsaa.h`
-(ABI 3 or newer) and, when Regina support is enabled, `rexxsaa.h`. Users do not
+(ABI 3 or newer) and, when Classic bridges are enabled, Regina's `rexxsaa.h`
+or ooRexx's `rexx.h`. Users do not
 need those headers, a compiler, or a rebuild. A missing or incompatible library
 produces a diagnostic and disables macros; THE does not silently switch engines.
 Startup profiles are skipped when the engine is unavailable; Rexx text is never
@@ -92,6 +93,47 @@ precedence: ensure that profile is written for Regina. cREXX Level B profiles
 are not Classic Rexx. To return to the bundled default, unset the two variables
 or set `THE_REXX_INTERPRETER=CREXX`.
 
+## Optional ooRexx macro engine
+
+Install ooRexx yourself for the same CPU architecture as THE. The current
+CRXTHE package does not include it. A build must have been configured with
+`THE_ENABLE_OOREXX=ON` and matching ooRexx headers. Then select it before
+starting the editor and provide the full path to its shared library:
+
+```sh
+export THE_REXX_INTERPRETER=OOREXX
+export THE_OOREXX_LIBRARY=/full/path/to/librexx.dylib  # macOS
+# export THE_OOREXX_LIBRARY=/full/path/to/librexx.so  # Linux
+the myfile.rexx
+```
+
+In Windows PowerShell, after installing a matching Windows x64 ooRexx:
+
+```powershell
+$env:THE_REXX_INTERPRETER = 'OOREXX'
+$env:THE_OOREXX_LIBRARY = 'C:\path\to\ooRexx\rexx.dll'
+& "$env:LOCALAPPDATA\Programs\THE-cREXX\bin\crxthe.cmd" myfile.rexx
+```
+
+The selected `rexx` library and its companion `rexxapi` library must load in
+the current process. By default THE looks beside `THE_OOREXX_LIBRARY` and then
+through the platform library search path. Set `THE_OOREXX_API_LIBRARY` to the
+companion's full path when it is elsewhere (`librexxapi.dylib`,
+`librexxapi.so` or `rexxapi.dll`).
+The default and trusted browser profiles use the shared Classic Rexx variants
+(`profile_regina.the` and `web-profile-regina.the`) with ooRexx, including
+their `_regina` helper macros. An explicit personal profile takes precedence;
+use Classic Rexx syntax there. cREXX Level B source and `.rxbin` bytecode are
+not ooRexx macros. If the bridge was not compiled or the library is absent or
+incompatible, THE reports the problem and leaves macros unavailable instead of
+switching engines. Clear the ooRexx variables to return to the cREXX
+default.
+
+This in-process macro engine is distinct from the [native ooRexx source-tool
+runner](workbench-native-tools.md). A WORKBENCH TOOL with an explicitly chosen
+ooRexx executable starts a separate program with a source snapshot; selecting
+the macro engine neither creates nor selects that tool.
+
 Use `THE_REXX_INTERPRETER=NONE` for an editor without macro support. Advanced
 cREXX overrides are `THE_CREXX_LIBRARY`, `THE_CREXX_LOCATION`,
 `THE_CREXX_RXC`, `THE_CREXX_RXAS`, `THE_CREXX_IMPORT_DIR`,
@@ -109,21 +151,27 @@ by the stock profile.
 Shmuel Metz's prefix macros, adaptations, cREXX ports and patches are all kept
 in a [private kit](private-compatibility.md), outside new public packages.
 
-The [panel examples](panels.md) work with either engine: `macro paneldemo`
-for cREXX, `macro paneldemo_regina` for Regina. Both use shared protected/editable
-fields and tagged READ results, with the documented queue adaptation for cREXX.
+The [panel examples](panels.md) use `macro paneldemo` for cREXX and
+`macro paneldemo_regina` for Regina or ooRexx. They use shared
+protected/editable fields and tagged READ results, with the documented queue
+adaptation for cREXX.
 
 ## Building
 
-`-DTHE_REXX_INTERPRETER=CREXX|REGINA|NONE` sets the build's default.
+`-DTHE_REXX_INTERPRETER=CREXX|REGINA|OOREXX|NONE` sets the build's default.
 `USE_CREXX` preserves its previous role as the initial default choice.
 `-DTHE_ENABLE_REGINA=ON` detects Regina headers and compiles its optional
 bridge without linking Regina. Selecting a Regina default requires its headers;
 otherwise their absence disables the optional bridge. Set `REGINA_INCLUDE_DIR`
 or `REGINA_HOME` if necessary. Runtime engine selection is through the
 environment variable with the same name. `-DTHE_ENABLE_REGINA=OFF` omits that
-bridge. The browser proof of concept selects a Classic variant of its trusted profile
-for Regina. Its existing restrictions on client-issued macros/OS commands still
+bridge. `-DTHE_ENABLE_OOREXX=ON` enables independent ooRexx header discovery;
+`OOREXX_HOME` or `OOREXX_INCLUDE_DIR` can point to a matching SDK, and
+`OOREXX_LIBRARY` and `OOREXX_API_LIBRARY` can identify its two libraries for
+optional real-engine tests.
+Selecting OOREXX as the build default requires its headers. The browser proof
+of concept selects a Classic variant of its trusted profile for Regina and
+ooRexx. Its existing restrictions on client-issued macros/OS commands still
 apply.
 
 For a relocatable bundle, configure with `-DTHE_BUNDLE_CREXX=ON` and the default

@@ -57,6 +57,26 @@ jobs:
           echo "THE_CI_SDK=$sdk" >> "$GITHUB_ENV"
           echo "$sdk/CREXX-macos-arm64/bin" >> "$GITHUB_PATH"
           echo "THE_CI_REGINA=$(brew --prefix regina-rexx)" >> "$GITHUB_ENV"
+      - name: Build verified ooRexx 5.2.0 SDK for optional macro tests
+        run: |
+          set -euo pipefail
+          sdk="$RUNNER_TEMP/the-oorexx"
+          mkdir -p "$sdk"
+          curl --fail --location --retry 3 --silent --show-error \
+            https://downloads.sourceforge.net/project/oorexx/oorexx/5.2.0/oorexx-5.2.0-13156.tar.gz \
+            --output "$sdk/oorexx.tar.gz"
+          echo "0c1378ee212ffae7a192412e908849c0df38fa9c4009f6400e6a5d43a53fbd73  $sdk/oorexx.tar.gz" | shasum -a 256 --check
+          tar -xzf "$sdk/oorexx.tar.gz" -C "$sdk"
+          cmake -S "$sdk/oorexx-5.2.0-13156" -B "$sdk/build" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release "-DCMAKE_INSTALL_PREFIX=$sdk/install"
+          cmake --build "$sdk/build" --parallel 4
+          cmake --install "$sdk/build"
+          test -f "$sdk/install/include/rexx.h"
+          test -f "$sdk/install/lib/librexx.dylib"
+          test -f "$sdk/install/lib/librexxapi.dylib"
+          echo "THE_CI_OOREXX=$sdk/install" >> "$GITHUB_ENV"
+          echo "OOREXX_HOME=$sdk/install" >> "$GITHUB_ENV"
+          echo "$sdk/install/bin" >> "$GITHUB_PATH"
       - name: Configure clean bundled Release build
         run: |
           set -euo pipefail
@@ -68,6 +88,11 @@ jobs:
             "-DDSLSH_LOCAL_DIR=$GITHUB_WORKSPACE/.ci-deps/dslsh" \
             "-DREGINA_INCLUDE_DIR=$THE_CI_REGINA/include" \
             "-DREGINA_LIBRARY=$THE_CI_REGINA/lib/libregina.dylib" \
+            -DTHE_ENABLE_OOREXX=ON \
+            "-DOOREXX_HOME=$THE_CI_OOREXX" \
+            "-DOOREXX_INCLUDE_DIR=$THE_CI_OOREXX/include" \
+            "-DOOREXX_LIBRARY=$THE_CI_OOREXX/lib/librexx.dylib" \
+            "-DOOREXX_API_LIBRARY=$THE_CI_OOREXX/lib/librexxapi.dylib" \
             "-DCREXXSAA_INCLUDE_DIR=$THE_CI_SDK/include" \
             "-DCREXXSAA_LIBRARY=$crexx/bin/libcrexxsaa.dylib" \
             "-DCREXXSAA_RUNTIME_LIBRARY=$crexx/bin/libcrexxsaa.dylib" \
@@ -81,7 +106,9 @@ jobs:
             "-DTHE_CHROMIUM_EXECUTABLE=/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
       - name: Build and run native regression suite
         run: |
+          set -euo pipefail
           cmake --build build-release --parallel 4
+          ctest --test-dir build-release -N -R '^test_(oorexx_macro_runtime|default_profile_OOREXX)$' | grep -F 'Total Tests: 2'
           ctest --test-dir build-release --output-on-failure --parallel 4
       - name: Package and test relocated payload
         run: |

@@ -20,7 +20,8 @@ qualification belong in the [roadmap](doc/roadmap.md).
   bytes where relevant. Use a real PTY for changes to console input handling.
 - Keep parser-backed reads inside the DSLSH critical-section helpers. Wait
   with `SDSLHWAIT` before asserting asynchronous styles or diagnostics.
-- cREXX is the default engine; Regina is optional and selected at startup.
+- cREXX is the default macro engine; Regina and ooRexx are optional and
+  selected at startup. Keep a selected engine's headers and runtime ABI matched.
   Keep compiler, assembler, shared runtime and bytecode from a matching cohort.
   Consecutive cREXX addressed command literals need explicit semicolons.
 - Default profiles are generated from `profiles/default-profile.json` by

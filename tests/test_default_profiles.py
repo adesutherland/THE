@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise the first-launch layout and editing keys with either macro engine."""
+"""Exercise the first-launch layout and editing keys with each macro engine."""
 import json
 import os
 from pathlib import Path
@@ -11,7 +11,7 @@ binary = Path(sys.argv[1]).resolve()
 engine = sys.argv[2] if len(sys.argv) > 2 else 'CREXX'
 repo = Path(__file__).resolve().parent.parent
 subprocess.run([sys.executable,str(repo/'scripts/generate-default-profiles.py'),'--check'],check=True)
-profile = repo / ('profile_regina.the' if engine == 'REGINA' else 'profile.the')
+profile = repo / ('profile_regina.the' if engine in ('REGINA', 'OOREXX') else 'profile.the')
 with tempfile.TemporaryDirectory(prefix='CRXTHE first launch ') as temporary:
     root = Path(temporary)
     sample = root/'sample.txt'
@@ -105,7 +105,7 @@ with tempfile.TemporaryDirectory(prefix='CRXTHE first launch ') as temporary:
 
     # A panel is temporary UI: preserve the caller's footer, custom rows and
     # exact caret, then type/save directly without a corrective CURSOR command.
-    demo = 'paneldemo_regina' if engine == 'REGINA' else 'paneldemo'
+    demo = 'paneldemo_regina' if engine in ('REGINA', 'OOREXX') else 'paneldemo'
     setup = 'command set reserved 4 yellow on blue Caller row\ncommand cursor goto 3 3\n'
     baseline,_ = run(setup+'look full compact',navigation)
     baseline = next(r for r in reversed(baseline) if 'screen_rows' in r)

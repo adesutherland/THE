@@ -217,11 +217,14 @@ $Id: therexx.h,v 1.10 2022/10/23 22:00:12 mark Exp $
 # define RS_ARG8_TYPE         PRXSTRING
 
 #elif defined(USE_OOREXX)
+/* Current ooRexx SDK classic API; Windows supplies its own legacy types. */
+#if !defined(WIN32)
 typedef char CHAR;
 typedef short int SHORT;
 typedef char * PSZ;
 typedef unsigned long ULONG;
 typedef long LONG;
+#endif
 # define RXSTRING_STRPTR_TYPE   char *
 # define RFH_RETURN_TYPE        size_t REXXENTRY
 # define RFH_ARG0_TYPE          CONSTANT_STRING
@@ -232,7 +235,7 @@ typedef long LONG;
 # define RRFE_ARG0_TYPE         CONSTANT_STRING
 # define RRFE_ARG1_TYPE         REXXPFN
 # define RDF_ARG0_TYPE          CONSTANT_STRING
-# define REH_RETURN_TYPE        RexxReturnCode REXXENTRY
+# define REH_RETURN_TYPE        int REXXENTRY
 # define REH_ARG0_TYPE          int
 # define REH_ARG1_TYPE          int
 # define REH_ARG2_TYPE          PEXIT
@@ -260,7 +263,7 @@ typedef long LONG;
 # define RS_ARG7_TYPE           short *
 # define RS_ARG8_TYPE           PRXSTRING
 
-#elif defined(USE_OREXX) || defined(USE_OOREXX)
+#elif defined(USE_OREXX)
 # define RXSTRING_STRPTR_TYPE PCH
 # define RFH_RETURN_TYPE      ULONG APIENTRY
 # define RFH_ARG0_TYPE        PUCHAR

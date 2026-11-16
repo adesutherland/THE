@@ -960,7 +960,7 @@ int main(int argc, char *argv[])
       if (web_profile == NULL || *web_profile == '\0')
       {
          if (snprintf(driver_error, sizeof(driver_error), "%s%s",
-                      the_home_dir, the_macro_uses_regina() ?
+                      the_home_dir, (the_macro_uses_regina() || the_macro_uses_oorexx()) ?
                       "web-profile-regina.the" : "web-profile.the") >= (int)sizeof(driver_error))
          {
             fprintf(stderr, "the: web profile path is too long\n");
@@ -1656,12 +1656,12 @@ int setup_profile_files(CHARTYPE *specified_prf)
     * or directory where THE executable lives
     */
    strcpy((DEFCHAR *)local_prf,(DEFCHAR *)the_home_dir);
-   strcat((DEFCHAR *)local_prf,the_macro_uses_regina() ? "profile_regina.the" : THE_PROFILE_FILE);
+   strcat((DEFCHAR *)local_prf,(the_macro_uses_regina() || the_macro_uses_oorexx()) ? "profile_regina.the" : THE_PROFILE_FILE);
    strrmdup(strtrans(local_prf,OSLASH,ISLASH),ISLASH,TRUE);
    if (file_readable(local_prf))
       return(rc);
 #if defined(UNIX)
-   if (!the_macro_uses_regina())
+   if (!the_macro_uses_regina() && !the_macro_uses_oorexx())
    {
    strcpy((DEFCHAR *)local_prf,(DEFCHAR *)the_home_dir);
    strcat((DEFCHAR *)local_prf,(DEFCHAR *)"profile.the");
@@ -1689,7 +1689,7 @@ static int setup_system_profile_file(void)
    &&  my_stricmp((DEFCHAR *)term_program,
                   (DEFCHAR *)"Apple_Terminal") == 0)
    {
-      rc = setup_named_system_profile_file(the_macro_uses_regina() ?
+      rc = setup_named_system_profile_file((the_macro_uses_regina() || the_macro_uses_oorexx()) ?
              "system-apple-terminal-regina.the" : "system-apple-terminal.the");
       if (rc == RC_OK)
          return(RC_OK);
@@ -1697,7 +1697,7 @@ static int setup_system_profile_file(void)
          return(rc);
    }
 
-   rc = setup_named_system_profile_file(the_macro_uses_regina() ?
+   rc = setup_named_system_profile_file((the_macro_uses_regina() || the_macro_uses_oorexx()) ?
              "system-" THE_PLATFORM_NAME "-regina.the" : THE_SYSTEM_PROFILE_NAME);
    if (rc == RC_OUT_OF_MEMORY)
       return(rc);

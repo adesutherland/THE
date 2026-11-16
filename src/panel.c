@@ -116,17 +116,24 @@ static void publish_panel(void)
 static void protocol_read(ThePanelState *p)
 {
    char input[8192];
+   FILE *stream=llm_session_protocol_input();
+   if (stream == NULL)
+   {
+      perror("THE: unable to open protocol input");
+      p->done=p->cancelled=1;
+      return;
+   }
    publish_panel();
-   while (!p->done && fgets(input,sizeof(input),stdin))
+   while (!p->done && fgets(input,sizeof(input),stream))
    {
       TheInputEvent event;
-      if (!strchr(input,'\n') && !feof(stdin))
+      if (!strchr(input,'\n') && !feof(stream))
       {
          char *command=input;
          int c;
          /* One protocol line owns one input. Never admit a valid prefix of
           * an oversized request or reinterpret its tail as modal typing. */
-         while ((c=fgetc(stdin))!=EOF && c!='\n') {}
+         while ((c=fgetc(stream))!=EOF && c!='\n') {}
          while (*command && isspace((unsigned char)*command)) command++;
          if (strlen(command)>=5 && toupper((unsigned char)command[0])=='F'
          && toupper((unsigned char)command[1])=='O' && toupper((unsigned char)command[2])=='R'
